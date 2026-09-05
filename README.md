@@ -39,6 +39,14 @@ Ouvrez ensuite l'adresse indiquée par Vite (généralement `http://localhost:51
 | `npm run lint` | Analyse le code avec ESLint. |
 | `npm run preview` | Prévisualise localement la version de production. |
 
+## Déploiement sur GitHub Pages
+
+Le workflow [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) construit et publie automatiquement l'application sur GitHub Pages à chaque envoi sur la branche `main`. Il peut également être lancé manuellement depuis l'onglet **Actions**.
+
+Pour activer le premier déploiement, ouvrez **Settings > Pages** dans le dépôt GitHub et choisissez **GitHub Actions** comme source. Le workflow adapte automatiquement le chemin de base Vite au nom du dépôt ; aucune URL de production ne doit être codée en dur.
+
+La navigation utilise des URL avec fragment (par exemple `/#/resultats`) afin qu'un rechargement ou un accès direct à une page fonctionne sur l'hébergement statique de GitHub Pages.
+
 ## Architecture
 
 ```text
