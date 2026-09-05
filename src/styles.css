@@ -56,6 +56,93 @@ button:hover { background: #25524e; transform: translateY(-1px); }
 .weather-icon { width: 78px; height: 78px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 24px; color: #db6b45; background: #fbede7; }
 .empty-state h2 { font: 500 25px 'Manrope', sans-serif; margin: 0 0 12px; }
 .empty-state p { max-width: 520px; margin: 0 auto; line-height: 1.7; color: #70817d; }
+
+/* Briefing météo */
+.briefing-page { max-width: 1180px; }
+.briefing-page .back-link { margin-bottom: 34px; }
+.briefing-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; padding-bottom: 36px; border-bottom: 1px solid rgba(23,59,58,.14); }
+.briefing-hero h1 { margin: 0 0 18px; font: 500 clamp(38px, 5vw, 62px)/1.05 'Manrope', sans-serif; letter-spacing: -3.2px; }
+.event-meta { display: flex; flex-wrap: wrap; gap: 12px 25px; color: #617570; font-size: 13px; }
+.event-meta span { display: inline-flex; align-items: center; gap: 7px; }
+.hero-status { white-space: nowrap; display: flex; align-items: center; gap: 9px; padding: 10px 14px; background: #e8efea; color: #28594f; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.hero-status span { width: 8px; height: 8px; border-radius: 50%; background: #216e8c; box-shadow: 0 0 0 3px rgba(33,110,140,.14); }
+.weather-overview { display: grid; grid-template-columns: 1.03fr 1.35fr; gap: 18px; margin: 26px 0 64px; }
+.wind-feature { padding: 30px; color: white; background: #173b3a; }
+.card-kicker { display: flex; align-items: center; gap: 9px; color: #bfcfca; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; }
+.wind-reading { display: flex; justify-content: space-between; align-items: center; padding: 25px 0 21px; }
+.wind-reading > div:first-child { display: flex; align-items: flex-end; gap: 12px; }
+.wind-reading strong { font: 500 76px/.82 'Manrope', sans-serif; letter-spacing: -6px; }
+.wind-reading span { color: #bfcfca; font-size: 11px; line-height: 1.35; text-transform: uppercase; letter-spacing: .8px; }
+.wind-arrow { width: 78px; height: 78px; border: 1px solid rgba(255,255,255,.22); border-radius: 50%; display: grid; place-items: center; color: #f2a56c; transform: rotate(35deg); }
+.wind-details { border-top: 1px solid rgba(255,255,255,.16); padding-top: 19px; display: grid; grid-template-columns: 1fr 1fr; }
+.wind-details > span { display: grid; gap: 4px; }
+.wind-details > span + span { border-left: 1px solid rgba(255,255,255,.16); padding-left: 24px; }
+.wind-details small, .condition-card small { color: #91aaa4; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; }
+.wind-details strong { font-size: 15px; }
+.conditions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #dfe4df; border: 1px solid #dfe4df; }
+.condition-card { min-width: 0; display: flex; gap: 18px; align-items: flex-start; padding: 27px 25px; background: #fff; }
+.condition-card > svg { color: #db6b45; stroke-width: 1.5; }
+.condition-card div { display: grid; gap: 5px; }
+.condition-card strong { font: 500 28px 'Manrope', sans-serif; letter-spacing: -1px; }
+.condition-card strong span { font-size: 12px; letter-spacing: 0; color: #70817d; }
+.condition-card p { margin: 0; color: #70817d; font-size: 12px; }
+.condition-card .trend-up { color: #216e8c; display: flex; align-items: center; gap: 3px; font-weight: 600; }
+.condition-card .trend-up svg { width: 14px; }
+.brief-section { margin: 0 0 64px; }
+.section-heading, .section-heading > div:first-child { display: flex; align-items: flex-end; justify-content: space-between; gap: 17px; }
+.section-heading { margin-bottom: 20px; }
+.section-number { font: italic 14px Georgia, serif; color: #db6b45; padding-bottom: 4px; }
+.section-heading h2, .detail-panel h2, .coach-heading h2 { margin: 0; font: 500 25px 'Manrope', sans-serif; letter-spacing: -1px; }
+.section-heading .step-label { margin-bottom: 5px; }
+.legend { display: flex; align-items: center; gap: 8px; color: #71827e; font-size: 10px; text-transform: uppercase; letter-spacing: .7px; }
+.legend-average, .legend-gust { display: inline-block; width: 15px; height: 3px; background: #216e8c; margin-left: 8px; }
+.legend-gust { background: #db6b45; }
+.forecast-scroll { overflow-x: auto; outline-offset: 4px; }
+.forecast-table { min-width: 810px; display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid #dce3de; background: #fff; }
+.forecast-hour { text-align: center; padding: 18px 12px; position: relative; border-right: 1px solid #e4e8e4; display: grid; justify-items: center; gap: 8px; }
+.forecast-hour:last-child { border-right: 0; }
+.forecast-hour.is-race { background: #edf3f0; box-shadow: inset 0 3px #216e8c; }
+.forecast-time { min-height: 31px; font-size: 12px; font-weight: 600; }
+.forecast-time span { display: block; color: #216e8c; font-size: 8px; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+.direction-arrow { color: #db6b45; transform: rotate(35deg); stroke-width: 1.5; }
+.hour-speed { font: 500 25px 'Manrope', sans-serif; }
+.hour-speed small { font-size: 10px; color: #687b76; }
+.hour-gust { color: #b25337; font-size: 10px; font-weight: 600; }
+.hour-direction { font-size: 10px; color: #697c77; }
+.hour-temperature { margin-top: 4px; font-size: 12px; }
+.dynamics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 64px; }
+.detail-panel { padding: 30px; background: #fff; border: 1px solid #e0e5e1; display: grid; grid-template-columns: auto 1fr; gap: 0 16px; }
+.panel-icon { width: 43px; height: 43px; border-radius: 50%; background: #f8e9e2; color: #bd5637; display: grid; place-items: center; grid-row: span 1; }
+.panel-icon svg { width: 21px; }
+.detail-panel .step-label { margin-bottom: 5px; }
+.metric-line { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; padding: 17px 0; border-bottom: 1px solid #e5e9e5; color: #657873; font-size: 12px; }
+.metric-line:first-of-type { margin-top: 22px; border-top: 1px solid #e5e9e5; }
+.metric-line strong { color: #173b3a; font-size: 14px; }
+.metric-line .rotation { display: flex; align-items: center; gap: 6px; color: #216e8c; }
+.metric-line svg { width: 16px; }
+.detail-panel > p { grid-column: 1 / -1; color: #6b7d78; font-size: 12px; line-height: 1.65; margin: 18px 0 0; }
+.sea-measure { grid-column: 1 / -1; display: flex; align-items: center; gap: 20px; margin-top: 22px; padding: 17px 0; border-top: 1px solid #e5e9e5; border-bottom: 1px solid #e5e9e5; }
+.sea-measure strong { font: 500 35px 'Manrope', sans-serif; letter-spacing: -1px; }
+.sea-measure small { font-size: 14px; }
+.sea-measure span { border-left: 1px solid #dce2de; padding-left: 20px; color: #687b76; font-size: 11px; line-height: 1.5; }
+.sea-panel .metric-line:first-of-type { margin-top: 0; border-top: 0; }
+.coach-section { background: #173b3a; color: white; padding: clamp(28px, 5vw, 52px); }
+.coach-heading { display: flex; justify-content: space-between; align-items: center; padding-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,.16); }
+.coach-heading .step-label { color: #f2a56c; }
+.coach-heading h2 { font-size: 30px; }
+.coach-badge { color: #b8cbc5; border: 1px solid rgba(255,255,255,.22); padding: 8px 11px; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; }
+.recommendations { display: grid; grid-template-columns: repeat(3, 1fr); }
+.recommendation { padding: 27px 25px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 15px; align-items: flex-start; }
+.recommendation + .recommendation { padding-left: 25px; border-left: 1px solid rgba(255,255,255,.16); }
+.recommendation-number { color: #f2a56c; font: italic 12px Georgia, serif; padding-top: 3px; }
+.recommendation h3 { margin: 0 0 10px; font: 500 16px/1.35 'Manrope', sans-serif; }
+.recommendation p { margin: 0; color: #b8cbc5; font-size: 12px; line-height: 1.55; }
+.why-button { width: auto; margin: 16px 0 0; padding: 0; background: transparent; color: #f2a56c; justify-content: flex-start; gap: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .9px; }
+.why-button:hover { background: transparent; transform: none; color: #fff; }
+.why-button svg:last-child { transition: transform .2s; }
+.why-button svg.rotated { transform: rotate(180deg); }
+.why-answer { margin-top: 12px; padding: 12px; color: #d6e1dd; background: rgba(255,255,255,.08); font-size: 11px; line-height: 1.55; }
+.data-note { text-align: center; margin: 24px 0 0; color: #81908c; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; }
 footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; border-top: 1px solid rgba(23,59,58,.13); display: flex; justify-content: space-between; padding: 22px 0 28px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #83918d; }
 
 @media (max-width: 850px) {
@@ -63,6 +150,10 @@ footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; border-top:
   .hero { padding: 0 0 42px; }
   .hero h1 { letter-spacing: -3px; }
   .benefits { flex-wrap: wrap; gap: 25px 40px; padding: 50px 0; }
+  .weather-overview { grid-template-columns: 1fr; }
+  .recommendations { grid-template-columns: 1fr; }
+  .recommendation { padding: 24px 0; }
+  .recommendation + .recommendation { padding-left: 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.16); }
 }
 
 @media (max-width: 560px) {
@@ -77,4 +168,22 @@ footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; border-top:
   footer { gap: 20px; align-items: flex-end; }
   footer span:last-child { text-align: right; }
   .empty-state { padding: 50px 22px; }
+  .results-page.briefing-page { padding-top: 30px; }
+  .briefing-page .back-link { margin-bottom: 28px; }
+  .briefing-hero { align-items: flex-start; flex-direction: column; padding-bottom: 28px; }
+  .briefing-hero h1 { font-size: 40px; letter-spacing: -2.2px; }
+  .event-meta { display: grid; gap: 9px; }
+  .hero-status { align-self: flex-start; }
+  .weather-overview { margin: 20px 0 50px; }
+  .wind-feature { padding: 25px 22px; }
+  .conditions-grid { grid-template-columns: 1fr; }
+  .condition-card { padding: 22px; }
+  .section-heading { align-items: flex-start; }
+  .legend { display: none; }
+  .dynamics-grid { grid-template-columns: 1fr; margin-bottom: 50px; }
+  .detail-panel { padding: 24px 21px; }
+  .coach-heading { align-items: flex-start; gap: 20px; }
+  .coach-heading h2 { font-size: 25px; }
+  .coach-badge { white-space: nowrap; }
+  .recommendation { grid-template-columns: 26px 1fr; }
 }
