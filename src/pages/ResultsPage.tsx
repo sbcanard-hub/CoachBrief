@@ -137,6 +137,8 @@ export function ResultsPage() {
     ? nearbyMetarSources(sourceLatitude, sourceLongitude).filter((source) => source.distance <= 250)
     : []
   const currentModelHour = request?.date === todayIso() && liveWeather ? closestCurrentModelHour(liveWeather.hourly) : null
+  const windRotation = liveWeather ? signedDirectionDelta(liveWeather.scenario.windStart, liveWeather.scenario.windEnd) : 30
+  const windRotationLabel = Math.abs(windRotation) < 2 ? 'Stable' : `${windRotation > 0 ? 'Droite' : 'Gauche'} · ${signed(windRotation, '°')}`
 
   return (
     <main className="results-page briefing-page">
@@ -230,7 +232,7 @@ export function ResultsPage() {
       </section>
 
       <section className="dynamics-grid" aria-label="Dynamique du vent et état de la mer">
-        <article className="detail-panel"><div className="panel-icon"><Compass /></div><div><span className="step-label">Dynamique du vent</span><h2>Oscillation & rotation</h2></div><div className="metric-line"><span>Oscillation estimée</span><strong>± {liveWeather?.scenario.oscillation ?? 8}°</strong></div><div className="metric-line"><span>Tendance</span><strong className="rotation"><ArrowDownRight /> {liveWeather && liveWeather.scenario.windEnd < liveWeather.scenario.windStart ? 'Gauche' : 'Droite'}</strong></div><p>{liveWeather ? `Évolution calculée de ${formatDegrees(liveWeather.scenario.windStart)} à ${formatDegrees(liveWeather.scenario.windEnd)} sur la fenêtre choisie.` : 'Rotation progressive de 080° à 110° entre 11 h et 14 h.'}</p></article>
+        <article className="detail-panel"><div className="panel-icon"><Compass /></div><div><span className="step-label">Dynamique du vent</span><h2>Oscillation & rotation</h2></div><div className="metric-line"><span>Oscillation estimée</span><strong>± {liveWeather?.scenario.oscillation ?? 8}°</strong></div><div className="metric-line"><span>Tendance</span><strong className="rotation"><span aria-hidden="true">{Math.abs(windRotation) < 2 ? '→' : windRotation > 0 ? '↻' : '↺'}</span> {windRotationLabel}</strong></div><p>{liveWeather ? `Évolution calculée de ${formatDegrees(liveWeather.scenario.windStart)} à ${formatDegrees(liveWeather.scenario.windEnd)} sur la fenêtre choisie.` : 'Rotation progressive de 080° à 110° entre 11 h et 14 h.'}</p></article>
         <article className="detail-panel sea-panel"><div className="panel-icon"><Waves /></div><div><span className="step-label">Plan d'eau</span><h2>État de la mer</h2></div><div className="sea-measure"><strong>{marine?.waveHeight == null ? '—' : marine.waveHeight.toFixed(1).replace('.', ',')} {marine?.waveHeight == null ? '' : <small>m</small>}</strong><span>{marine?.waveDirection == null ? 'Donnée marine indisponible' : `Vagues depuis ${formatDegrees(marine.waveDirection)}`}<br />{marine?.wavePeriod == null ? '' : `Période ${marine.wavePeriod.toFixed(1).replace('.', ',')} s`}</span></div><div className="metric-line"><span>Courant modèle</span><strong>{marine?.currentVelocity == null ? '—' : `${marine.currentVelocity.toFixed(1).replace('.', ',')} nd · ${formatDegrees(marine.currentDirection ?? 0)}`}</strong></div><p>Les données marines servent au briefing tactique mais restent des données de modèle : elles ne remplacent pas les observations sur l’eau.</p></article>
       </section>
 
