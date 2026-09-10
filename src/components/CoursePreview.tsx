@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, RotateCcw, Upload } from 'lucide-react'
 import { courseToGpx, parseCourseGpx } from '../gpx'
 import type { GpxPoint } from '../gpx'
+import '../gpx.css'
 import type { CourseType } from '../types'
 
 type CoursePreviewProps = {
