@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { BookmarkPlus, Check, FolderOpen, LoaderCircle, Printer, Sailboat } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import { sourceReliabilityForRequest } from '../calibration'
 import { nearbyMetarSources } from '../localSources'
 import { fetchMetarCache, observationForStation } from '../metar'
 import { fetchWeatherForBriefing } from '../weather'
-import { readCurrentCourseSnapshot, saveBriefing } from '../savedBriefings'
+import { loadSavedBriefings, readCurrentCourseSnapshot, saveBriefing } from '../savedBriefings'
 import type { SavedMetarSnapshot } from '../savedBriefings'
 import type { BriefingRequest } from '../types'
+import { SourceConfidencePanel } from './SourceConfidencePanel'
 import './headerActions.css'
 import '../print.css'
 
@@ -14,6 +16,7 @@ export function Header() {
   const location = useLocation()
   const request = location.pathname === '/resultats' ? location.state as BriefingRequest | null : null
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const sourceReliability = sourceReliabilityForRequest(loadSavedBriefings(), request)
 
   useEffect(() => {
     setSaveState('idle')
@@ -71,7 +74,7 @@ export function Header() {
     window.setTimeout(() => { document.title = previousTitle }, 300)
   }
 
-  return (
+  return <>
     <header className="site-header">
       <Link className="brand" to="/" aria-label="Retour à l'accueil CoachBrief">
         <span className="brand-mark"><Sailboat size={22} strokeWidth={1.8} /></span>
@@ -90,5 +93,6 @@ export function Header() {
         {!request && <span className="header-label">Météo de régate</span>}
       </nav>
     </header>
-  )
+    {request && <div className="header-confidence-wrap"><SourceConfidencePanel reliability={sourceReliability} /></div>}
+  </>
 }
