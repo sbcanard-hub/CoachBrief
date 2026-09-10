@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { Crosshair, MapPin } from 'lucide-react'
+import { Crosshair, LocateFixed, MapPin } from 'lucide-react'
 import { loadLeaflet } from '../leafletLoader'
+import '../geolocation.css'
 
 type MapPickerProps = {
   location: string
   latitude: string
   longitude: string
+  committeeLatitude: string
+  committeeLongitude: string
+  committeeAccuracy: string
   onPointChange: (latitude: string, longitude: string) => void
+  onCommitteeChange: (latitude: string, longitude: string, accuracy: string) => void
 }
 
 const ANTIBES = { latitude: 43.5804, longitude: 7.1251 }
@@ -16,11 +21,60 @@ function parseCoordinate(value: string) {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-export function MapPicker({ location, latitude, longitude, onPointChange }: MapPickerProps) {
+function geolocationErrorMessage(error: GeolocationPositionError) {
+  if (error.code === error.PERMISSION_DENIED) return 'Localisation refusée. Autorisez la position du navigateur pour placer le comité.'
+  if (error.code === error.POSITION_UNAVAILABLE) return 'Position GPS indisponible pour le moment.'
+  if (error.code === error.TIMEOUT) return 'Le GPS met trop de temps à répondre. Réessayez à ciel ouvert.'
+  return 'Impossible de récupérer la position GPS.'
+}
+
+export function MapPicker({
+  location,
+  latitude,
+  longitude,
+  committeeLatitude,
+  committeeLongitude,
+  committeeAccuracy,
+  onPointChange,
+  onCommitteeChange,
+}: MapPickerProps) {
   const elementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
+  const committeeMarkerRef = useRef<any>(null)
+  const leafletRef = useRef<any>(null)
   const [message, setMessage] = useState('Préparation de la carte…')
+  const [locatingCommittee, setLocatingCommittee] = useState(false)
+
+  function placeCommitteeMarker(lat: number, lng: number, accuracy = '') {
+    const leaflet = leafletRef.current
+    const map = mapRef.current
+    if (!leaflet || !map) return
+
+    if (!committeeMarkerRef.current) {
+      const icon = leaflet.divIcon({
+        className: 'committee-marker-icon',
+        html: '<span>C</span>',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17],
+      })
+      const committeeMarker = leaflet.marker([lat, lng], { draggable: true, icon, title: 'Comité / bateau coach' })
+        .bindTooltip('Comité / bateau coach', { permanent: false })
+        .addTo(map)
+      committeeMarker.on('dragend', () => {
+        const point = committeeMarker.getLatLng()
+        onCommitteeChange(point.lat.toFixed(5), point.lng.toFixed(5), '')
+        setMessage('Position Comité ajustée manuellement.')
+      })
+      committeeMarkerRef.current = committeeMarker
+    } else {
+      committeeMarkerRef.current.setLatLng([lat, lng])
+    }
+
+    if (accuracy) {
+      setMessage(`Position Comité détectée · précision ±${accuracy} m.`)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -29,6 +83,7 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
     void loadLeaflet().then((leaflet) => {
       if (cancelled || !elementRef.current || mapRef.current) return
 
+      leafletRef.current = leaflet
       const initialLatitude = parseCoordinate(latitude) ?? ANTIBES.latitude
       const initialLongitude = parseCoordinate(longitude) ?? ANTIBES.longitude
       map = leaflet.map(elementRef.current, { zoomControl: true }).setView([initialLatitude, initialLongitude], 12)
@@ -39,7 +94,7 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
       })
       tiles.on('loading', () => setMessage('Chargement du fond de carte…'))
       tiles.on('load', () => setMessage((current) => current === 'Chargement du fond de carte…' || current === 'Préparation de la carte…'
-        ? 'Cliquez sur le plan d’eau pour placer le centre du parcours.'
+        ? 'Cliquez sur le plan d’eau pour placer le centre du parcours, ou utilisez le GPS pour repérer le comité.'
         : current))
       tiles.on('tileerror', () => setMessage('Le fond de carte répond lentement. La carte peut continuer à se charger progressivement.'))
       tiles.addTo(map)
@@ -51,7 +106,7 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
         const lngText = lng.toFixed(5)
         marker.setLatLng([lat, lng])
         onPointChange(latText, lngText)
-        setMessage(`Point précis : ${latText}, ${lngText}`)
+        setMessage(`Centre du parcours : ${latText}, ${lngText}`)
       }
 
       map.on('click', (event: any) => savePoint(event.latlng.lat, event.latlng.lng))
@@ -62,6 +117,13 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
 
       mapRef.current = map
       markerRef.current = marker
+
+      const savedCommitteeLat = parseCoordinate(committeeLatitude)
+      const savedCommitteeLng = parseCoordinate(committeeLongitude)
+      if (savedCommitteeLat !== undefined && savedCommitteeLng !== undefined) {
+        placeCommitteeMarker(savedCommitteeLat, savedCommitteeLng, committeeAccuracy)
+      }
+
       window.requestAnimationFrame(() => map?.invalidateSize(false))
       window.setTimeout(() => map?.invalidateSize(false), 250)
     }).catch((error: unknown) => {
@@ -73,6 +135,8 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
       map?.remove()
       if (mapRef.current === map) mapRef.current = null
       markerRef.current = null
+      committeeMarkerRef.current = null
+      leafletRef.current = null
     }
   }, [])
 
@@ -82,6 +146,13 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
     if (lat === undefined || lng === undefined || !mapRef.current || !markerRef.current) return
     markerRef.current.setLatLng([lat, lng])
   }, [latitude, longitude])
+
+  useEffect(() => {
+    const lat = parseCoordinate(committeeLatitude)
+    const lng = parseCoordinate(committeeLongitude)
+    if (lat === undefined || lng === undefined || !mapRef.current) return
+    placeCommitteeMarker(lat, lng, committeeAccuracy)
+  }, [committeeLatitude, committeeLongitude, committeeAccuracy])
 
   async function centerOnLocation() {
     if (!location.trim()) {
@@ -113,16 +184,53 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
     }
   }
 
+  function locateCommittee() {
+    if (!navigator.geolocation) {
+      setMessage('La géolocalisation n’est pas disponible sur ce navigateur.')
+      return
+    }
+    if (!mapRef.current) {
+      setMessage('La carte est encore en cours de préparation…')
+      return
+    }
+
+    setLocatingCommittee(true)
+    setMessage('Recherche de la position GPS du comité…')
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude
+        const lng = position.coords.longitude
+        const accuracy = String(Math.max(1, Math.round(position.coords.accuracy)))
+        onCommitteeChange(lat.toFixed(5), lng.toFixed(5), accuracy)
+        placeCommitteeMarker(lat, lng, accuracy)
+        mapRef.current?.setView([lat, lng], Math.max(mapRef.current.getZoom(), 15))
+        mapRef.current?.invalidateSize(false)
+        setLocatingCommittee(false)
+      },
+      (error) => {
+        setMessage(geolocationErrorMessage(error))
+        setLocatingCommittee(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 },
+    )
+  }
+
   return (
     <div className="map-picker">
       <div className="map-picker-heading">
-        <div><MapPin size={16} /><strong>Point précis du plan d’eau</strong></div>
-        <button type="button" className="map-center-button" onClick={centerOnLocation}><Crosshair size={15} /> Centrer sur le lieu</button>
+        <div><MapPin size={16} /><strong>Plan d’eau & position comité</strong></div>
+        <div className="map-picker-actions">
+          <button type="button" className="map-center-button" onClick={centerOnLocation}><Crosshair size={15} /> Centrer sur le lieu</button>
+          <button type="button" className="committee-location-button" onClick={locateCommittee} disabled={locatingCommittee}><LocateFixed size={15} /> {locatingCommittee ? 'Localisation…' : 'Me géolocaliser · Comité'}</button>
+        </div>
       </div>
-      <div ref={elementRef} className="course-map" aria-label="Carte interactive du plan d’eau" />
+      <div ref={elementRef} className="course-map" aria-label="Carte interactive du plan d’eau et position du comité" />
       <div className="map-picker-footer">
         <span>{message}</span>
-        {latitude && longitude && <strong>{latitude} · {longitude}</strong>}
+        <div className="map-position-values">
+          {latitude && longitude && <strong>Parcours : {latitude} · {longitude}</strong>}
+          {committeeLatitude && committeeLongitude && <strong className="committee-position-value">Comité : {committeeLatitude} · {committeeLongitude}{committeeAccuracy ? ` · ±${committeeAccuracy} m` : ''}</strong>}
+        </div>
       </div>
     </div>
   )
