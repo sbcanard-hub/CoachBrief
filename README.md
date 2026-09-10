@@ -98,7 +98,7 @@ Dans un nouveau briefing, CoachBrief cherche d’abord des manches terminées co
 
 La correction locale n’est jamais activée automatiquement. Le coach choisit de l’appliquer ou de la retirer. Lorsqu’elle est active, elle corrige la force et la direction du vent dans la vue courante, l’évolution horaire, le moteur Bernot et le dimensionnement du parcours.
 
-La zone `Fiabilité modèle / METAR / coach` compare séparément chaque source à la réalité post-course. Pour chaque source, CoachBrief affiche le nombre de comparaisons disponibles, l’erreur absolue moyenne en force et en direction ainsi que le biais moyen. Les anciens briefings sans instantané METAR restent compatibles ; la série METAR se constituera progressivement avec les nouvelles sauvegardes.
+La zone `Fiabilité modèle / METAR / coach` compare séparément chaque source à la réalité post-course. Pour chaque source, CoachBrief affiche le nombre de comparaisons disponibles, l’erreur absolue moyenne en force et en direction ainsi que le biais moyen. Les anciens briefings sans instantané METAR restent compatibles ; la série METAR se constituera progressivement avec les nouvelles sauvegardes. Une comparaison METAR doit toujours être lue avec son heure de rapport et sa distance au plan d’eau.
 
 La prévision Open-Meteo brute continue d’être conservée dans les sauvegardes et l’historique. Ce choix évite de réinjecter les corrections précédentes dans le calcul des biais futurs et de créer une boucle de calibration artificielle.
 
