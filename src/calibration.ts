@@ -2,6 +2,8 @@ import type { BriefingRequest } from './types'
 import type { SavedBriefing } from './savedBriefings'
 import type { LiveWeatherData } from './weather'
 
+export const METAR_MAX_TIME_GAP_MINUTES = 90
+
 export type CalibrationSample = {
   id: string
   date: string
@@ -43,6 +45,8 @@ export type SourceReliabilityMetric = {
   meanDirectionBias: number | null
   meanAbsDirectionError: number | null
   meanDistanceKm: number | null
+  meanTimeGapMinutes: number | null
+  excludedTimeMismatchCount: number
   confidenceScore: number | null
   confidenceLabel: string
 }
@@ -292,16 +296,93 @@ function reliabilityScore(sampleCount: number, speedError: number | null, direct
   return Math.max(0, Math.min(100, Math.round(score)))
 }
 
+function resolveMetarReportIso(reportTime: string | null | undefined, referenceIso: string | null | undefined) {
+  if (!reportTime || !referenceIso) return null
+  const match = reportTime.match(/^(\d{2})(\d{2})(\d{2})Z$/)
+  const reference = new Date(referenceIso)
+  if (!match || Number.isNaN(reference.getTime())) return null
+
+  const day = Number(match[1])
+  const hour = Number(match[2])
+  const minute = Number(match[3])
+  const candidates: Date[] = []
+
+  for (const monthOffset of [-1, 0, 1]) {
+    const monthAnchor = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + monthOffset, 1))
+    const candidate = new Date(Date.UTC(monthAnchor.getUTCFullYear(), monthAnchor.getUTCMonth(), day, hour, minute))
+    if (candidate.getUTCFullYear() === monthAnchor.getUTCFullYear() && candidate.getUTCMonth() === monthAnchor.getUTCMonth() && candidate.getUTCDate() === day) {
+      candidates.push(candidate)
+    }
+  }
+
+  if (!candidates.length) return null
+  candidates.sort((a, b) => Math.abs(a.getTime() - reference.getTime()) - Math.abs(b.getTime() - reference.getTime()))
+  return candidates[0].toISOString()
+}
+
+function wallClockMsInTimezone(iso: string, timezone: string) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date)
+    const read = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value)
+    const year = read('year')
+    const month = read('month')
+    const day = read('day')
+    const hour = read('hour')
+    const minute = read('minute')
+    if (![year, month, day, hour, minute].every(Number.isFinite)) return null
+    return Date.UTC(year, month - 1, day, hour, minute)
+  } catch {
+    return null
+  }
+}
+
+function requestWallClockMs(request: BriefingRequest) {
+  const dateMatch = request.date?.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const time = request.raceTime || request.startTime
+  const timeMatch = time?.match(/^(\d{2}):(\d{2})/)
+  if (!dateMatch || !timeMatch) return null
+  const year = Number(dateMatch[1])
+  const month = Number(dateMatch[2])
+  const day = Number(dateMatch[3])
+  const hour = Number(timeMatch[1])
+  const minute = Number(timeMatch[2])
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null
+  return Date.UTC(year, month - 1, day, hour, minute)
+}
+
+function metarGapToRaceMinutes(item: SavedBriefing) {
+  if (!item.metar || !item.weather?.timezone) return null
+  const reportIso = resolveMetarReportIso(item.metar.reportTime, item.metar.capturedAt || item.savedAt)
+  const reportWallClock = reportIso ? wallClockMsInTimezone(reportIso, item.weather.timezone) : null
+  const raceWallClock = requestWallClockMs(item.request)
+  if (reportWallClock == null || raceWallClock == null) return null
+  return Math.abs(reportWallClock - raceWallClock) / 60000
+}
+
 function sourceMetric(group: SavedBriefing[], key: SourceReliabilityMetric['key']): SourceReliabilityMetric {
   const speedErrors: number[] = []
   const directionErrors: number[] = []
   const distances: number[] = []
+  const timeGaps: number[] = []
+  let excludedTimeMismatchCount = 0
+
   for (const item of group) {
     if (!item.reality) continue
     const actualSpeed = numeric(item.reality.windSpeed)
     const actualDirection = numeric(item.reality.windDirection)
     let sourceSpeed: number | null = null
     let sourceDirection: number | null = null
+
     if (key === 'model') {
       sourceSpeed = item.weather?.race.speed ?? null
       sourceDirection = item.weather?.race.direction ?? null
@@ -311,8 +392,18 @@ function sourceMetric(group: SavedBriefing[], key: SourceReliabilityMetric['key'
     } else {
       sourceSpeed = item.metar?.windSpeed ?? null
       sourceDirection = item.metar?.windDirection ?? null
-      if (item.metar?.distanceKm != null && Number.isFinite(item.metar.distanceKm)) distances.push(item.metar.distanceKm)
+      const hasMetarWind = sourceSpeed != null || sourceDirection != null
+      if (hasMetarWind) {
+        const timeGap = metarGapToRaceMinutes(item)
+        if (timeGap == null || timeGap > METAR_MAX_TIME_GAP_MINUTES) {
+          excludedTimeMismatchCount += 1
+          continue
+        }
+        timeGaps.push(timeGap)
+        if (item.metar?.distanceKm != null && Number.isFinite(item.metar.distanceKm)) distances.push(item.metar.distanceKm)
+      }
     }
+
     if (actualSpeed != null && sourceSpeed != null) speedErrors.push(actualSpeed - sourceSpeed)
     if (actualDirection != null && sourceDirection != null) directionErrors.push(signedAngleDelta(sourceDirection, actualDirection))
   }
@@ -322,11 +413,14 @@ function sourceMetric(group: SavedBriefing[], key: SourceReliabilityMetric['key'
   const meanAbsSpeedError = arithmeticMean(speedErrors.map(Math.abs))
   const meanAbsDirectionError = arithmeticMean(directionErrors.map(Math.abs))
   const meanDistanceKm = key === 'metar' ? arithmeticMean(distances) : null
+  const meanTimeGapMinutes = key === 'metar' ? arithmeticMean(timeGaps) : null
   const confidenceScore = reliabilityScore(sampleCount, meanAbsSpeedError, meanAbsDirectionError, meanDistanceKm)
   const confidenceLabel = scoreLabel(confidenceScore, sampleCount)
+  const temporalNote = key === 'metar' && excludedTimeMismatchCount > 0 ? ` · ${excludedTimeMismatchCount} hors créneau` : ''
+
   return {
     key,
-    label: confidenceScore == null ? names[key] : `${names[key]} · ${confidenceScore}/100 · ${confidenceLabel}`,
+    label: `${confidenceScore == null ? names[key] : `${names[key]} · ${confidenceScore}/100 · ${confidenceLabel}`}${temporalNote}`,
     sampleCount,
     speedSampleCount: speedErrors.length,
     directionSampleCount: directionErrors.length,
@@ -335,6 +429,8 @@ function sourceMetric(group: SavedBriefing[], key: SourceReliabilityMetric['key'
     meanDirectionBias: circularMeanDelta(directionErrors),
     meanAbsDirectionError,
     meanDistanceKm,
+    meanTimeGapMinutes,
+    excludedTimeMismatchCount,
     confidenceScore,
     confidenceLabel,
   }
@@ -353,7 +449,13 @@ export function buildSourceReliabilities(items: SavedBriefing[]): PlanSourceReli
     key,
     label: group[0].request.location || 'Plan d’eau',
     metrics: [sourceMetric(group, 'model'), sourceMetric(group, 'metar'), sourceMetric(group, 'coach')],
-  })).filter((entry) => entry.metrics.some((metric) => metric.sampleCount > 0))
+  })).filter((entry) => entry.metrics.some((metric) => metric.sampleCount > 0 || metric.excludedTimeMismatchCount > 0))
+}
+
+export function sourceReliabilityForRequest(items: SavedBriefing[], request: BriefingRequest | null) {
+  if (!request) return null
+  const key = planKeyFromRequest(request)
+  return buildSourceReliabilities(items).find((entry) => entry.key === key) ?? null
 }
 
 export function calibrationConfidence(sampleCount: number) {
