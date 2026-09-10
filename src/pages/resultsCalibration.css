@@ -1,0 +1,30 @@
+.local-calibration-suggestion { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; margin: 0 0 18px; padding: 18px 20px; border: 1px solid #d7e2dd; border-left: 4px solid #d6a52c; background: #fffdf6; }
+.local-calibration-suggestion.is-applied { border-left-color: #216e8c; background: #f4f9fb; }
+.local-calibration-copy { min-width: 0; }
+.local-calibration-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 7px; }
+.local-calibration-heading h2 { margin: 0; color: #173b3a; font: 600 18px/1.15 'Manrope', sans-serif; letter-spacing: -.45px; }
+.local-calibration-heading span { padding: 4px 7px; border: 1px solid #d7e2dd; color: #536c66; background: #fff; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .45px; }
+.local-calibration-copy p { margin: 0; color: #536b65; font-size: 10px; line-height: 1.55; }
+.local-calibration-copy p > strong { color: #173b3a; }
+.local-calibration-metrics { display: flex; flex-wrap: wrap; gap: 7px 14px; margin-top: 9px; }
+.local-calibration-metrics span { color: #758782; font-size: 9px; }
+.local-calibration-metrics strong { color: #173b3a; }
+.local-calibration-actions { display: grid; gap: 7px; justify-items: end; min-width: 190px; }
+.local-calibration-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin: 0; padding: 10px 12px; border: 1px solid #216e8c; color: #fff; background: #216e8c; font-size: 9px; font-weight: 700; cursor: pointer; }
+.local-calibration-actions button.is-active { color: #173b3a; background: #fff; }
+.local-calibration-actions button:disabled { cursor: not-allowed; opacity: .5; }
+.local-calibration-actions small { color: #71837d; font-size: 8px; line-height: 1.35; text-align: right; }
+.local-calibration-preview { font-weight: 650; color: #425c55 !important; }
+
+@media (max-width: 760px) {
+  .local-calibration-suggestion { grid-template-columns: 1fr; }
+  .local-calibration-actions { justify-items: stretch; min-width: 0; }
+  .local-calibration-actions small { text-align: left; }
+}
+
+@media print {
+  .local-calibration-suggestion { grid-template-columns: 1fr !important; margin-bottom: 5mm !important; padding: 4mm !important; border: 1px solid #d7e2dd !important; border-left: 3pt solid #216e8c !important; background: #fff !important; page-break-inside: avoid; }
+  .local-calibration-actions button { display: none !important; }
+  .local-calibration-heading h2 { font-size: 11pt !important; }
+  .local-calibration-copy p, .local-calibration-metrics span, .local-calibration-actions small { font-size: 7pt !important; }
+}

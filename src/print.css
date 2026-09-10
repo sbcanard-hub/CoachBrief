@@ -1,0 +1,401 @@
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 11mm 12mm;
+  }
+
+  html,
+  body,
+  #root,
+  .app-shell {
+    width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  body {
+    color: #173b3a !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-size: 9pt !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .site-header,
+  footer,
+  .back-link,
+  .header-actions,
+  .course-preview-actions,
+  .course-variant-panel,
+  .why-button,
+  .local-source-link,
+  .leaflet-control-zoom,
+  .leaflet-control-attribution {
+    display: none !important;
+  }
+
+  .results-page,
+  .briefing-page {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .briefing-hero {
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    gap: 8mm !important;
+    margin: 0 0 5mm !important;
+    padding: 0 0 4mm !important;
+    border-bottom: 1.5pt solid #173b3a !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+
+  .briefing-hero h1 {
+    margin: 1mm 0 2mm !important;
+    font-size: 22pt !important;
+    line-height: 1 !important;
+    letter-spacing: -0.7pt !important;
+  }
+
+  .step-label,
+  .briefing-hero .step-label {
+    font-size: 6.5pt !important;
+    letter-spacing: 0.5pt !important;
+  }
+
+  .event-meta {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 2mm 5mm !important;
+    font-size: 8pt !important;
+  }
+
+  .event-meta svg,
+  .card-kicker svg,
+  .section-heading svg,
+  .coach-observation-heading svg,
+  .local-sources-heading svg,
+  .course-sizing-heading svg,
+  .tactical-overview svg {
+    width: 11px !important;
+    height: 11px !important;
+  }
+
+  .hero-status {
+    align-self: start !important;
+    padding: 2mm 3mm !important;
+    border: 1px solid #cad6d1 !important;
+    background: #f5f7f3 !important;
+    font-size: 7pt !important;
+    white-space: nowrap;
+  }
+
+  .weather-source-note,
+  .data-note,
+  .local-source-note,
+  .bernot-note,
+  .coach-observation-help,
+  .course-sizing-disclaimer {
+    font-size: 6.5pt !important;
+    line-height: 1.35 !important;
+  }
+
+  .tactical-overview {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0 !important;
+    margin: 0 0 5mm !important;
+    border: 1px solid #dfe4df !important;
+    background: #fff !important;
+    page-break-inside: avoid;
+  }
+
+  .tactical-overview article {
+    padding: 3mm !important;
+    gap: 2mm !important;
+    border-right: 1px solid #dfe4df !important;
+    background: #fff !important;
+  }
+
+  .tactical-overview small,
+  .conditions-grid small,
+  .metric-line span,
+  .coach-observation-grid small,
+  .local-source-card small,
+  .course-sizing-metrics small {
+    font-size: 6pt !important;
+  }
+
+  .tactical-overview strong,
+  .coach-observation-grid strong,
+  .local-source-card strong,
+  .course-sizing-metrics strong {
+    font-size: 8pt !important;
+  }
+
+  .coach-observation,
+  .local-sources,
+  .weather-overview,
+  .course-sizing,
+  .dynamics-grid,
+  .bernot-section,
+  .coach-section,
+  .brief-section {
+    margin: 0 0 5mm !important;
+    box-shadow: none !important;
+  }
+
+  .coach-observation,
+  .local-sources,
+  .course-sizing {
+    padding: 4mm !important;
+    page-break-inside: avoid;
+  }
+
+  .coach-observation-heading h2,
+  .local-sources-heading h2,
+  .course-sizing-heading h2,
+  .section-heading h2,
+  .coach-heading h2,
+  .detail-panel h2 {
+    font-size: 13pt !important;
+    line-height: 1.1 !important;
+  }
+
+  .coach-observation-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    margin-top: 3mm !important;
+  }
+
+  .coach-observation-grid article {
+    padding: 2mm !important;
+  }
+
+  .local-source-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 2mm !important;
+    margin-top: 3mm !important;
+  }
+
+  .local-source-card {
+    padding: 2.5mm !important;
+    background: #fff !important;
+  }
+
+  .metar-raw {
+    font-size: 5.5pt !important;
+  }
+
+  .weather-overview {
+    display: grid !important;
+    grid-template-columns: 0.9fr 1.4fr !important;
+    gap: 3mm !important;
+    page-break-inside: avoid;
+  }
+
+  .wind-feature,
+  .condition-card,
+  .detail-panel {
+    padding: 3mm !important;
+    border: 1px solid #dfe4df !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  .wind-reading strong {
+    font-size: 28pt !important;
+  }
+
+  .wind-arrow svg {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .conditions-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 2mm !important;
+  }
+
+  .condition-card strong {
+    font-size: 12pt !important;
+  }
+
+  .course-sizing-layout {
+    display: grid !important;
+    grid-template-columns: 0.72fr 1.28fr !important;
+    gap: 4mm !important;
+    margin-top: 3mm !important;
+  }
+
+  .course-sizing-main strong {
+    font-size: 22pt !important;
+  }
+
+  .course-preview-map {
+    height: 92mm !important;
+    min-height: 92mm !important;
+    border: 1px solid #cfd8d3 !important;
+    page-break-inside: avoid;
+  }
+
+  .course-preview-caption {
+    padding: 2mm 3mm !important;
+    background: #fff !important;
+  }
+
+  .leaflet-tile-pane {
+    opacity: 0.72 !important;
+  }
+
+  .leaflet-marker-icon,
+  .leaflet-overlay-pane svg {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .section-heading,
+  .coach-heading {
+    margin-bottom: 2.5mm !important;
+  }
+
+  .forecast-scroll {
+    overflow: visible !important;
+  }
+
+  .forecast-table {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1.5mm !important;
+    min-width: 0 !important;
+  }
+
+  .forecast-hour {
+    min-width: 0 !important;
+    padding: 2.5mm !important;
+    border: 1px solid #dfe4df !important;
+    background: #fff !important;
+    page-break-inside: avoid;
+  }
+
+  .forecast-hour.is-race {
+    border: 1.5pt solid #216e8c !important;
+  }
+
+  .hour-speed {
+    font-size: 15pt !important;
+  }
+
+  .forecast-time,
+  .hour-direction,
+  .hour-gust,
+  .hour-temperature {
+    font-size: 7pt !important;
+  }
+
+  .dynamics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 3mm !important;
+    page-break-inside: avoid;
+  }
+
+  .detail-panel {
+    margin: 0 !important;
+  }
+
+  .bernot-scroll {
+    overflow: visible !important;
+  }
+
+  .bernot-board {
+    min-width: 0 !important;
+    grid-template-columns: 2.1fr repeat(5, 1fr) !important;
+    font-size: 6pt !important;
+  }
+
+  .bernot-head {
+    padding: 2mm 1mm !important;
+    font-size: 5.5pt !important;
+  }
+
+  .bernot-factor,
+  .bernot-cell {
+    min-height: 12mm !important;
+    padding: 1.5mm !important;
+  }
+
+  .bernot-factor {
+    gap: 2mm !important;
+  }
+
+  .bernot-factor strong {
+    font-size: 7pt !important;
+  }
+
+  .bernot-factor small,
+  .bernot-cell small {
+    font-size: 5.2pt !important;
+    line-height: 1.2 !important;
+  }
+
+  .priority-badge {
+    width: 6mm !important;
+    height: 6mm !important;
+    font-size: 7pt !important;
+  }
+
+  .bernot-cell.is-selected {
+    box-shadow: inset 0 2pt #216e8c !important;
+  }
+
+  .recommendations {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 2mm !important;
+  }
+
+  .recommendation {
+    padding: 3mm !important;
+    border: 1px solid #dfe4df !important;
+    background: #fff !important;
+    page-break-inside: avoid;
+  }
+
+  .recommendation-number {
+    font-size: 8pt !important;
+  }
+
+  .recommendation h3 {
+    font-size: 9pt !important;
+  }
+
+  .recommendation p,
+  .why-answer {
+    font-size: 7pt !important;
+    line-height: 1.35 !important;
+  }
+
+  .why-answer[hidden] {
+    display: block !important;
+    margin-top: 2mm !important;
+    padding-top: 2mm !important;
+    border-top: 1px solid #e2e7e3 !important;
+  }
+
+  .data-note {
+    margin-top: 5mm !important;
+    padding-top: 2mm !important;
+    border-top: 1px solid #dfe4df !important;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}

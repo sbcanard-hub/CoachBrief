@@ -1,0 +1,7 @@
+{
+  "generatedAt": null,
+  "source": "AviationWeather.gov Data API",
+  "stations": ["LFMD", "LFMN", "LFTH"],
+  "observations": [],
+  "error": "Cache METAR pas encore généré par le déploiement GitHub Pages"
+}
