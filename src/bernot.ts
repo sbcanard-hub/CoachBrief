@@ -1,3 +1,4 @@
+import type { CoachObservationSignal } from './observations'
 import type { BriefingRequest, StartLineBias } from './types'
 
 export const bernotColumns = ['Gauche', 'Centre G.', 'Centre', 'Centre D.', 'Droite'] as const
@@ -74,30 +75,50 @@ function signedLabel(value: number) {
   return `${value > 0 ? '+' : ''}${value}° vers la ${value > 0 ? 'droite' : 'gauche'}`
 }
 
-function currentCrossCourse(request: BriefingRequest | null, weather: WeatherScenario) {
-  if (weather.currentVelocity == null || weather.currentDirection == null) return 0
+function currentCrossCourse(request: BriefingRequest | null, velocity: number | undefined, direction: number | undefined, weather: WeatherScenario) {
+  if (velocity == null || direction == null) return 0
   const axis = numberOr(request?.courseAxis, weather.windStart)
-  const relative = signedAngleDelta(axis, weather.currentDirection)
-  return Math.sin(relative * Math.PI / 180) * weather.currentVelocity
+  const relative = signedAngleDelta(axis, direction)
+  return Math.sin(relative * Math.PI / 180) * velocity
 }
 
-export function buildBernotRows(request: BriefingRequest | null, weather: WeatherScenario = mockWeatherScenario): BernotRow[] {
+function terrainGapScore(observation?: CoachObservationSignal) {
+  if (!observation?.hasObservation) return 0
+  const speedGap = Math.abs(observation.windSpeedDelta ?? 0)
+  const directionGap = Math.abs(observation.windDirectionDelta ?? 0)
+  return Math.min(5, speedGap / 1.5 + directionGap / 12)
+}
+
+export function buildBernotRows(
+  request: BriefingRequest | null,
+  weather: WeatherScenario = mockWeatherScenario,
+  observation?: CoachObservationSignal,
+): BernotRow[] {
   const windDelta = signedAngleDelta(weather.windStart, weather.windEnd)
   const windwardOffset = numberOr(request?.windwardOffset)
   const lineBias = request?.startLineBias
   const tacticalVector = windwardOffset + lineBiasValue(lineBias)
   const hasLocation = Boolean(request?.location.trim())
-  const currentCross = currentCrossCourse(request, weather)
-  const hasCurrent = weather.currentVelocity != null && weather.currentDirection != null
+  const currentVelocity = observation?.currentVelocity ?? weather.currentVelocity
+  const currentDirection = observation?.currentDirection ?? weather.currentDirection
+  const currentCross = currentCrossCourse(request, currentVelocity, currentDirection, weather)
+  const hasCurrent = currentVelocity != null && currentDirection != null
+  const waveHeight = observation?.waveHeight ?? weather.waveHeight
+  const cloudCover = observation?.cloudCover ?? weather.cloudCover
+  const observedDirectionGap = observation?.windDirectionDelta ?? 0
+  const observedWindZoneVector = Math.abs(observedDirectionGap) >= 7 ? observedDirectionGap : windDelta
+  const gapScore = terrainGapScore(observation)
 
   const rows: Omit<BernotRow, 'priority'>[] = [
     {
       factor: 'Vent',
-      score: 9 + Math.abs(windDelta) / 8 + weather.oscillation / 5,
-      zone: zoneFromSigned(windDelta),
-      note: windDelta === 0
-        ? `Vent sans rotation nette, oscillation ±${weather.oscillation}°.`
-        : `Rotation de ${Math.abs(Math.round(windDelta))}° vers la ${windDelta > 0 ? 'droite' : 'gauche'}, oscillation ±${weather.oscillation}°.` ,
+      score: 9 + Math.abs(windDelta) / 8 + weather.oscillation / 5 + gapScore,
+      zone: zoneFromSigned(observedWindZoneVector),
+      note: observation?.windDirectionDelta != null || observation?.windSpeedDelta != null
+        ? `Terrain vs modèle : ${observation.windSpeedDelta == null ? 'vitesse non comparée' : `${observation.windSpeedDelta > 0 ? '+' : ''}${observation.windSpeedDelta.toFixed(1).replace('.', ',')} nd`} · ${observation.windDirectionDelta == null ? 'direction non comparée' : `${observation.windDirectionDelta > 0 ? '+' : ''}${Math.round(observation.windDirectionDelta)}°`}. Tendance modèle ${Math.abs(Math.round(windDelta))}° vers la ${windDelta >= 0 ? 'droite' : 'gauche'}.`
+        : windDelta === 0
+          ? `Vent sans rotation nette, oscillation ±${weather.oscillation}°.`
+          : `Rotation de ${Math.abs(Math.round(windDelta))}° vers la ${windDelta > 0 ? 'droite' : 'gauche'}, oscillation ±${weather.oscillation}°.`,
     },
     {
       factor: 'Axe parcours',
@@ -107,33 +128,35 @@ export function buildBernotRows(request: BriefingRequest | null, weather: Weathe
     },
     {
       factor: 'Courant',
-      score: hasCurrent ? 4 + Math.min(5, (weather.currentVelocity ?? 0) * 5) : 2.8,
+      score: hasCurrent ? 4 + Math.min(5, currentVelocity * 5) + (observation?.currentVelocity != null ? 1.5 : 0) : 2.8,
       zone: hasCurrent ? zoneFromSigned(currentCross * 25) : 'Centre',
       note: hasCurrent
-        ? `Courant ${weather.currentVelocity?.toFixed(1).replace('.', ',')} nd vers ${Math.round(weather.currentDirection ?? 0)}° ; composante latérale ${Math.abs(currentCross) < 0.08 ? 'faible' : currentCross > 0 ? 'vers la droite' : 'vers la gauche'}.`
+        ? `${observation?.currentVelocity != null ? 'Observation terrain' : 'Modèle'} : courant ${currentVelocity.toFixed(1).replace('.', ',')} nd vers ${Math.round(currentDirection)}° ; composante latérale ${Math.abs(currentCross) < 0.08 ? 'faible' : currentCross > 0 ? 'vers la droite' : 'vers la gauche'}.`
         : 'Courant non renseigné pour l’instant : facteur volontairement dépriorisé.',
     },
     {
       factor: 'Vagues',
-      score: 4 + weather.waveHeight * 3 + Math.max(0, weather.maxWindSpeed - weather.raceWindSpeed) / 2,
+      score: 4 + waveHeight * 3 + Math.max(0, weather.maxWindSpeed - weather.raceWindSpeed) / 2 + (observation?.waveHeight != null ? 1 : 0),
       zone: weather.waveDirection == null ? 'Centre' : zoneFromSigned(signedAngleDelta(numberOr(request?.courseAxis, weather.windStart), weather.waveDirection) / 4),
-      note: weather.waveHeight > 0
-        ? `${weather.waveHeight.toFixed(1).replace('.', ',')} m${weather.waveDirection == null ? '' : ` depuis ${Math.round(weather.waveDirection)}°`} ; impact sur vitesse et conduite.`
+      note: waveHeight > 0
+        ? `${observation?.waveHeight != null ? 'Observation terrain' : 'Modèle'} : ${waveHeight.toFixed(1).replace('.', ',')} m${weather.waveDirection == null ? '' : ` depuis ${Math.round(weather.waveDirection)}°`} ; impact sur vitesse et conduite.`
         : 'Donnée de vague indisponible pour ce point marin.',
     },
     {
       factor: 'Relief / côte',
-      score: hasLocation ? 5 : 2,
-      zone: 'Centre',
-      note: hasLocation
-        ? `Effets locaux à confirmer sur ${request?.location} avec observations et relief.`
-        : 'Lieu non renseigné : effet de côte non évalué.',
+      score: hasLocation ? 5 + (gapScore >= 2 ? 2 : 0) : 2,
+      zone: observation?.windDirectionDelta != null && Math.abs(observation.windDirectionDelta) >= 10 ? zoneFromSigned(observation.windDirectionDelta) : 'Centre',
+      note: observation?.windDirectionDelta != null && Math.abs(observation.windDirectionDelta) >= 10
+        ? `Écart direction terrain/modèle de ${Math.abs(Math.round(observation.windDirectionDelta))}° : effet local ou timing du modèle à vérifier sur ${request?.location}.`
+        : hasLocation
+          ? `Effets locaux à confirmer sur ${request?.location} avec observations et relief.`
+          : 'Lieu non renseigné : effet de côte non évalué.',
     },
     {
       factor: 'Nuages',
-      score: 2.5 + weather.cloudCover / 25,
-      zone: weather.cloudCover >= 60 ? zoneFromSigned(windDelta) : 'Centre',
-      note: `${Math.round(weather.cloudCover)}% de nébulosité ; influence ${weather.cloudCover >= 60 ? 'à surveiller' : 'secondaire'}.`,
+      score: 2.5 + cloudCover / 25 + (observation?.cloudCover != null ? 0.8 : 0),
+      zone: cloudCover >= 60 ? zoneFromSigned(observedWindZoneVector) : 'Centre',
+      note: `${Math.round(cloudCover)}% de nébulosité${observation?.cloudCover != null ? ' observée' : ''} ; influence ${cloudCover >= 60 ? 'à surveiller' : 'secondaire'}.`,
     },
     {
       factor: 'Adversaires',
@@ -150,7 +173,11 @@ export function buildBernotRows(request: BriefingRequest | null, weather: Weathe
     .map((row, index) => ({ ...row, priority: index + 1 }))
 }
 
-export function buildCoachRecommendations(request: BriefingRequest | null, weather: WeatherScenario = mockWeatherScenario): CoachRecommendation[] {
+export function buildCoachRecommendations(
+  request: BriefingRequest | null,
+  weather: WeatherScenario = mockWeatherScenario,
+  observation?: CoachObservationSignal,
+): CoachRecommendation[] {
   const windDelta = signedAngleDelta(weather.windStart, weather.windEnd)
   const windwardOffset = numberOr(request?.windwardOffset)
   const lineBias = request?.startLineBias ?? 'Neutre'
@@ -164,8 +191,8 @@ export function buildCoachRecommendations(request: BriefingRequest | null, weath
       }
     : {
         title: `Garder une option vers la ${windDelta > 0 ? 'droite' : 'gauche'}`,
-        text: `Le vent évolue d’environ ${String(Math.round(weather.windStart)).padStart(3, '0')}° à ${String(Math.round(weather.windEnd)).padStart(3, '0')}° sur la fenêtre observée.` ,
-        why: `La rotation générale est d’environ ${Math.abs(Math.round(windDelta))}°. Il faut conserver une voie qui permette de bénéficier de cette tendance sans s’enfermer trop tôt au bord du plan d’eau.`,
+        text: `Le modèle fait évoluer le vent d’environ ${String(Math.round(weather.windStart)).padStart(3, '0')}° à ${String(Math.round(weather.windEnd)).padStart(3, '0')}° sur la fenêtre observée.` ,
+        why: `La rotation générale du modèle est d’environ ${Math.abs(Math.round(windDelta))}°. Il faut conserver une voie qui permette de bénéficier de cette tendance sans s’enfermer trop tôt au bord du plan d’eau.`,
       }
 
   const lineRecommendation: CoachRecommendation = lineBias === 'Neutre'
@@ -192,5 +219,18 @@ export function buildCoachRecommendations(request: BriefingRequest | null, weath
         why: 'Avec une géométrie proche de l’axe, les décisions tactiques peuvent davantage se concentrer sur le vent, le courant et la flotte.',
       }
 
-  return [windRecommendation, lineRecommendation, geometryRecommendation]
+  const speedGap = observation?.windSpeedDelta ?? 0
+  const directionGap = observation?.windDirectionDelta ?? 0
+  const significantTerrainGap = observation?.hasObservation && (Math.abs(speedGap) >= 2 || Math.abs(directionGap) >= 10)
+  const observationRecommendation: CoachRecommendation | null = significantTerrainGap
+    ? {
+        title: 'Donner la priorité au relevé terrain',
+        text: `Le relevé s’écarte du modèle${observation?.windSpeedDelta == null ? '' : ` de ${Math.abs(speedGap).toFixed(1).replace('.', ',')} nd en vitesse`}${observation?.windDirectionDelta == null ? '' : `${observation?.windSpeedDelta == null ? '' : ' et'} de ${Math.abs(Math.round(directionGap))}° en direction`}.`,
+        why: 'Un modèle donne une tendance synoptique et locale calculée. Un écart mesuré sur la zone de course peut signaler un effet de côte, une brise, une bascule plus rapide ou un décalage temporel. Il faut confirmer le relevé, puis l’utiliser avant le modèle pour le très court terme.',
+      }
+    : null
+
+  return observationRecommendation
+    ? [observationRecommendation, windRecommendation, lineRecommendation]
+    : [windRecommendation, lineRecommendation, geometryRecommendation]
 }
