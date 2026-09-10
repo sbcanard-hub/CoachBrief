@@ -42,6 +42,18 @@
   font-size: 9px;
 }
 
+.weather-source-note {
+  margin: 14px 0 0;
+  color: #6f817c;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.weather-source-note.is-warning {
+  padding-left: 10px;
+  border-left: 3px solid #db6b45;
+  color: #795b50;
+}
+
 .tactical-overview {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
