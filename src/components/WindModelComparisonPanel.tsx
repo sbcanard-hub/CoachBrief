@@ -1,12 +1,33 @@
 import { Check, CircleGauge, LoaderCircle, Navigation, Wind } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { fetchWindModelComparisons } from '../weather'
+import { WEATHER_MODELS } from '../weather'
 import type { WindModelComparison } from '../weather'
 import type { BriefingRequest, WeatherModelKey } from '../types'
 import './windModelComparison.css'
 
 type ComparisonState = 'idle' | 'loading' | 'ready' | 'error'
+
+type WindTimelineHour = {
+  time: string
+  speed: number | null
+  gust: number | null
+  direction: number | null
+}
+
+type WindModelTimelineComparison = WindModelComparison & {
+  hourly: WindTimelineHour[]
+}
+
+type WindForecastResponse = {
+  timezone?: string
+  hourly?: {
+    time: string[]
+    wind_speed_10m: Array<number | null>
+    wind_direction_10m: Array<number | null>
+    wind_gusts_10m: Array<number | null>
+  }
+}
 
 function validCoordinate(value: string | undefined) {
   if (!value?.trim()) return null
@@ -56,6 +77,99 @@ function formatSpeed(value: number | null) {
   return `${value.toFixed(1).replace('.0', '')} nd`
 }
 
+function minutesFromIso(value: string) {
+  const time = value.split('T')[1] ?? '00:00'
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+function minutesFromClock(value: string | undefined, fallback: number) {
+  if (!value) return fallback
+  const [hours, minutes] = value.split(':').map(Number)
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return fallback
+  return hours * 60 + minutes
+}
+
+function nearestIndex(times: string[], clock: string | undefined) {
+  const target = minutesFromClock(clock, 12 * 60)
+  let bestIndex = 0
+  let bestDistance = Number.POSITIVE_INFINITY
+  times.forEach((time, index) => {
+    const distance = Math.abs(minutesFromIso(time) - target)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestIndex = index
+    }
+  })
+  return bestIndex
+}
+
+function safeNumber(value: number | null | undefined) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function buildHourlyTimeline(forecast: WindForecastResponse, request: BriefingRequest) {
+  if (!forecast.hourly?.time.length) return []
+  const startMinutes = minutesFromClock(request.startTime, 0)
+  const endMinutes = minutesFromClock(request.endTime, 24 * 60 - 1)
+  const selectedIndexes = forecast.hourly.time
+    .map((time, index) => ({ index, minute: minutesFromIso(time) }))
+    .filter(({ minute }) => minute >= startMinutes && minute <= endMinutes)
+    .map(({ index }) => index)
+  const indexes = selectedIndexes.length ? selectedIndexes : forecast.hourly.time.map((_, index) => index)
+
+  return indexes.map((index) => ({
+    time: forecast.hourly?.time[index].split('T')[1] ?? forecast.hourly?.time[index] ?? '',
+    speed: safeNumber(forecast.hourly?.wind_speed_10m[index]),
+    gust: safeNumber(forecast.hourly?.wind_gusts_10m[index]),
+    direction: safeNumber(forecast.hourly?.wind_direction_10m[index]),
+  }))
+}
+
+async function fetchComparisonsWithTimeline(
+  request: BriefingRequest,
+  latitude: number,
+  longitude: number,
+): Promise<WindModelTimelineComparison[]> {
+  if (!request.date || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return []
+  const raceTime = request.raceTime || request.startTime
+
+  return Promise.all(WEATHER_MODELS.map(async (model): Promise<WindModelTimelineComparison> => {
+    const params = new URLSearchParams({
+      latitude: String(latitude),
+      longitude: String(longitude),
+      hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+      start_date: request.date,
+      end_date: request.date,
+      timezone: 'auto',
+      wind_speed_unit: 'kn',
+    })
+    if (model.key !== 'best_match') params.set('models', model.key)
+
+    try {
+      const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
+      if (!response.ok) {
+        return { model, available: false, speed: null, gust: null, direction: null, timezone: null, hourly: [], error: 'Indisponible pour cette échéance ou cette zone.' }
+      }
+      const forecast = await response.json() as WindForecastResponse
+      if (!forecast.hourly?.time.length) {
+        return { model, available: false, speed: null, gust: null, direction: null, timezone: forecast.timezone ?? null, hourly: [], error: 'Pas de donnée à l’heure de la manche.' }
+      }
+      const raceIndex = nearestIndex(forecast.hourly.time, raceTime)
+      const speed = safeNumber(forecast.hourly.wind_speed_10m[raceIndex])
+      const gust = safeNumber(forecast.hourly.wind_gusts_10m[raceIndex])
+      const direction = safeNumber(forecast.hourly.wind_direction_10m[raceIndex])
+      const hourly = buildHourlyTimeline(forecast, request)
+      if (speed == null || direction == null) {
+        return { model, available: false, speed, gust, direction, timezone: forecast.timezone ?? null, hourly, error: 'Vent incomplet pour cette échéance.' }
+      }
+      return { model, available: true, speed, gust, direction, timezone: forecast.timezone ?? null, hourly }
+    } catch {
+      return { model, available: false, speed: null, gust: null, direction: null, timezone: null, hourly: [], error: 'Connexion au modèle impossible.' }
+    }
+  }))
+}
+
 function circularMean(values: number[]) {
   if (!values.length) return null
   const radians = values.map((value) => value * Math.PI / 180)
@@ -90,7 +204,7 @@ export function WindModelComparisonPanel() {
   const { state } = useLocation()
   const navigate = useNavigate()
   const request = state as BriefingRequest | null
-  const [comparisons, setComparisons] = useState<WindModelComparison[]>([])
+  const [comparisons, setComparisons] = useState<WindModelTimelineComparison[]>([])
   const [comparisonState, setComparisonState] = useState<ComparisonState>('idle')
   const [error, setError] = useState('')
   const activeModel: WeatherModelKey = request?.weatherModel ?? 'best_match'
@@ -102,7 +216,7 @@ export function WindModelComparisonPanel() {
     setError('')
 
     void resolveCoordinates(request)
-      .then(({ latitude, longitude }) => fetchWindModelComparisons(request, latitude, longitude))
+      .then(({ latitude, longitude }) => fetchComparisonsWithTimeline(request, latitude, longitude))
       .then((items) => {
         if (!active) return
         setComparisons(items)
@@ -116,10 +230,15 @@ export function WindModelComparisonPanel() {
       })
 
     return () => { active = false }
-  }, [request?.location, request?.latitude, request?.longitude, request?.date, request?.raceTime, request?.startTime])
+  }, [request?.location, request?.latitude, request?.longitude, request?.date, request?.raceTime, request?.startTime, request?.endTime])
 
   const activeComparison = comparisons.find((item) => item.model.key === activeModel)
+  const activeModelLabel = activeComparison?.model.label ?? WEATHER_MODELS.find((model) => model.key === activeModel)?.label ?? 'Open-Meteo · Best Match'
   const summary = useMemo(() => agreementLabel(comparisons), [comparisons])
+  const timelineHours = useMemo(() => {
+    const source = comparisons.find((item) => item.hourly.length)?.hourly ?? []
+    return source.map((hour) => hour.time)
+  }, [comparisons])
 
   if (!request) return null
 
@@ -136,13 +255,13 @@ export function WindModelComparisonPanel() {
       </div>
       <div className="active-weather-model">
         <small>Modèle utilisé dans le briefing</small>
-        <strong>{activeComparison?.model.label ?? (activeModel === 'best_match' ? 'Open-Meteo · Best Match' : activeModel)}</strong>
+        <strong>{activeModelLabel}</strong>
       </div>
     </div>
 
     <p className="wind-model-intro">Le « Best Match » est une sélection automatique Open-Meteo, pas un modèle unique identifié. Les autres cartes correspondent à des modèles explicites et indépendants. Changer de modèle recalcule le vent, l’évolution horaire et les recommandations du briefing.</p>
 
-    {comparisonState === 'loading' && <div className="wind-model-loading"><LoaderCircle className="wind-model-spin" size={18} /> Comparaison des modèles à l’heure de la manche…</div>}
+    {comparisonState === 'loading' && <div className="wind-model-loading"><LoaderCircle className="wind-model-spin" size={18} /> Comparaison des modèles et de leur évolution horaire…</div>}
     {comparisonState === 'error' && <div className="wind-model-error">Comparaison indisponible : {error}</div>}
 
     {comparisonState === 'ready' && <>
@@ -172,7 +291,47 @@ export function WindModelComparisonPanel() {
           </article>
         })}
       </div>
+
+      {timelineHours.length > 0 && <div className="wind-model-timeline-block">
+        <div className="wind-model-timeline-heading">
+          <div>
+            <small>Comparaison dans le temps</small>
+            <h3>Évolution heure par heure · tous les modèles</h3>
+          </div>
+          <span>Vent moyen · rafale · direction</span>
+        </div>
+        <div className="wind-model-timeline-scroll" tabIndex={0} aria-label="Comparaison horaire des modèles de vent">
+          <div className="wind-model-timeline" style={{ gridTemplateColumns: `140px repeat(${timelineHours.length}, minmax(118px, 1fr))` }}>
+            <div className="wind-model-timeline-corner">Modèle</div>
+            {timelineHours.map((time) => <div className="wind-model-timeline-time" key={time}>{time}</div>)}
+            {comparisons.map((item) => {
+              const selected = item.model.key === activeModel
+              return <div className="wind-model-timeline-row" key={item.model.key} style={{ display: 'contents' }}>
+                <div className={`wind-model-timeline-model${selected ? ' is-active' : ''}`}>
+                  <strong>{item.model.shortLabel}</strong>
+                  {selected && <span><Check size={11} /> actif</span>}
+                </div>
+                {timelineHours.map((time) => {
+                  const hour = item.hourly.find((entry) => entry.time === time)
+                  return <div className={`wind-model-timeline-cell${selected ? ' is-active' : ''}`} key={`${item.model.key}-${time}`}>
+                    {hour ? <>
+                      <strong>{formatSpeed(hour.speed)}</strong>
+                      <span>raf. {formatSpeed(hour.gust)}</span>
+                      <small>{formatDegrees(hour.direction)}</small>
+                    </> : <span className="wind-model-timeline-empty">—</span>}
+                  </div>
+                })}
+              </div>
+            })}
+          </div>
+        </div>
+      </div>}
+
       <div className="wind-model-summary"><Wind size={16} /><p><strong>Lecture d’ensemble :</strong> {summary}</p></div>
+      <div className="wind-model-active-explainer">
+        <Check size={15} />
+        <p><strong>Évolution détaillée affichée plus bas :</strong> elle utilise actuellement <b>{activeModelLabel}</b>. Le tableau ci-dessus sert à comparer les modèles ; la grande section horaire du briefing n’en affiche volontairement qu’un à la fois.</p>
+      </div>
     </>}
   </section>
 }

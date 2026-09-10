@@ -25,10 +25,34 @@
 .wind-model-card button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; width: 100%; padding: 8px; border: 1px solid #216e8c; color: #fff; background: #216e8c; font-size: 8px; font-weight: 700; cursor: pointer; }
 .wind-model-card button.is-selected, .wind-model-card button:disabled { color: #536c66; background: #eef4f2; border-color: #d5e1dd; cursor: default; }
 .wind-model-unavailable { display: flex; align-items: center; gap: 6px; min-height: 54px; padding: 8px; border: 1px dashed #cfdad6; color: #6c7f79; font-size: 8px; line-height: 1.35; }
+.wind-model-timeline-block { margin-top: 16px; padding-top: 14px; border-top: 1px solid #dbe6e2; }
+.wind-model-timeline-heading { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin-bottom: 9px; }
+.wind-model-timeline-heading small { color: #71837d; font-size: 7px; text-transform: uppercase; letter-spacing: .45px; }
+.wind-model-timeline-heading h3 { margin: 2px 0 0; color: #173b3a; font: 700 14px/1.2 'Manrope', sans-serif; }
+.wind-model-timeline-heading > span { color: #71837d; font-size: 7.5px; }
+.wind-model-timeline-scroll { overflow-x: auto; padding-bottom: 4px; }
+.wind-model-timeline { display: grid; min-width: max-content; border-top: 1px solid #dbe6e2; border-left: 1px solid #dbe6e2; background: #fff; }
+.wind-model-timeline-corner, .wind-model-timeline-time, .wind-model-timeline-model, .wind-model-timeline-cell { min-width: 0; border-right: 1px solid #dbe6e2; border-bottom: 1px solid #dbe6e2; }
+.wind-model-timeline-corner, .wind-model-timeline-time { padding: 8px; background: #edf4f3; color: #536c66; font-size: 8px; font-weight: 800; text-align: center; }
+.wind-model-timeline-corner { text-align: left; }
+.wind-model-timeline-model { display: grid; align-content: center; gap: 3px; padding: 8px 10px; background: #f8fbfa; }
+.wind-model-timeline-model strong { color: #173b3a; font-size: 9px; }
+.wind-model-timeline-model span { display: inline-flex; align-items: center; gap: 3px; color: #174e66; font-size: 7px; font-weight: 800; text-transform: uppercase; }
+.wind-model-timeline-model.is-active, .wind-model-timeline-cell.is-active { background: #fffaf0; }
+.wind-model-timeline-model.is-active { box-shadow: inset 3px 0 0 #216e8c; }
+.wind-model-timeline-cell { display: grid; align-content: center; gap: 2px; min-height: 58px; padding: 7px 8px; text-align: center; }
+.wind-model-timeline-cell strong { color: #173b3a; font-size: 9px; }
+.wind-model-timeline-cell span { color: #61736e; font-size: 7px; }
+.wind-model-timeline-cell small { color: #216e8c; font-size: 7px; font-weight: 700; }
+.wind-model-timeline-empty { margin: auto; color: #9aa8a4; }
 .wind-model-summary { display: flex; align-items: flex-start; gap: 8px; margin-top: 11px; padding: 10px 12px; border-top: 1px solid #dbe6e2; background: #fff; color: #4f6761; }
 .wind-model-summary svg { flex: 0 0 auto; color: #216e8c; }
 .wind-model-summary p { margin: 0; font-size: 9px; line-height: 1.5; }
 .wind-model-summary strong { color: #173b3a; }
+.wind-model-active-explainer { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; padding: 10px 12px; border: 1px solid #d6a52c; background: #fffaf0; color: #5c603f; }
+.wind-model-active-explainer svg { flex: 0 0 auto; color: #216e8c; }
+.wind-model-active-explainer p { margin: 0; font-size: 8.5px; line-height: 1.45; }
+.wind-model-active-explainer strong, .wind-model-active-explainer b { color: #173b3a; }
 
 @media (max-width: 1050px) {
   .wind-model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -40,6 +64,8 @@
   .active-weather-model { min-width: 0; }
   .wind-model-grid { grid-template-columns: 1fr; }
   .wind-model-reading div { padding: 9px 7px; }
+  .wind-model-timeline-heading { display: grid; align-items: start; }
+  .wind-model-timeline { grid-template-columns: 112px repeat(var(--timeline-count, 6), 104px); }
 }
 
 @media print {
@@ -50,4 +76,7 @@
   .wind-model-card button { display: none !important; }
   .wind-model-card > p { display: none !important; }
   .wind-model-intro, .wind-model-summary p, .wind-model-reading strong, .wind-model-meta { font-size: 6.5pt !important; }
+  .wind-model-timeline-scroll { overflow: visible !important; }
+  .wind-model-timeline { transform-origin: top left; }
+  .wind-model-active-explainer { display: none !important; }
 }
