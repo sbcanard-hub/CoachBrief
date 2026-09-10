@@ -1,0 +1,16 @@
+.header-actions { display: flex; align-items: center; gap: 9px; margin-left: auto; }
+.header-actions a, .header-actions button { width: auto; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; padding: 8px 10px; border: 1px solid #d2dcd7; color: #173b3a; background: #fff; font-size: 9px; font-weight: 650; text-decoration: none; cursor: pointer; }
+.header-actions button { color: #fff; background: #216e8c; border-color: #216e8c; }
+.header-actions button:disabled { cursor: wait; opacity: .8; }
+.header-actions a:hover, .header-actions button:hover { filter: brightness(.97); }
+.header-actions a:focus-visible, .header-actions button:focus-visible { outline: 2px solid #216e8c; outline-offset: 2px; }
+.header-spin { animation: header-spin .9s linear infinite; }
+@keyframes header-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 620px) {
+  .site-header { gap: 10px; }
+  .header-actions { gap: 6px; }
+  .header-actions a, .header-actions button { min-width: 34px; padding: 8px; }
+  .header-actions a span, .header-actions button span { display: none; }
+  .header-actions .header-label { display: none; }
+}
