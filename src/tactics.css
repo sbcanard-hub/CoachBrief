@@ -82,6 +82,31 @@
 .metar-empty { padding: 10px 0 2px; color: #8a9793; font-size: 9px; line-height: 1.45; }
 .local-source-note { margin: 13px 0 0; color: #7b8985; font-size: 9px; line-height: 1.55; }
 
+.course-sizing { margin: 0 0 48px; padding: 24px; border: 1px solid #d9e1dc; background: #fff; }
+.course-sizing-heading, .course-sizing-heading > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.course-sizing-heading > div { justify-content: flex-start; }
+.course-sizing-heading svg { color: #216e8c; }
+.course-sizing-heading h2 { margin: 0; font: 500 21px 'Manrope', sans-serif; letter-spacing: -.7px; }
+.course-sizing-heading .step-label { margin-bottom: 4px; }
+.course-sizing-heading > span { color: #7e8d89; font-size: 9px; text-transform: uppercase; letter-spacing: .6px; }
+.course-sizing-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(320px, 1.1fr); gap: 18px; margin-top: 18px; }
+.course-sizing-data { display: grid; align-content: start; gap: 14px; }
+.course-sizing-main { display: flex; align-items: baseline; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #e1e6e2; }
+.course-sizing-main strong { color: #173b3a; font: 600 34px 'Manrope', sans-serif; letter-spacing: -1.4px; }
+.course-sizing-main strong small { font-size: 14px; letter-spacing: 0; }
+.course-sizing-main > span { color: #637972; font-size: 12px; }
+.course-sizing-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.course-sizing-metrics article { display: flex; align-items: center; gap: 9px; padding: 10px; border: 1px solid #e1e6e2; background: #f7f8f4; }
+.course-sizing-metrics svg { flex: 0 0 auto; color: #216e8c; }
+.course-sizing-metrics div { min-width: 0; display: grid; gap: 2px; }
+.course-sizing-metrics small { color: #7d8b87; font-size: 8px; text-transform: uppercase; letter-spacing: .5px; }
+.course-sizing-metrics strong { color: #173b3a; font-size: 11px; }
+.course-sizing-data > p { margin: 0; color: #536a64; font-size: 10px; line-height: 1.55; }
+.course-sizing-disclaimer { color: #87938f; font-size: 8px; line-height: 1.5; }
+.course-preview-map, .course-preview-empty { width: 100%; min-height: 330px; border: 1px solid #d7dfda; background: #f4f6f2; }
+.course-preview-map { height: 330px; z-index: 0; }
+.course-preview-empty { display: grid; place-items: center; padding: 24px; box-sizing: border-box; color: #7d8c88; font-size: 10px; text-align: center; }
+
 .bernot-section { margin: 0 0 64px; }
 .bernot-help { color: #7d8c88; font-size: 10px; text-transform: uppercase; letter-spacing: .7px; }
 .bernot-scroll { overflow-x: auto; outline-offset: 4px; }
@@ -104,15 +129,18 @@
   .tactical-overview { grid-template-columns: 1fr 1fr; }
   .coach-observation-grid { grid-template-columns: 1fr 1fr; }
   .local-source-grid { grid-template-columns: 1fr; }
+  .course-sizing-layout { grid-template-columns: 1fr; }
   .bernot-help { margin-top: 7px; }
 }
 
 @media (max-width: 560px) {
   .tactical-overview { grid-template-columns: 1fr; }
   .tactical-overview article { padding: 15px; }
-  .coach-observation-heading, .map-picker-heading, .map-picker-footer, .local-sources-heading { align-items: flex-start; flex-direction: column; }
-  .coach-observation-grid { grid-template-columns: 1fr; }
+  .coach-observation-heading, .course-sizing-heading, .map-picker-heading, .map-picker-footer, .local-sources-heading { align-items: flex-start; flex-direction: column; }
+  .coach-observation-grid, .course-sizing-metrics { grid-template-columns: 1fr; }
   .map-center-button { width: 100%; }
   .course-map { height: 235px; }
+  .course-preview-map, .course-preview-empty { min-height: 250px; }
+  .course-preview-map { height: 250px; }
   .local-sources-heading > small { text-align: left; }
 }
