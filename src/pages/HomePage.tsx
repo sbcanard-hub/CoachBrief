@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react'
-import { ArrowRight, CalendarDays, Clock3, CloudSun, Compass, Flag, Gauge, MapPin, Navigation, Sailboat, Waves, Wind } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { ArrowRight, CalendarDays, Clock3, CloudSun, Compass, Copy, Flag, Gauge, MapPin, Navigation, Sailboat, Waves, Wind } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { MapPicker } from '../components/MapPicker'
 import type { BriefingRequest } from '../types'
 
@@ -30,9 +30,34 @@ const initialForm: BriefingRequest = {
   observationNotes: '',
 }
 
+type HomeNavigationState = {
+  prefill?: BriefingRequest
+  duplicate?: boolean
+}
+
+function duplicatedForm(request: BriefingRequest) {
+  return {
+    ...request,
+    observationTime: '',
+    observedWindSpeed: '',
+    observedWindDirection: '',
+    observedGust: '',
+    observedWaveHeight: '',
+    observedCurrentSpeed: '',
+    observedCurrentDirection: '',
+    observedCloudCover: '',
+    observedPressure: '',
+    observationNotes: '',
+  }
+}
+
 export function HomePage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState(initialForm)
+  const navigation = useLocation().state as HomeNavigationState | null
+  const [form, setForm] = useState<BriefingRequest>(() => {
+    if (!navigation?.prefill) return initialForm
+    return navigation.duplicate ? duplicatedForm(navigation.prefill) : navigation.prefill
+  })
 
   function updateField(field: keyof BriefingRequest, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -58,8 +83,9 @@ export function HomePage() {
       <section className="brief-card" aria-labelledby="brief-title">
         <div className="card-heading">
           <div>
-            <span className="step-label">Nouveau briefing</span>
-            <h2 id="brief-title">Votre prochaine régate</h2>
+            <span className="step-label">{navigation?.duplicate ? 'Duplication rapide' : 'Nouveau briefing'}</span>
+            <h2 id="brief-title">{navigation?.duplicate ? 'Préparer la manche suivante' : 'Votre prochaine régate'}</h2>
+            {navigation?.duplicate && <p className="observation-intro"><Copy size={13} /> Parcours et paramètres repris. Les observations terrain précédentes ont été effacées.</p>}
           </div>
           <span className="step-number">01</span>
         </div>
