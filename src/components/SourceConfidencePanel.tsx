@@ -4,7 +4,7 @@ import './sourceConfidence.css'
 
 type SourceConfidencePanelProps = {
   reliability: PlanSourceReliability | null
-  currentMetarAvailable: boolean
+  currentMetarAvailable?: boolean
 }
 
 const SOURCE_NAMES: Record<SourceReliabilityMetric['key'], string> = {
@@ -74,7 +74,7 @@ export function SourceConfidencePanel({ reliability, currentMetarAvailable }: So
               {metric.meanDistanceKm != null && <small>Distance moyenne : {Math.round(metric.meanDistanceKm)} km</small>}
               {metric.meanTimeGapMinutes != null && <small>Écart horaire moyen : {Math.round(metric.meanTimeGapMinutes)} min</small>}
               {metric.excludedTimeMismatchCount > 0 && <small>{metric.excludedTimeMismatchCount} METAR hors ±90 min exclu{metric.excludedTimeMismatchCount > 1 ? 's' : ''}</small>}
-              {!currentMetarAvailable && <small>Pas de METAR actuel disponible dans le cache.</small>}
+              {currentMetarAvailable === false && <small>Pas de METAR actuel disponible dans le cache.</small>}
             </div>}
           </article>
         })}
