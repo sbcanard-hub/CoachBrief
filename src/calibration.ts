@@ -1,4 +1,6 @@
+import type { BriefingRequest } from './types'
 import type { SavedBriefing } from './savedBriefings'
+import type { LiveWeatherData } from './weather'
 
 export type CalibrationSample = {
   id: string
@@ -25,13 +27,21 @@ export function signedAngleDelta(from: number, to: number) {
   return ((to - from + 540) % 360) - 180
 }
 
-function planKey(item: SavedBriefing) {
-  const latitude = Number(item.request.latitude)
-  const longitude = Number(item.request.longitude)
-  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+function normalizeDirection(value: number) {
+  return ((value % 360) + 360) % 360
+}
+
+function planKeyFromRequest(request: BriefingRequest) {
+  const latitude = Number(request.latitude)
+  const longitude = Number(request.longitude)
+  if (request.latitude !== '' && request.longitude !== '' && Number.isFinite(latitude) && Number.isFinite(longitude)) {
     return `${latitude.toFixed(2)}:${longitude.toFixed(2)}`
   }
-  return (item.request.location || 'plan-eau-inconnu').trim().toLowerCase()
+  return (request.location || 'plan-eau-inconnu').trim().toLowerCase()
+}
+
+function planKey(item: SavedBriefing) {
+  return planKeyFromRequest(item.request)
 }
 
 function arithmeticMean(values: number[]) {
@@ -93,6 +103,42 @@ export function buildPlanCalibrations(items: SavedBriefing[]): PlanCalibration[]
       samples,
     }
   }).sort((a, b) => b.sampleCount - a.sampleCount || a.label.localeCompare(b.label))
+}
+
+export function calibrationForRequest(items: SavedBriefing[], request: BriefingRequest | null) {
+  if (!request) return null
+  const key = planKeyFromRequest(request)
+  return buildPlanCalibrations(items).find((calibration) => calibration.key === key) ?? null
+}
+
+export function applyCalibrationToWeather(weather: LiveWeatherData, calibration: PlanCalibration): LiveWeatherData {
+  const speedBias = calibration.meanSpeedBias ?? 0
+  const directionBias = calibration.meanDirectionBias ?? 0
+  const correctedSpeed = (value: number) => Math.max(0, value + speedBias)
+  const correctedDirection = (value: number) => normalizeDirection(value + directionBias)
+
+  return {
+    ...weather,
+    hourly: weather.hourly.map((hour) => ({
+      ...hour,
+      speed: correctedSpeed(hour.speed),
+      gust: correctedSpeed(hour.gust),
+      direction: correctedDirection(hour.direction),
+    })),
+    race: {
+      ...weather.race,
+      speed: correctedSpeed(weather.race.speed),
+      gust: correctedSpeed(weather.race.gust),
+      direction: correctedDirection(weather.race.direction),
+    },
+    scenario: {
+      ...weather.scenario,
+      windStart: correctedDirection(weather.scenario.windStart),
+      windEnd: correctedDirection(weather.scenario.windEnd),
+      raceWindSpeed: correctedSpeed(weather.scenario.raceWindSpeed),
+      maxWindSpeed: correctedSpeed(weather.scenario.maxWindSpeed),
+    },
+  }
 }
 
 export function calibrationConfidence(sampleCount: number) {
