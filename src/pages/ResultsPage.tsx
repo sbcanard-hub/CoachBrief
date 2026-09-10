@@ -1,25 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
-  ArrowDownRight,
-  ArrowLeft,
-  ArrowUpRight,
-  CalendarDays,
-  ChevronDown,
-  Clock3,
-  CloudSun,
-  Compass,
-  Droplets,
-  Flag,
-  Gauge,
-  HelpCircle,
-  Navigation,
-  Sailboat,
-  Thermometer,
-  Waves,
-  Wind,
+  ArrowDownRight, ArrowLeft, ArrowUpRight, CalendarDays, ChevronDown, Clock3, CloudSun, Compass,
+  Droplets, ExternalLink, Flag, Gauge, HelpCircle, Navigation, Radio, Sailboat, Thermometer, Waves, Wind,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
+import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
 import { fetchWeatherForBriefing } from '../weather'
 import type { LiveWeatherData, WeatherHour } from '../weather'
 import type { BriefingRequest } from '../types'
@@ -36,15 +22,12 @@ const mockHourlyForecast: WeatherHour[] = [
 function formatDate(date?: string) {
   if (!date) return 'Samedi 6 septembre 2026'
   const parsed = new Date(`${date}T12:00:00`)
-  return Number.isNaN(parsed.getTime())
-    ? date
-    : new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(parsed)
+  return Number.isNaN(parsed.getTime()) ? date : new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(parsed)
 }
 
 function formatAxis(axis?: string) {
   const value = Number(axis)
-  if (!Number.isFinite(value)) return '080°'
-  return `${String(Math.round(value)).padStart(3, '0')}°`
+  return Number.isFinite(value) ? `${String(Math.round(value)).padStart(3, '0')}°` : '080°'
 }
 
 function formatOffset(offset?: string) {
@@ -53,23 +36,16 @@ function formatOffset(offset?: string) {
   return `${value > 0 ? '+' : ''}${value}° · ${value > 0 ? 'droite' : 'gauche'}`
 }
 
-function formatDegrees(value: number) {
-  return `${String(Math.round(value)).padStart(3, '0')}°`
-}
-
+function formatDegrees(value: number) { return `${String(Math.round(value)).padStart(3, '0')}°` }
 function directionLabel(value: number) {
   const labels = ['N', 'N-E', 'E', 'S-E', 'S', 'S-O', 'O', 'N-O']
   return labels[Math.round((((value % 360) + 360) % 360) / 45) % 8]
 }
-
 function clockMinutes(value: string) {
   const [hours, minutes] = value.split(':').map(Number)
   return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0)
 }
-
-function isRaceHour(hour: string, raceTime: string) {
-  return Math.abs(clockMinutes(hour) - clockMinutes(raceTime)) <= 30
-}
+function isRaceHour(hour: string, raceTime: string) { return Math.abs(clockMinutes(hour) - clockMinutes(raceTime)) <= 30 }
 
 export function ResultsPage() {
   const { state } = useLocation()
@@ -84,20 +60,9 @@ export function ResultsPage() {
     let active = true
     setWeatherState('loading')
     setWeatherError('')
-
     fetchWeatherForBriefing(request)
-      .then((data) => {
-        if (!active) return
-        setLiveWeather(data)
-        setWeatherState('live')
-      })
-      .catch((error: unknown) => {
-        if (!active) return
-        setLiveWeather(null)
-        setWeatherState('fallback')
-        setWeatherError(error instanceof Error ? error.message : 'Météo réelle indisponible')
-      })
-
+      .then((data) => { if (active) { setLiveWeather(data); setWeatherState('live') } })
+      .catch((error: unknown) => { if (active) { setLiveWeather(null); setWeatherState('fallback'); setWeatherError(error instanceof Error ? error.message : 'Météo réelle indisponible') } })
     return () => { active = false }
   }, [request])
 
@@ -112,23 +77,15 @@ export function ResultsPage() {
   const bernotRows = buildBernotRows(request, liveWeather?.scenario)
   const recommendations = buildCoachRecommendations(request, liveWeather?.scenario)
   const forecast = liveWeather?.hourly.length ? liveWeather.hourly : mockHourlyForecast
-  const raceWeather = liveWeather?.race ?? {
-    speed: 11,
-    gust: 15,
-    direction: 80,
-    temperature: 20,
-    humidity: 62,
-    dewPoint: 14,
-    pressure: 1018,
-    cloudCover: 25,
-  }
+  const raceWeather = liveWeather?.race ?? { speed: 11, gust: 15, direction: 80, temperature: 20, humidity: 62, dewPoint: 14, pressure: 1018, cloudCover: 25 }
   const marine = liveWeather?.marine
   const pressureTrend = liveWeather?.pressureTrend ?? 'hausse'
-  const weatherLabel = weatherState === 'live'
-    ? 'Météo réelle · Open-Meteo'
-    : weatherState === 'loading'
-      ? 'Connexion météo en cours…'
-      : 'Météo de démonstration'
+  const weatherLabel = weatherState === 'live' ? 'Météo réelle · Open-Meteo' : weatherState === 'loading' ? 'Connexion météo en cours…' : 'Météo de démonstration'
+  const sourceLatitude = liveWeather?.latitude ?? Number(request?.latitude)
+  const sourceLongitude = liveWeather?.longitude ?? Number(request?.longitude)
+  const localSources = Number.isFinite(sourceLatitude) && Number.isFinite(sourceLongitude)
+    ? nearbyMetarSources(sourceLatitude, sourceLongitude).filter((source) => source.distance <= 250)
+    : []
 
   return (
     <main className="results-page briefing-page">
@@ -139,10 +96,8 @@ export function ResultsPage() {
           <span className="step-label">Briefing météo & tactique · {weatherLabel}</span>
           <h1 id="briefing-title">{location}</h1>
           <div className="event-meta">
-            <span><CalendarDays size={15} /> {formatDate(request?.date)}</span>
-            <span><Clock3 size={15} /> Manche à {raceTime}</span>
-            <span><Sailboat size={15} /> {boatClass}</span>
-            <span><Flag size={15} /> Parcours {courseType}</span>
+            <span><CalendarDays size={15} /> {formatDate(request?.date)}</span><span><Clock3 size={15} /> Manche à {raceTime}</span>
+            <span><Sailboat size={15} /> {boatClass}</span><span><Flag size={15} /> Parcours {courseType}</span>
           </div>
           {weatherState === 'live' && liveWeather && <p className="weather-source-note">Point météo : {liveWeather.placeName} · {liveWeather.latitude.toFixed(3)}, {liveWeather.longitude.toFixed(3)} · {liveWeather.timezone}</p>}
           {weatherState === 'fallback' && weatherError && <p className="weather-source-note is-warning">Météo réelle indisponible : {weatherError}. Affichage de la maquette.</p>}
@@ -157,19 +112,18 @@ export function ResultsPage() {
         <article><Flag /><div><small>Arrivée</small><strong>{finishOrientation}</strong></div></article>
       </section>
 
+      {localSources.length > 0 && <section className="local-sources" aria-labelledby="local-sources-title">
+        <div className="local-sources-heading"><div><Radio size={18} /><div><span className="step-label">Observations à confronter</span><h2 id="local-sources-title">Stations METAR proches</h2></div></div><small>Ouverture manuelle pour cette version GitHub Pages</small></div>
+        <div className="local-source-grid">{localSources.map((source) => <a key={source.id} href={aviationWeatherMetarUrl(source.id)} target="_blank" rel="noreferrer" className="local-source-card"><div><strong>{source.id}</strong><span>{source.name}</span></div><small>{Math.round(source.distance)} km du plan d’eau</small><ExternalLink size={15} /></a>)}</div>
+        <p className="local-source-note">L’API officielle METAR ne permet pas les appels directs depuis un navigateur. CoachBrief indique donc les stations les plus proches ; le chargement automatique passera ensuite par un petit relais serveur sécurisé.</p>
+      </section>}
+
       <section className="weather-overview" aria-label="Conditions principales">
         <article className="wind-feature">
           <div className="card-kicker"><Wind size={17} /> Vent à la manche</div>
-          <div className="wind-reading">
-            <div><strong>{Math.round(raceWeather.speed)}</strong><span>nœuds<br />moyen</span></div>
-            <div className="wind-arrow" aria-hidden="true" style={{ transform: `rotate(${raceWeather.direction - 45}deg)` }}><Navigation size={48} /></div>
-          </div>
-          <div className="wind-details">
-            <span><small>Rafales</small><strong>{Math.round(raceWeather.gust)} nds</strong></span>
-            <span><small>Direction</small><strong>{formatDegrees(raceWeather.direction)} · {directionLabel(raceWeather.direction)}</strong></span>
-          </div>
+          <div className="wind-reading"><div><strong>{Math.round(raceWeather.speed)}</strong><span>nœuds<br />moyen</span></div><div className="wind-arrow" aria-hidden="true" style={{ transform: `rotate(${raceWeather.direction - 45}deg)` }}><Navigation size={48} /></div></div>
+          <div className="wind-details"><span><small>Rafales</small><strong>{Math.round(raceWeather.gust)} nds</strong></span><span><small>Direction</small><strong>{formatDegrees(raceWeather.direction)} · {directionLabel(raceWeather.direction)}</strong></span></div>
         </article>
-
         <div className="conditions-grid">
           <article className="condition-card"><Thermometer /><div><small>Températures</small><strong>{Math.round(raceWeather.temperature)}°C <span>air</span></strong><p>{marine?.seaTemperature == null ? 'Mer —' : `${Math.round(marine.seaTemperature)}°C · eau`}</p></div></article>
           <article className="condition-card"><Gauge /><div><small>Pression</small><strong>{Math.round(raceWeather.pressure)} <span>hPa</span></strong><p className="trend-up">{pressureTrend === 'hausse' ? <ArrowUpRight /> : pressureTrend === 'baisse' ? <ArrowDownRight /> : <span>→</span>} {pressureTrend === 'hausse' ? 'En hausse' : pressureTrend === 'baisse' ? 'En baisse' : 'Stable'}</p></div></article>
@@ -178,94 +132,20 @@ export function ResultsPage() {
         </div>
       </section>
 
-      <section className="brief-section" aria-labelledby="evolution-title">
-        <div className="section-heading">
-          <div><span className="section-number">01</span><div><span className="step-label">Fenêtre de course</span><h2 id="evolution-title">Évolution heure par heure</h2></div></div>
-          <div className="legend"><span className="legend-average" /> Vent moyen <span className="legend-gust" /> Rafales</div>
-        </div>
-        <div className="forecast-scroll" tabIndex={0} aria-label="Prévisions horaires, faites défiler horizontalement sur mobile">
-          <div className="forecast-table" style={{ gridTemplateColumns: `repeat(${forecast.length}, minmax(130px, 1fr))` }}>
-            {forecast.map((hour) => {
-              const race = isRaceHour(hour.time, raceTime)
-              return (
-                <article className={`forecast-hour${race ? ' is-race' : ''}`} key={hour.time}>
-                  <div className="forecast-time">{hour.time}{race && <span>Manche</span>}</div>
-                  <Navigation className="direction-arrow" size={27} aria-hidden="true" style={{ transform: `rotate(${hour.direction - 45}deg)` }} />
-                  <strong className="hour-speed">{Math.round(hour.speed)}<small> nds</small></strong>
-                  <span className="hour-gust">raf. {Math.round(hour.gust)}</span>
-                  <span className="hour-direction">{formatDegrees(hour.direction)} · {directionLabel(hour.direction)}</span>
-                  <span className="hour-temperature">{Math.round(hour.temperature)}°</span>
-                </article>
-              )
-            })}
-          </div>
-        </div>
+      <section className="brief-section" aria-labelledby="evolution-title"><div className="section-heading"><div><span className="section-number">01</span><div><span className="step-label">Fenêtre de course</span><h2 id="evolution-title">Évolution heure par heure</h2></div></div><div className="legend"><span className="legend-average" /> Vent moyen <span className="legend-gust" /> Rafales</div></div>
+        <div className="forecast-scroll" tabIndex={0} aria-label="Prévisions horaires"><div className="forecast-table" style={{ gridTemplateColumns: `repeat(${forecast.length}, minmax(130px, 1fr))` }}>{forecast.map((hour) => { const race = isRaceHour(hour.time, raceTime); return <article className={`forecast-hour${race ? ' is-race' : ''}`} key={hour.time}><div className="forecast-time">{hour.time}{race && <span>Manche</span>}</div><Navigation className="direction-arrow" size={27} aria-hidden="true" style={{ transform: `rotate(${hour.direction - 45}deg)` }} /><strong className="hour-speed">{Math.round(hour.speed)}<small> nds</small></strong><span className="hour-gust">raf. {Math.round(hour.gust)}</span><span className="hour-direction">{formatDegrees(hour.direction)} · {directionLabel(hour.direction)}</span><span className="hour-temperature">{Math.round(hour.temperature)}°</span></article> })}</div></div>
       </section>
 
       <section className="dynamics-grid" aria-label="Dynamique du vent et état de la mer">
-        <article className="detail-panel">
-          <div className="panel-icon"><Compass /></div>
-          <div><span className="step-label">Dynamique du vent</span><h2>Oscillation & rotation</h2></div>
-          <div className="metric-line"><span>Oscillation estimée</span><strong>± {liveWeather?.scenario.oscillation ?? 8}°</strong></div>
-          <div className="metric-line"><span>Tendance</span><strong className="rotation"><ArrowDownRight /> {liveWeather && liveWeather.scenario.windEnd < liveWeather.scenario.windStart ? 'Gauche' : 'Droite'}</strong></div>
-          <p>{liveWeather ? `Évolution calculée de ${formatDegrees(liveWeather.scenario.windStart)} à ${formatDegrees(liveWeather.scenario.windEnd)} sur la fenêtre choisie.` : 'Rotation progressive de 080° à 110° entre 11 h et 14 h. Oscillations régulières, période estimée à 8–12 minutes.'}</p>
-        </article>
-        <article className="detail-panel sea-panel">
-          <div className="panel-icon"><Waves /></div>
-          <div><span className="step-label">Plan d'eau</span><h2>État de la mer</h2></div>
-          <div className="sea-measure"><strong>{marine?.waveHeight == null ? '—' : marine.waveHeight.toFixed(1).replace('.', ',')} {marine?.waveHeight == null ? '' : <small>m</small>}</strong><span>{marine?.waveDirection == null ? 'Donnée marine indisponible' : `Vagues depuis ${formatDegrees(marine.waveDirection)}`}<br />{marine?.wavePeriod == null ? '' : `Période ${marine.wavePeriod.toFixed(1).replace('.', ',')} s`}</span></div>
-          <div className="metric-line"><span>Courant modèle</span><strong>{marine?.currentVelocity == null ? '—' : `${marine.currentVelocity.toFixed(1).replace('.', ',')} nd · ${formatDegrees(marine.currentDirection ?? 0)}`}</strong></div>
-          <p>Les données marines servent au briefing tactique mais restent des données de modèle : elles ne remplacent pas les observations sur l’eau.</p>
-        </article>
+        <article className="detail-panel"><div className="panel-icon"><Compass /></div><div><span className="step-label">Dynamique du vent</span><h2>Oscillation & rotation</h2></div><div className="metric-line"><span>Oscillation estimée</span><strong>± {liveWeather?.scenario.oscillation ?? 8}°</strong></div><div className="metric-line"><span>Tendance</span><strong className="rotation"><ArrowDownRight /> {liveWeather && liveWeather.scenario.windEnd < liveWeather.scenario.windStart ? 'Gauche' : 'Droite'}</strong></div><p>{liveWeather ? `Évolution calculée de ${formatDegrees(liveWeather.scenario.windStart)} à ${formatDegrees(liveWeather.scenario.windEnd)} sur la fenêtre choisie.` : 'Rotation progressive de 080° à 110° entre 11 h et 14 h.'}</p></article>
+        <article className="detail-panel sea-panel"><div className="panel-icon"><Waves /></div><div><span className="step-label">Plan d'eau</span><h2>État de la mer</h2></div><div className="sea-measure"><strong>{marine?.waveHeight == null ? '—' : marine.waveHeight.toFixed(1).replace('.', ',')} {marine?.waveHeight == null ? '' : <small>m</small>}</strong><span>{marine?.waveDirection == null ? 'Donnée marine indisponible' : `Vagues depuis ${formatDegrees(marine.waveDirection)}`}<br />{marine?.wavePeriod == null ? '' : `Période ${marine.wavePeriod.toFixed(1).replace('.', ',')} s`}</span></div><div className="metric-line"><span>Courant modèle</span><strong>{marine?.currentVelocity == null ? '—' : `${marine.currentVelocity.toFixed(1).replace('.', ',')} nd · ${formatDegrees(marine.currentDirection ?? 0)}`}</strong></div><p>Les données marines servent au briefing tactique mais restent des données de modèle : elles ne remplacent pas les observations sur l’eau.</p></article>
       </section>
 
-      <section className="bernot-section" aria-labelledby="bernot-title">
-        <div className="section-heading">
-          <div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div>
-          <span className="bernot-help">Calcul dynamique · 1 = facteur prioritaire</span>
-        </div>
-        <div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot">
-          <div className="bernot-board">
-            <div className="bernot-head factor-head">Facteur</div>
-            {bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}
-            {bernotRows.map((row) => (
-              <div className="bernot-row" key={row.factor}>
-                <div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>
-                {bernotColumns.map((column) => (
-                  <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>
-                    {row.zone === column ? <><span className="zone-marker">●</span><small>tendance</small></> : <span aria-hidden="true">·</span>}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="bernot-note">La hiérarchie combine maintenant les paramètres de course avec les données météo disponibles. Quand Open-Meteo répond, vent, nébulosité, vagues et courant alimentent directement l’analyse.</p>
-      </section>
+      <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div><span className="bernot-help">Calcul dynamique · 1 = facteur prioritaire</span></div><div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot"><div className="bernot-board"><div className="bernot-head factor-head">Facteur</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}{bernotRows.map((row) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>{row.zone === column ? <><span className="zone-marker">●</span><small>tendance</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">La hiérarchie combine les paramètres de course avec les données météo disponibles.</p></section>
 
-      <section className="coach-section" aria-labelledby="coach-title">
-        <div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div>
-        <div className="recommendations">
-          {recommendations.map((recommendation, index) => {
-            const isOpen = openWhy === index
-            return (
-              <article className="recommendation" key={recommendation.title}>
-                <span className="recommendation-number">0{index + 1}</span>
-                <div className="recommendation-content">
-                  <h3>{recommendation.title}</h3>
-                  <p>{recommendation.text}</p>
-                  <button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}>
-                    <HelpCircle size={15} /> Pourquoi <ChevronDown className={isOpen ? 'rotated' : ''} size={15} />
-                  </button>
-                  <div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      </section>
+      <section className="coach-section" aria-labelledby="coach-title"><div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div><div className="recommendations">{recommendations.map((recommendation, index) => { const isOpen = openWhy === index; return <article className="recommendation" key={recommendation.title}><span className="recommendation-number">0{index + 1}</span><div className="recommendation-content"><h3>{recommendation.title}</h3><p>{recommendation.text}</p><button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}><HelpCircle size={15} /> Pourquoi <ChevronDown className={isOpen ? 'rotated' : ''} size={15} /></button><div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div></div></article> })}</div></section>
 
-      <p className="data-note">Source météo : Open-Meteo quand disponible · Repli automatique sur la maquette · Les recommandations restent une aide au briefing et doivent être confrontées aux observations du coach.</p>
+      <p className="data-note">Source météo : Open-Meteo quand disponible · METAR : AviationWeather en consultation externe · Repli automatique sur la maquette · Les recommandations restent une aide au briefing.</p>
     </main>
   )
 }
