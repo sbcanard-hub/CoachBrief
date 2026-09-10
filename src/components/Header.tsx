@@ -53,7 +53,7 @@ export function Header() {
 
       <nav className="header-actions" aria-label="Navigation principale">
         <Link to="/briefings"><FolderOpen size={15} /> <span>Mes briefings</span></Link>
-        {request && <button type="button" onClick={printCurrentBriefing} title="Imprimer la fiche ou l’enregistrer en PDF">
+        {request && <button type="button" onClick={printCurrentBriefing} title="Imprimer la fiche ou l’enregistrer en PDF" aria-label="Imprimer le briefing ou l’enregistrer en PDF">
           <Printer size={15} /> <span>Imprimer / PDF</span>
         </button>}
         {request && <button type="button" onClick={() => void saveCurrentBriefing()} disabled={saveState === 'saving'}>
