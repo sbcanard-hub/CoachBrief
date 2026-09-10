@@ -3,6 +3,7 @@ import { Download, Layers3, RotateCcw, Save, Trash2, Upload } from 'lucide-react
 import { courseToGpx, parseCourseGpx } from '../gpx'
 import type { GpxPoint } from '../gpx'
 import '../gpx.css'
+import { loadLeaflet } from '../leafletLoader'
 import { consumeCourseRestore, writeCurrentCourseSnapshot } from '../savedBriefings'
 import type { CourseType } from '../types'
 
@@ -15,7 +16,6 @@ type CoursePreviewProps = {
   courseType: CourseType
 }
 
-type LeafletWindow = Window & { L?: any }
 type Point = { latitude: number; longitude: number }
 
 type DefaultCourse = {
@@ -200,62 +200,71 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
   }, [storageKey, courseType, bearing, points, routeOrder, variants, activeVariantId, activeVariantName])
 
   useEffect(() => {
-    const leaflet = (window as LeafletWindow).L
-    if (!leaflet || !elementRef.current || points.length < 2) return
+    let cancelled = false
+    let map: any = null
 
-    mapRef.current?.remove()
-    const map = leaflet.map(elementRef.current, { zoomControl: true, attributionControl: true })
-    leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map)
+    void loadLeaflet().then((leaflet) => {
+      if (cancelled || !elementRef.current || points.length < 2) return
 
-    const start = points[0]
-    const finish = points[points.length - 1]
-    const lineHalfWidth = Math.min(0.09, Math.max(0.035, firstLegNm * 0.12))
-    const startLine = lineAround(start, bearing, lineHalfWidth)
-    const finishLine = lineAround(finish, bearing, lineHalfWidth * 0.85)
-    const route = routeOrder.map((index) => points[index]).filter((point): point is GpxPoint => Boolean(point))
+      mapRef.current?.remove()
+      map = leaflet.map(elementRef.current, { zoomControl: true, attributionControl: true })
+      leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(map)
 
-    leaflet.polyline(route.map(latLng), { weight: 4, opacity: 0.85 }).addTo(map)
-    leaflet.polyline([latLng(startLine.left), latLng(startLine.right)], { weight: 5, opacity: 0.95 }).addTo(map)
-    leaflet.polyline([latLng(finishLine.left), latLng(finishLine.right)], { weight: 4, opacity: 0.8, dashArray: '7 6' }).addTo(map)
+      const start = points[0]
+      const finish = points[points.length - 1]
+      const lineHalfWidth = Math.min(0.09, Math.max(0.035, firstLegNm * 0.12))
+      const startLine = lineAround(start, bearing, lineHalfWidth)
+      const finishLine = lineAround(finish, bearing, lineHalfWidth * 0.85)
+      const route = routeOrder.map((index) => points[index]).filter((point): point is GpxPoint => Boolean(point))
 
-    points.forEach((point, index) => {
-      const marker = leaflet.marker(latLng(point), { draggable: true, title: point.name })
-        .bindTooltip(`${index + 1}. ${point.name}`, { permanent: false })
+      leaflet.polyline(route.map(latLng), { weight: 4, opacity: 0.85 }).addTo(map)
+      leaflet.polyline([latLng(startLine.left), latLng(startLine.right)], { weight: 5, opacity: 0.95 }).addTo(map)
+      leaflet.polyline([latLng(finishLine.left), latLng(finishLine.right)], { weight: 4, opacity: 0.8, dashArray: '7 6' }).addTo(map)
+
+      points.forEach((point, index) => {
+        const marker = leaflet.marker(latLng(point), { draggable: true, title: point.name })
+          .bindTooltip(`${index + 1}. ${point.name}`, { permanent: false })
+          .addTo(map)
+
+        marker.on('dragend', (event: any) => {
+          const position = event.target.getLatLng()
+          const nextPoints = points.map((item, itemIndex) => itemIndex === index
+            ? { ...item, latitude: position.lat, longitude: position.lng }
+            : item)
+          setPoints(nextPoints)
+          if (activeVariantId !== 'auto') {
+            setVariants((current) => {
+              const nextVariants = current.map((variant) => variant.id === activeVariantId
+                ? { ...variant, points: clonePoints(nextPoints), routeOrder: [...routeOrder], updatedAt: new Date().toISOString() }
+                : variant)
+              persistVariants(storageKey, nextVariants)
+              return nextVariants
+            })
+          }
+          setGpxStatus(`${point.name} déplacé${activeVariantId === 'auto' ? '' : ' · variante mise à jour'}`)
+        })
+      })
+
+      leaflet.circleMarker([latitude, longitude], { radius: 4, weight: 1, fillOpacity: 0.55 })
+        .bindTooltip('Centre choisi du plan d’eau', { permanent: false })
         .addTo(map)
 
-      marker.on('dragend', (event: any) => {
-        const position = event.target.getLatLng()
-        const nextPoints = points.map((item, itemIndex) => itemIndex === index
-          ? { ...item, latitude: position.lat, longitude: position.lng }
-          : item)
-        setPoints(nextPoints)
-        if (activeVariantId !== 'auto') {
-          setVariants((current) => {
-            const nextVariants = current.map((variant) => variant.id === activeVariantId
-              ? { ...variant, points: clonePoints(nextPoints), routeOrder: [...routeOrder], updatedAt: new Date().toISOString() }
-              : variant)
-            persistVariants(storageKey, nextVariants)
-            return nextVariants
-          })
-        }
-        setGpxStatus(`${point.name} déplacé${activeVariantId === 'auto' ? '' : ' · variante mise à jour'}`)
-      })
+      const bounds = [startLine.left, startLine.right, finishLine.left, finishLine.right, ...points].map(latLng)
+      map.fitBounds(bounds, { padding: [32, 32] })
+      mapRef.current = map
+      window.requestAnimationFrame(() => map?.invalidateSize(false))
+      window.setTimeout(() => map?.invalidateSize(false), 250)
+    }).catch((error: unknown) => {
+      if (!cancelled) setGpxStatus(error instanceof Error ? error.message : 'Cartographie indisponible.')
     })
 
-    leaflet.circleMarker([latitude, longitude], { radius: 4, weight: 1, fillOpacity: 0.55 })
-      .bindTooltip('Centre choisi du plan d’eau', { permanent: false })
-      .addTo(map)
-
-    const bounds = [startLine.left, startLine.right, finishLine.left, finishLine.right, ...points].map(latLng)
-    map.fitBounds(bounds, { padding: [32, 32] })
-
-    mapRef.current = map
     return () => {
-      map.remove()
-      mapRef.current = null
+      cancelled = true
+      map?.remove()
+      if (mapRef.current === map) mapRef.current = null
     }
   }, [latitude, longitude, bearing, firstLegNm, points, routeOrder, activeVariantId, storageKey])
 
