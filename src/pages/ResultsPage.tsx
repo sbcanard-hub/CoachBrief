@@ -37,9 +37,9 @@ const recommendations = [
     why: 'La brise thermique se renforce en s’orientant de 080° à 110°. Se positionner à droite permet d’être parmi les premiers à bénéficier de cette rotation.',
   },
   {
-    title: 'Départ sous le vent du comité',
-    text: 'Viser une zone médiane à comité pour garder une voie libre vers la droite.',
-    why: 'Avec une oscillation de ±8°, une position trop proche du bateau comité peut fermer la sortie. Quelques longueurs sous le comité offrent plus d’espace pour accélérer.',
+    title: 'Construire le départ à partir de la ligne',
+    text: 'Croiser le côté favorable de la ligne avec la première rotation attendue avant de choisir sa zone de départ.',
+    why: 'Une extrémité favorable ne suffit pas à elle seule : il faut aussi conserver une voie de sortie cohérente avec le bord que l’on veut jouer après le départ.',
   },
   {
     title: 'Anticiper la montée en puissance',
@@ -47,6 +47,18 @@ const recommendations = [
     why: 'Le vent moyen passe de 11 à 14 nœuds entre 11 h et 13 h, avec des rafales à 18 nœuds. La mer courte demandera aussi davantage de contrôle.',
   },
 ]
+
+const bernotColumns = ['Gauche', 'Centre G.', 'Centre', 'Centre D.', 'Droite'] as const
+
+const bernotRows = [
+  { factor: 'Vent', priority: 1, zone: 'Centre D.', note: 'Rotation progressive vers la droite.' },
+  { factor: 'Relief / côte', priority: 2, zone: 'Droite', note: 'Effet de côte à confronter aux observations locales.' },
+  { factor: 'Courant', priority: 3, zone: 'Centre', note: 'À renseigner dès que la donnée locale est disponible.' },
+  { factor: 'Nuages', priority: 4, zone: 'Centre D.', note: 'Faible nébulosité, influence secondaire pour cette maquette.' },
+  { factor: 'Vagues', priority: 5, zone: 'Centre', note: 'Mer courte, surtout importante pour la vitesse.' },
+  { factor: 'Axe parcours', priority: 6, zone: 'Centre', note: 'Dépend de l’axe et du désaxage saisis.' },
+  { factor: 'Adversaires', priority: 7, zone: 'Centre', note: 'À ajuster selon flotte et stratégie de départ.' },
+] as const
 
 function formatDate(date?: string) {
   if (!date) return 'Samedi 6 septembre 2026'
@@ -56,14 +68,30 @@ function formatDate(date?: string) {
     : new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(parsed)
 }
 
+function formatAxis(axis?: string) {
+  const value = Number(axis)
+  if (!Number.isFinite(value)) return '080°'
+  return `${String(Math.round(value)).padStart(3, '0')}°`
+}
+
+function formatOffset(offset?: string) {
+  const value = Number(offset)
+  if (!Number.isFinite(value) || value === 0) return '0° · axe neutre'
+  return `${value > 0 ? '+' : ''}${value}° · ${value > 0 ? 'droite' : 'gauche'}`
+}
+
 export function ResultsPage() {
   const { state } = useLocation()
   const request = state as BriefingRequest | null
   const [openWhy, setOpenWhy] = useState<number | null>(null)
   const location = request?.location || 'Antibes · Baie des Anges'
-  const raceTime = request?.startTime || '11:00'
+  const raceTime = request?.raceTime || request?.startTime || '11:00'
   const boatClass = request?.boatClass || 'Optimist'
   const courseType = request?.courseType || 'Banane'
+  const courseAxis = formatAxis(request?.courseAxis)
+  const startLineBias = request?.startLineBias || 'Neutre'
+  const windwardOffset = formatOffset(request?.windwardOffset)
+  const finishOrientation = request?.finishOrientation || 'Sous le vent'
 
   return (
     <main className="results-page briefing-page">
@@ -71,7 +99,7 @@ export function ResultsPage() {
 
       <section className="briefing-hero" aria-labelledby="briefing-title">
         <div>
-          <span className="step-label">Briefing météo · Données fictives</span>
+          <span className="step-label">Briefing météo & tactique · Données météo fictives</span>
           <h1 id="briefing-title">{location}</h1>
           <div className="event-meta">
             <span><CalendarDays size={15} /> {formatDate(request?.date)}</span>
@@ -80,7 +108,14 @@ export function ResultsPage() {
             <span><Flag size={15} /> Parcours {courseType}</span>
           </div>
         </div>
-        <div className="hero-status"><span aria-hidden="true" /> Conditions favorables</div>
+        <div className="hero-status"><span aria-hidden="true" /> Briefing prêt</div>
+      </section>
+
+      <section className="tactical-overview" aria-label="Paramètres tactiques du parcours">
+        <article><Compass /><div><small>Axe parcours</small><strong>{courseAxis}</strong></div></article>
+        <article><Navigation /><div><small>Ligne favorable</small><strong>{startLineBias}</strong></div></article>
+        <article><Wind /><div><small>Bouée au vent</small><strong>{windwardOffset}</strong></div></article>
+        <article><Flag /><div><small>Arrivée</small><strong>{finishOrientation}</strong></div></article>
       </section>
 
       <section className="weather-overview" aria-label="Conditions principales">
@@ -142,6 +177,30 @@ export function ResultsPage() {
         </article>
       </section>
 
+      <section className="bernot-section" aria-labelledby="bernot-title">
+        <div className="section-heading">
+          <div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div>
+          <span className="bernot-help">1 = facteur prioritaire du jour</span>
+        </div>
+        <div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot">
+          <div className="bernot-board">
+            <div className="bernot-head factor-head">Facteur</div>
+            {bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}
+            {bernotRows.map((row) => (
+              <div className="bernot-row" key={row.factor}>
+                <div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>
+                {bernotColumns.map((column) => (
+                  <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>
+                    {row.zone === column ? <><span className="zone-marker">●</span><small>tendance</small></> : <span aria-hidden="true">·</span>}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="bernot-note">Cette première grille est une maquette : les positions et priorités seront ensuite calculées à partir de la météo réelle, du courant, du relief, du parcours et des observations du coach.</p>
+      </section>
+
       <section className="coach-section" aria-labelledby="coach-title">
         <div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points clés</span></div>
         <div className="recommendations">
@@ -164,7 +223,7 @@ export function ResultsPage() {
         </div>
       </section>
 
-      <p className="data-note">Données météo fictives conçues pour la maquette · Aucune API externe connectée</p>
+      <p className="data-note">Données météo et hiérarchisation Bernot fictives pour la maquette · Aucune API externe connectée</p>
     </main>
   )
 }
