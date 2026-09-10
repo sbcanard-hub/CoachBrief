@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Download, RotateCcw, Upload } from 'lucide-react'
+import { Download, Layers3, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
 import { courseToGpx, parseCourseGpx } from '../gpx'
 import type { GpxPoint } from '../gpx'
 import '../gpx.css'
@@ -20,6 +20,14 @@ type Point = { latitude: number; longitude: number }
 type DefaultCourse = {
   points: GpxPoint[]
   routeOrder: number[]
+}
+
+type CourseVariant = {
+  id: string
+  name: string
+  points: GpxPoint[]
+  routeOrder: number[]
+  updatedAt: string
 }
 
 function radians(value: number) { return value * Math.PI / 180 }
@@ -109,6 +117,30 @@ function routeSequence(points: GpxPoint[], routeOrder: number[]) {
   return routeOrder.map((index) => points[index]?.name || `Point ${index + 1}`).join(' → ')
 }
 
+function clonePoints(points: GpxPoint[]) {
+  return points.map((point) => ({ ...point }))
+}
+
+function loadVariants(key: string): CourseVariant[] {
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as CourseVariant[]
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((variant) => variant && typeof variant.id === 'string' && typeof variant.name === 'string' && Array.isArray(variant.points) && Array.isArray(variant.routeOrder))
+  } catch {
+    return []
+  }
+}
+
+function persistVariants(key: string, variants: CourseVariant[]) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(variants))
+  } catch {
+    // Le tracé reste utilisable même si le stockage local est indisponible.
+  }
+}
+
 export function CoursePreview({ latitude, longitude, axis, windwardOffset, firstLegNm, courseType }: CoursePreviewProps) {
   const elementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
@@ -118,15 +150,25 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
     () => buildDefaultCourse({ latitude, longitude }, bearing, firstLegNm, courseType),
     [latitude, longitude, bearing, firstLegNm, courseType],
   )
+  const storageKey = useMemo(
+    () => `coachbrief:course-variants:v1:${courseType}:${latitude.toFixed(3)}:${longitude.toFixed(3)}`,
+    [courseType, latitude, longitude],
+  )
   const [points, setPoints] = useState<GpxPoint[]>(defaultCourse.points)
   const [routeOrder, setRouteOrder] = useState<number[]>(defaultCourse.routeOrder)
   const [gpxStatus, setGpxStatus] = useState('')
+  const [variants, setVariants] = useState<CourseVariant[]>([])
+  const [activeVariantId, setActiveVariantId] = useState('auto')
+  const [variantName, setVariantName] = useState('')
 
   useEffect(() => {
     setPoints(defaultCourse.points)
     setRouteOrder(defaultCourse.routeOrder)
+    setActiveVariantId('auto')
+    setVariantName('')
+    setVariants(loadVariants(storageKey))
     setGpxStatus('')
-  }, [defaultCourse])
+  }, [defaultCourse, storageKey])
 
   useEffect(() => {
     const leaflet = (window as LeafletWindow).L
@@ -157,10 +199,20 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
 
       marker.on('dragend', (event: any) => {
         const position = event.target.getLatLng()
-        setPoints((current) => current.map((item, itemIndex) => itemIndex === index
+        const nextPoints = points.map((item, itemIndex) => itemIndex === index
           ? { ...item, latitude: position.lat, longitude: position.lng }
-          : item))
-        setGpxStatus(`${point.name} déplacé`)
+          : item)
+        setPoints(nextPoints)
+        if (activeVariantId !== 'auto') {
+          setVariants((current) => {
+            const nextVariants = current.map((variant) => variant.id === activeVariantId
+              ? { ...variant, points: clonePoints(nextPoints), routeOrder: [...routeOrder], updatedAt: new Date().toISOString() }
+              : variant)
+            persistVariants(storageKey, nextVariants)
+            return nextVariants
+          })
+        }
+        setGpxStatus(`${point.name} déplacé${activeVariantId === 'auto' ? '' : ' · variante mise à jour'}`)
       })
     })
 
@@ -176,21 +228,68 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
       map.remove()
       mapRef.current = null
     }
-  }, [latitude, longitude, bearing, firstLegNm, points, routeOrder])
+  }, [latitude, longitude, bearing, firstLegNm, points, routeOrder, activeVariantId, storageKey])
 
   function resetCourse() {
     setPoints(defaultCourse.points)
     setRouteOrder(defaultCourse.routeOrder)
-    setGpxStatus('Tracé recalculé')
+    setActiveVariantId('auto')
+    setVariantName('')
+    setGpxStatus('Tracé automatique recalculé')
+  }
+
+  function saveVariant() {
+    const name = variantName.trim() || `Variante ${variants.length + 1}`
+    const variant: CourseVariant = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name,
+      points: clonePoints(points),
+      routeOrder: [...routeOrder],
+      updatedAt: new Date().toISOString(),
+    }
+    const nextVariants = [...variants, variant]
+    setVariants(nextVariants)
+    persistVariants(storageKey, nextVariants)
+    setActiveVariantId(variant.id)
+    setVariantName(variant.name)
+    setGpxStatus(`Variante « ${variant.name} » enregistrée`)
+  }
+
+  function selectVariant(id: string) {
+    if (id === 'auto') {
+      resetCourse()
+      return
+    }
+    const variant = variants.find((item) => item.id === id)
+    if (!variant) return
+    setPoints(clonePoints(variant.points))
+    setRouteOrder([...variant.routeOrder])
+    setActiveVariantId(variant.id)
+    setVariantName(variant.name)
+    setGpxStatus(`Variante « ${variant.name} » chargée`)
+  }
+
+  function deleteActiveVariant() {
+    if (activeVariantId === 'auto') return
+    const deleted = variants.find((variant) => variant.id === activeVariantId)
+    const nextVariants = variants.filter((variant) => variant.id !== activeVariantId)
+    setVariants(nextVariants)
+    persistVariants(storageKey, nextVariants)
+    setPoints(defaultCourse.points)
+    setRouteOrder(defaultCourse.routeOrder)
+    setActiveVariantId('auto')
+    setVariantName('')
+    setGpxStatus(deleted ? `Variante « ${deleted.name} » supprimée` : 'Variante supprimée')
   }
 
   function exportGpx() {
-    const content = courseToGpx(points, `CoachBrief · ${courseType}`)
+    const activeName = activeVariantId === 'auto' ? courseType : variants.find((variant) => variant.id === activeVariantId)?.name || courseType
+    const content = courseToGpx(points, `CoachBrief · ${activeName}`)
     const blob = new Blob([content], { type: 'application/gpx+xml;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `coachbrief-${courseType.toLowerCase().replace('è', 'e')}.gpx`
+    link.download = `coachbrief-${activeName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-')}.gpx`
     link.click()
     URL.revokeObjectURL(url)
     setGpxStatus('GPX exporté')
@@ -204,9 +303,12 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
         ...point,
         name: point.name || (index === 0 ? 'Départ' : index === imported.points.length - 1 ? 'Arrivée' : `Bouée ${index}`),
       }))
+      const importedRoute = routeOrderForImported(courseType, importedPoints.length)
       setPoints(importedPoints)
-      setRouteOrder(routeOrderForImported(courseType, importedPoints.length))
-      setGpxStatus(`${importedPoints.length} points importés`)
+      setRouteOrder(importedRoute)
+      setActiveVariantId('auto')
+      setVariantName(file.name.replace(/\.gpx$/i, ''))
+      setGpxStatus(`${importedPoints.length} points importés · enregistrez pour créer une variante`)
     } catch (error) {
       setGpxStatus(error instanceof Error ? error.message : 'Import GPX impossible')
     } finally {
@@ -214,15 +316,32 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
     }
   }
 
+  const activeVariantName = activeVariantId === 'auto' ? 'Tracé automatique' : variants.find((variant) => variant.id === activeVariantId)?.name || 'Variante'
+
   return (
     <div className="course-preview-shell">
       <div ref={elementRef} className="course-preview-map" aria-label={`Prévisualisation du parcours ${courseType}`} />
       <div className="course-preview-caption">
         <div>
-          <strong>{courseType}</strong>
+          <strong>{courseType} · {activeVariantName}</strong>
           <span>{routeSequence(points, routeOrder)}</span>
           <small>Axe : {String(Math.round(bearing)).padStart(3, '0')}° · faites glisser les points pour ajuster le tracé</small>
         </div>
+
+        <div className="course-variant-panel">
+          <div className="course-variant-title"><Layers3 size={14} /><strong>Variantes</strong><span>{variants.length} enregistrée{variants.length > 1 ? 's' : ''}</span></div>
+          <div className="course-variant-controls">
+            <select value={activeVariantId} onChange={(event) => selectVariant(event.target.value)} aria-label="Choisir une variante de parcours">
+              <option value="auto">Tracé automatique</option>
+              {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
+            </select>
+            <input value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder={`Ex. Axe ${String(Math.round(bearing)).padStart(3, '0')}°`} aria-label="Nom de la nouvelle variante" />
+            <button type="button" onClick={saveVariant}><Save size={14} /> Enregistrer</button>
+            <button type="button" onClick={deleteActiveVariant} disabled={activeVariantId === 'auto'}><Trash2 size={14} /> Supprimer</button>
+          </div>
+          <small>Les variantes sont mémorisées sur cet appareil pour ce plan d’eau et ce type de parcours. Une variante active est mise à jour automatiquement quand une bouée est déplacée.</small>
+        </div>
+
         <div className="course-preview-actions">
           <input ref={inputRef} type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden onChange={(event) => void importGpx(event.target.files?.[0])} />
           <button type="button" onClick={() => inputRef.current?.click()}><Upload size={14} /> Importer GPX</button>
