@@ -25,7 +25,7 @@ export type PlanCalibration = {
 
 export type CalibrationMatch = {
   calibration: PlanCalibration
-  scope: 'context' | 'situation' | 'plan'
+  scope: 'situation' | 'plan'
   situationLabel: string
   situationSampleCount: number
   contextSampleCount: number
@@ -171,7 +171,6 @@ function requestDaypart(request: BriefingRequest) {
 
 export function buildPlanCalibrations(items: SavedBriefing[]): PlanCalibration[] {
   const groups = new Map<string, SavedBriefing[]>()
-
   for (const item of items) {
     if (!item.weather?.race || !item.reality) continue
     const key = planKey(item)
@@ -179,7 +178,6 @@ export function buildPlanCalibrations(items: SavedBriefing[]): PlanCalibration[]
     current.push(item)
     groups.set(key, current)
   }
-
   return Array.from(groups.entries())
     .map(([key, group]) => summarizeGroup(key, group[0].request.location || 'Plan d’eau', group))
     .sort((a, b) => b.sampleCount - a.sampleCount || a.label.localeCompare(b.label))
@@ -198,8 +196,8 @@ export function calibrationForSituation(items: SavedBriefing[], request: Briefin
   const force = windForceBand(weather.race.speed)
   const season = seasonForDate(request.date)
   const daypart = requestDaypart(request)
-  const situationLabel = `${sector.label} · ${force.label}`
-  const contextLabel = `${situationLabel} · ${season.label} · ${daypart.label}`
+  const baseSituationLabel = `${sector.label} · ${force.label}`
+  const contextLabel = `${baseSituationLabel} · ${season.label} · ${daypart.label}`
   const eligible = items.filter((item) => item.weather?.race && item.reality && planKey(item) === planKeyValue)
   const matchingSituation = eligible.filter((item) => {
     const race = item.weather!.race
@@ -213,9 +211,9 @@ export function calibrationForSituation(items: SavedBriefing[], request: Briefin
   if (matchingContext.length >= 2) {
     return {
       calibration: summarizeGroup(`${planKeyValue}:${sector.key}:${force.key}:${season.key}:${daypart.key}`, request.location || 'Plan d’eau', matchingContext),
-      scope: 'context',
-      situationLabel,
-      situationSampleCount: matchingSituation.length,
+      scope: 'situation',
+      situationLabel: contextLabel,
+      situationSampleCount: matchingContext.length,
       contextSampleCount: matchingContext.length,
       contextLabel,
     }
@@ -225,7 +223,7 @@ export function calibrationForSituation(items: SavedBriefing[], request: Briefin
     return {
       calibration: summarizeGroup(`${planKeyValue}:${sector.key}:${force.key}`, request.location || 'Plan d’eau', matchingSituation),
       scope: 'situation',
-      situationLabel,
+      situationLabel: `${baseSituationLabel} · toutes saisons/créneaux`,
       situationSampleCount: matchingSituation.length,
       contextSampleCount: matchingContext.length,
       contextLabel,
@@ -237,7 +235,7 @@ export function calibrationForSituation(items: SavedBriefing[], request: Briefin
   return {
     calibration: fallback,
     scope: 'plan',
-    situationLabel,
+    situationLabel: contextLabel,
     situationSampleCount: matchingSituation.length,
     contextSampleCount: matchingContext.length,
     contextLabel,
@@ -249,21 +247,10 @@ export function applyCalibrationToWeather(weather: LiveWeatherData, calibration:
   const directionBias = calibration.meanDirectionBias ?? 0
   const correctedSpeed = (value: number) => Math.max(0, value + speedBias)
   const correctedDirection = (value: number) => normalizeDirection(value + directionBias)
-
   return {
     ...weather,
-    hourly: weather.hourly.map((hour) => ({
-      ...hour,
-      speed: correctedSpeed(hour.speed),
-      gust: correctedSpeed(hour.gust),
-      direction: correctedDirection(hour.direction),
-    })),
-    race: {
-      ...weather.race,
-      speed: correctedSpeed(weather.race.speed),
-      gust: correctedSpeed(weather.race.gust),
-      direction: correctedDirection(weather.race.direction),
-    },
+    hourly: weather.hourly.map((hour) => ({ ...hour, speed: correctedSpeed(hour.speed), gust: correctedSpeed(hour.gust), direction: correctedDirection(hour.direction) })),
+    race: { ...weather.race, speed: correctedSpeed(weather.race.speed), gust: correctedSpeed(weather.race.gust), direction: correctedDirection(weather.race.direction) },
     scenario: {
       ...weather.scenario,
       windStart: correctedDirection(weather.scenario.windStart),
@@ -280,7 +267,7 @@ function numeric(value: string | number | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function confidenceLabel(score: number | null, samples: number) {
+function scoreLabel(score: number | null, samples: number) {
   if (score == null || samples === 0) return 'Pas de recul'
   if (samples < 2) return 'À confirmer'
   if (score >= 80) return 'Confiance forte'
@@ -309,14 +296,12 @@ function sourceMetric(group: SavedBriefing[], key: SourceReliabilityMetric['key'
   const speedErrors: number[] = []
   const directionErrors: number[] = []
   const distances: number[] = []
-
   for (const item of group) {
     if (!item.reality) continue
     const actualSpeed = numeric(item.reality.windSpeed)
     const actualDirection = numeric(item.reality.windDirection)
     let sourceSpeed: number | null = null
     let sourceDirection: number | null = null
-
     if (key === 'model') {
       sourceSpeed = item.weather?.race.speed ?? null
       sourceDirection = item.weather?.race.direction ?? null
@@ -328,20 +313,20 @@ function sourceMetric(group: SavedBriefing[], key: SourceReliabilityMetric['key'
       sourceDirection = item.metar?.windDirection ?? null
       if (item.metar?.distanceKm != null && Number.isFinite(item.metar.distanceKm)) distances.push(item.metar.distanceKm)
     }
-
     if (actualSpeed != null && sourceSpeed != null) speedErrors.push(actualSpeed - sourceSpeed)
     if (actualDirection != null && sourceDirection != null) directionErrors.push(signedAngleDelta(sourceDirection, actualDirection))
   }
 
-  const labels = { model: 'Open-Meteo', metar: 'METAR proche', coach: 'Relevé coach' } as const
+  const names = { model: 'Open-Meteo', metar: 'METAR proche', coach: 'Relevé coach' } as const
   const sampleCount = Math.max(speedErrors.length, directionErrors.length)
   const meanAbsSpeedError = arithmeticMean(speedErrors.map(Math.abs))
   const meanAbsDirectionError = arithmeticMean(directionErrors.map(Math.abs))
   const meanDistanceKm = key === 'metar' ? arithmeticMean(distances) : null
   const confidenceScore = reliabilityScore(sampleCount, meanAbsSpeedError, meanAbsDirectionError, meanDistanceKm)
+  const confidenceLabel = scoreLabel(confidenceScore, sampleCount)
   return {
     key,
-    label: labels[key],
+    label: confidenceScore == null ? names[key] : `${names[key]} · ${confidenceScore}/100 · ${confidenceLabel}`,
     sampleCount,
     speedSampleCount: speedErrors.length,
     directionSampleCount: directionErrors.length,
@@ -351,7 +336,7 @@ function sourceMetric(group: SavedBriefing[], key: SourceReliabilityMetric['key'
     meanAbsDirectionError,
     meanDistanceKm,
     confidenceScore,
-    confidenceLabel: confidenceLabel(confidenceScore, sampleCount),
+    confidenceLabel,
   }
 }
 
@@ -364,7 +349,6 @@ export function buildSourceReliabilities(items: SavedBriefing[]): PlanSourceReli
     current.push(item)
     groups.set(key, current)
   }
-
   return Array.from(groups.entries()).map(([key, group]) => ({
     key,
     label: group[0].request.location || 'Plan d’eau',
