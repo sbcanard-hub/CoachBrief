@@ -22,10 +22,26 @@ function parseCoordinate(value: string) {
 }
 
 function geolocationErrorMessage(error: GeolocationPositionError) {
-  if (error.code === error.PERMISSION_DENIED) return 'Localisation refusée. Autorisez la position du navigateur pour placer le comité.'
-  if (error.code === error.POSITION_UNAVAILABLE) return 'Position GPS indisponible pour le moment.'
-  if (error.code === error.TIMEOUT) return 'Le GPS met trop de temps à répondre. Réessayez à ciel ouvert.'
-  return 'Impossible de récupérer la position GPS.'
+  if (error.code === error.PERMISSION_DENIED) {
+    return 'Localisation refusée. Autorisez la position pour ce site dans les réglages du navigateur, puis réessayez. Sur iPhone : Réglages > Confidentialité et sécurité > Service de localisation > Safari.'
+  }
+  if (error.code === error.POSITION_UNAVAILABLE) {
+    return 'Position indisponible. Vérifiez que le service de localisation du téléphone est activé, puis réessayez.'
+  }
+  if (error.code === error.TIMEOUT) {
+    return 'La localisation n’a pas répondu. Réessayez à ciel ouvert ou ouvrez CoachBrief directement dans Safari/Chrome.'
+  }
+  return 'Impossible de récupérer la position. Ouvrez CoachBrief directement dans Safari/Chrome et vérifiez l’autorisation de localisation.'
+}
+
+function requestPosition(options: PositionOptions) {
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options)
+  })
+}
+
+function isGeolocationError(error: unknown): error is GeolocationPositionError {
+  return Boolean(error && typeof error === 'object' && 'code' in error)
 }
 
 export function MapPicker({
@@ -184,9 +200,13 @@ export function MapPicker({
     }
   }
 
-  function locateCommittee() {
+  async function locateCommittee() {
     if (!navigator.geolocation) {
-      setMessage('La géolocalisation n’est pas disponible sur ce navigateur.')
+      setMessage('La géolocalisation n’est pas disponible sur ce navigateur. Essayez Safari ou Chrome.')
+      return
+    }
+    if (!window.isSecureContext) {
+      setMessage('La géolocalisation nécessite une connexion HTTPS. Ouvrez la version sécurisée de CoachBrief dans Safari ou Chrome.')
       return
     }
     if (!mapRef.current) {
@@ -195,24 +215,42 @@ export function MapPicker({
     }
 
     setLocatingCommittee(true)
-    setMessage('Recherche de la position GPS du comité…')
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = position.coords.latitude
-        const lng = position.coords.longitude
-        const accuracy = String(Math.max(1, Math.round(position.coords.accuracy)))
-        onCommitteeChange(lat.toFixed(5), lng.toFixed(5), accuracy)
-        placeCommitteeMarker(lat, lng, accuracy)
-        mapRef.current?.setView([lat, lng], Math.max(mapRef.current.getZoom(), 15))
-        mapRef.current?.invalidateSize(false)
-        setLocatingCommittee(false)
-      },
-      (error) => {
-        setMessage(geolocationErrorMessage(error))
-        setLocatingCommittee(false)
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 },
-    )
+
+    try {
+      try {
+        const permission = await navigator.permissions?.query({ name: 'geolocation' })
+        if (permission?.state === 'denied') {
+          setMessage('Localisation bloquée pour ce site. Réactivez l’autorisation de localisation dans les réglages du navigateur, puis réessayez.')
+          setLocatingCommittee(false)
+          return
+        }
+      } catch {
+        // Certains navigateurs mobiles ne prennent pas en charge Permissions API pour la géolocalisation.
+      }
+
+      setMessage('Recherche GPS précise du comité…')
+      let position: GeolocationPosition
+
+      try {
+        position = await requestPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 })
+      } catch (firstError) {
+        if (isGeolocationError(firstError) && firstError.code === firstError.PERMISSION_DENIED) throw firstError
+        setMessage('GPS précis lent ou indisponible · essai avec la localisation standard…')
+        position = await requestPosition({ enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 })
+      }
+
+      const lat = position.coords.latitude
+      const lng = position.coords.longitude
+      const accuracy = String(Math.max(1, Math.round(position.coords.accuracy)))
+      onCommitteeChange(lat.toFixed(5), lng.toFixed(5), accuracy)
+      placeCommitteeMarker(lat, lng, accuracy)
+      mapRef.current?.setView([lat, lng], Math.max(mapRef.current.getZoom(), position.coords.accuracy <= 100 ? 15 : 13))
+      mapRef.current?.invalidateSize(false)
+    } catch (error) {
+      setMessage(isGeolocationError(error) ? geolocationErrorMessage(error) : 'Impossible de récupérer la position. Ouvrez CoachBrief directement dans Safari/Chrome et réessayez.')
+    } finally {
+      setLocatingCommittee(false)
+    }
   }
 
   return (
@@ -221,7 +259,7 @@ export function MapPicker({
         <div><MapPin size={16} /><strong>Plan d’eau & position comité</strong></div>
         <div className="map-picker-actions">
           <button type="button" className="map-center-button" onClick={centerOnLocation}><Crosshair size={15} /> Centrer sur le lieu</button>
-          <button type="button" className="committee-location-button" onClick={locateCommittee} disabled={locatingCommittee}><LocateFixed size={15} /> {locatingCommittee ? 'Localisation…' : 'Me géolocaliser · Comité'}</button>
+          <button type="button" className="committee-location-button" onClick={() => void locateCommittee()} disabled={locatingCommittee}><LocateFixed size={15} /> {locatingCommittee ? 'Localisation…' : 'Me géolocaliser · Comité'}</button>
         </div>
       </div>
       <div ref={elementRef} className="course-map" aria-label="Carte interactive du plan d’eau et position du comité" />
