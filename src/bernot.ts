@@ -11,6 +11,9 @@ export type WeatherScenario = {
   maxWindSpeed: number
   cloudCover: number
   waveHeight: number
+  waveDirection?: number
+  currentVelocity?: number
+  currentDirection?: number
 }
 
 export type BernotRow = {
@@ -42,6 +45,10 @@ function numberOr(value: string | undefined, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function signedAngleDelta(from: number, to: number) {
+  return ((to - from + 540) % 360) - 180
+}
+
 function zoneFromSigned(value: number): BernotZone {
   if (value <= -15) return 'Gauche'
   if (value < -3) return 'Centre G.'
@@ -67,12 +74,21 @@ function signedLabel(value: number) {
   return `${value > 0 ? '+' : ''}${value}° vers la ${value > 0 ? 'droite' : 'gauche'}`
 }
 
+function currentCrossCourse(request: BriefingRequest | null, weather: WeatherScenario) {
+  if (weather.currentVelocity == null || weather.currentDirection == null) return 0
+  const axis = numberOr(request?.courseAxis, weather.windStart)
+  const relative = signedAngleDelta(axis, weather.currentDirection)
+  return Math.sin(relative * Math.PI / 180) * weather.currentVelocity
+}
+
 export function buildBernotRows(request: BriefingRequest | null, weather: WeatherScenario = mockWeatherScenario): BernotRow[] {
-  const windDelta = weather.windEnd - weather.windStart
+  const windDelta = signedAngleDelta(weather.windStart, weather.windEnd)
   const windwardOffset = numberOr(request?.windwardOffset)
   const lineBias = request?.startLineBias
   const tacticalVector = windwardOffset + lineBiasValue(lineBias)
   const hasLocation = Boolean(request?.location.trim())
+  const currentCross = currentCrossCourse(request, weather)
+  const hasCurrent = weather.currentVelocity != null && weather.currentDirection != null
 
   const rows: Omit<BernotRow, 'priority'>[] = [
     {
@@ -81,7 +97,7 @@ export function buildBernotRows(request: BriefingRequest | null, weather: Weathe
       zone: zoneFromSigned(windDelta),
       note: windDelta === 0
         ? `Vent sans rotation nette, oscillation ±${weather.oscillation}°.`
-        : `Rotation de ${Math.abs(windDelta)}° vers la ${windDelta > 0 ? 'droite' : 'gauche'}, oscillation ±${weather.oscillation}°.` ,
+        : `Rotation de ${Math.abs(Math.round(windDelta))}° vers la ${windDelta > 0 ? 'droite' : 'gauche'}, oscillation ±${weather.oscillation}°.` ,
     },
     {
       factor: 'Axe parcours',
@@ -90,10 +106,20 @@ export function buildBernotRows(request: BriefingRequest | null, weather: Weathe
       note: `Bouée au vent ${signedLabel(windwardOffset)}${lineBias && lineBias !== 'Neutre' ? ` · ligne favorable ${lineBias}` : ''}.`,
     },
     {
+      factor: 'Courant',
+      score: hasCurrent ? 4 + Math.min(5, (weather.currentVelocity ?? 0) * 5) : 2.8,
+      zone: hasCurrent ? zoneFromSigned(currentCross * 25) : 'Centre',
+      note: hasCurrent
+        ? `Courant ${weather.currentVelocity?.toFixed(1).replace('.', ',')} nd vers ${Math.round(weather.currentDirection ?? 0)}° ; composante latérale ${Math.abs(currentCross) < 0.08 ? 'faible' : currentCross > 0 ? 'vers la droite' : 'vers la gauche'}.`
+        : 'Courant non renseigné pour l’instant : facteur volontairement dépriorisé.',
+    },
+    {
       factor: 'Vagues',
       score: 4 + weather.waveHeight * 3 + Math.max(0, weather.maxWindSpeed - weather.raceWindSpeed) / 2,
-      zone: 'Centre',
-      note: `${weather.waveHeight.toFixed(1).replace('.', ',')} m dans la maquette ; impact surtout sur vitesse et conduite.` ,
+      zone: weather.waveDirection == null ? 'Centre' : zoneFromSigned(signedAngleDelta(numberOr(request?.courseAxis, weather.windStart), weather.waveDirection) / 4),
+      note: weather.waveHeight > 0
+        ? `${weather.waveHeight.toFixed(1).replace('.', ',')} m${weather.waveDirection == null ? '' : ` depuis ${Math.round(weather.waveDirection)}°`} ; impact sur vitesse et conduite.`
+        : 'Donnée de vague indisponible pour ce point marin.',
     },
     {
       factor: 'Relief / côte',
@@ -107,7 +133,7 @@ export function buildBernotRows(request: BriefingRequest | null, weather: Weathe
       factor: 'Nuages',
       score: 2.5 + weather.cloudCover / 25,
       zone: weather.cloudCover >= 60 ? zoneFromSigned(windDelta) : 'Centre',
-      note: `${weather.cloudCover}% de nébulosité dans la maquette ; influence ${weather.cloudCover >= 60 ? 'à surveiller' : 'secondaire'}.`,
+      note: `${Math.round(weather.cloudCover)}% de nébulosité ; influence ${weather.cloudCover >= 60 ? 'à surveiller' : 'secondaire'}.`,
     },
     {
       factor: 'Adversaires',
@@ -117,12 +143,6 @@ export function buildBernotRows(request: BriefingRequest | null, weather: Weathe
         ? `Extrémité ${lineBias} favorable : intégrer densité de flotte et voie de sortie.`
         : 'Ligne neutre : la position de flotte devient surtout une contrainte de sortie.',
     },
-    {
-      factor: 'Courant',
-      score: 2.8,
-      zone: 'Centre',
-      note: 'Courant non renseigné pour l’instant : facteur volontairement dépriorisé.',
-    },
   ]
 
   return rows
@@ -131,7 +151,7 @@ export function buildBernotRows(request: BriefingRequest | null, weather: Weathe
 }
 
 export function buildCoachRecommendations(request: BriefingRequest | null, weather: WeatherScenario = mockWeatherScenario): CoachRecommendation[] {
-  const windDelta = weather.windEnd - weather.windStart
+  const windDelta = signedAngleDelta(weather.windStart, weather.windEnd)
   const windwardOffset = numberOr(request?.windwardOffset)
   const lineBias = request?.startLineBias ?? 'Neutre'
   const courseAxis = numberOr(request?.courseAxis, weather.windStart)
@@ -139,13 +159,13 @@ export function buildCoachRecommendations(request: BriefingRequest | null, weath
   const windRecommendation: CoachRecommendation = Math.abs(windDelta) <= 5
     ? {
         title: 'Jouer les oscillations plutôt qu’une rotation générale',
-        text: `Le vent reste globalement autour de l’axe, avec une oscillation prévue de ±${weather.oscillation}°.` ,
+        text: `Le vent reste globalement autour de l’axe, avec une oscillation estimée à ±${weather.oscillation}°.` ,
         why: 'Quand la tendance générale est faible, la valeur vient surtout du bon timing des bascules et de la capacité à rester libre.',
       }
     : {
         title: `Garder une option vers la ${windDelta > 0 ? 'droite' : 'gauche'}`,
-        text: `La maquette fait évoluer le vent de ${String(weather.windStart).padStart(3, '0')}° à ${String(weather.windEnd).padStart(3, '0')}°.` ,
-        why: `La rotation générale est de ${Math.abs(windDelta)}°. Il faut conserver une voie qui permette de bénéficier de cette tendance sans s’enfermer trop tôt au bord du plan d’eau.`,
+        text: `Le vent évolue d’environ ${String(Math.round(weather.windStart)).padStart(3, '0')}° à ${String(Math.round(weather.windEnd)).padStart(3, '0')}° sur la fenêtre observée.` ,
+        why: `La rotation générale est d’environ ${Math.abs(Math.round(windDelta))}°. Il faut conserver une voie qui permette de bénéficier de cette tendance sans s’enfermer trop tôt au bord du plan d’eau.`,
       }
 
   const lineRecommendation: CoachRecommendation = lineBias === 'Neutre'
