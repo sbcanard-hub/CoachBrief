@@ -1,0 +1,53 @@
+.wind-model-comparison { width: min(1180px, calc(100% - 32px)); margin: 22px auto 0; padding: 20px; border: 1px solid #d7e2dd; border-left: 4px solid #216e8c; background: #f7fbfc; box-sizing: border-box; }
+.wind-model-heading { display: flex; justify-content: space-between; gap: 18px; align-items: end; }
+.wind-model-heading h2 { margin: 3px 0 0; color: #173b3a; font: 600 22px/1.15 'Manrope', sans-serif; letter-spacing: -.5px; }
+.active-weather-model { display: grid; gap: 3px; min-width: 220px; padding: 9px 11px; border: 1px solid #d6a52c; background: #fffaf0; }
+.active-weather-model small { color: #77652d; font-size: 8px; text-transform: uppercase; letter-spacing: .45px; }
+.active-weather-model strong { color: #173b3a; font-size: 10px; }
+.wind-model-intro { max-width: 940px; margin: 11px 0 14px; color: #587069; font-size: 9px; line-height: 1.55; }
+.wind-model-loading, .wind-model-error { display: flex; align-items: center; gap: 8px; min-height: 46px; color: #536c66; font-size: 9px; }
+.wind-model-spin { animation: wind-model-spin 1s linear infinite; }
+@keyframes wind-model-spin { to { transform: rotate(360deg); } }
+.wind-model-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
+.wind-model-card { display: flex; min-width: 0; flex-direction: column; padding: 12px; border: 1px solid #dbe6e2; background: #fff; }
+.wind-model-card.is-active { border: 2px solid #216e8c; padding: 11px; box-shadow: inset 0 3px 0 #d6a52c; }
+.wind-model-card.is-unavailable { background: #fafbfa; }
+.wind-model-card-heading { display: flex; min-height: 31px; align-items: start; justify-content: space-between; gap: 6px; }
+.wind-model-card-heading strong { display: block; color: #173b3a; font-size: 11px; }
+.wind-model-card-heading div > span { display: block; margin-top: 2px; color: #71837d; font-size: 7.5px; }
+.wind-model-active-badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 5px; border: 1px solid #216e8c; color: #174e66; background: #edf7fa; font-size: 7px; font-weight: 800; text-transform: uppercase; }
+.wind-model-meta { display: flex; flex-wrap: wrap; gap: 4px 7px; margin: 7px 0 9px; color: #71837d; font-size: 7px; }
+.wind-model-reading { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.wind-model-reading div { padding: 7px 5px; background: #f6f9f8; }
+.wind-model-reading small { display: block; color: #71837d; font-size: 6.5px; text-transform: uppercase; }
+.wind-model-reading strong { display: block; margin-top: 2px; color: #173b3a; font-size: 11px; }
+.wind-model-card > p { flex: 1; margin: 9px 0; color: #647a74; font-size: 7.5px; line-height: 1.45; }
+.wind-model-card button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; width: 100%; padding: 8px; border: 1px solid #216e8c; color: #fff; background: #216e8c; font-size: 8px; font-weight: 700; cursor: pointer; }
+.wind-model-card button.is-selected, .wind-model-card button:disabled { color: #536c66; background: #eef4f2; border-color: #d5e1dd; cursor: default; }
+.wind-model-unavailable { display: flex; align-items: center; gap: 6px; min-height: 54px; padding: 8px; border: 1px dashed #cfdad6; color: #6c7f79; font-size: 8px; line-height: 1.35; }
+.wind-model-summary { display: flex; align-items: flex-start; gap: 8px; margin-top: 11px; padding: 10px 12px; border-top: 1px solid #dbe6e2; background: #fff; color: #4f6761; }
+.wind-model-summary svg { flex: 0 0 auto; color: #216e8c; }
+.wind-model-summary p { margin: 0; font-size: 9px; line-height: 1.5; }
+.wind-model-summary strong { color: #173b3a; }
+
+@media (max-width: 1050px) {
+  .wind-model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .wind-model-comparison { width: min(100% - 20px, 1180px); margin-top: 12px; padding: 14px; }
+  .wind-model-heading { display: grid; align-items: start; }
+  .active-weather-model { min-width: 0; }
+  .wind-model-grid { grid-template-columns: 1fr; }
+  .wind-model-reading div { padding: 9px 7px; }
+}
+
+@media print {
+  .wind-model-comparison { width: auto !important; margin: 0 0 5mm !important; padding: 4mm !important; border: 1px solid #d7e2dd !important; border-left: 3pt solid #216e8c !important; background: #fff !important; page-break-inside: avoid; }
+  .wind-model-heading h2 { font-size: 11pt !important; }
+  .wind-model-grid { grid-template-columns: repeat(5, 1fr) !important; gap: 2mm !important; }
+  .wind-model-card { padding: 2mm !important; page-break-inside: avoid; }
+  .wind-model-card button { display: none !important; }
+  .wind-model-card > p { display: none !important; }
+  .wind-model-intro, .wind-model-summary p, .wind-model-reading strong, .wind-model-meta { font-size: 6.5pt !important; }
+}
