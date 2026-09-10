@@ -255,15 +255,8 @@
 
   .leaflet-marker-icon,
   .leaflet-overlay-pane svg {
-    print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
-  }
-
-  .brief-section,
-  .dynamics-grid,
-  .bernot-section,
-  .coach-section {
-    break-before: auto;
+    print-color-adjust: exact;
   }
 
   .section-heading,
