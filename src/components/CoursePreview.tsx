@@ -3,6 +3,7 @@ import { Download, Layers3, RotateCcw, Save, Trash2, Upload } from 'lucide-react
 import { courseToGpx, parseCourseGpx } from '../gpx'
 import type { GpxPoint } from '../gpx'
 import '../gpx.css'
+import { consumeCourseRestore, writeCurrentCourseSnapshot } from '../savedBriefings'
 import type { CourseType } from '../types'
 
 type CoursePreviewProps = {
@@ -162,6 +163,19 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
   const [variantName, setVariantName] = useState('')
 
   useEffect(() => {
+    const restored = consumeCourseRestore(storageKey)
+    if (restored) {
+      const restoredVariants = restored.variants || loadVariants(storageKey)
+      persistVariants(storageKey, restoredVariants)
+      setPoints(clonePoints(restored.points))
+      setRouteOrder([...restored.routeOrder])
+      setVariants(restoredVariants)
+      setActiveVariantId(restored.activeVariantId || 'auto')
+      setVariantName(restored.activeVariantId === 'auto' ? '' : restored.activeVariantName || '')
+      setGpxStatus('Parcours du briefing restauré')
+      return
+    }
+
     setPoints(defaultCourse.points)
     setRouteOrder(defaultCourse.routeOrder)
     setActiveVariantId('auto')
@@ -169,6 +183,21 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
     setVariants(loadVariants(storageKey))
     setGpxStatus('')
   }, [defaultCourse, storageKey])
+
+  const activeVariantName = activeVariantId === 'auto' ? 'Tracé automatique' : variants.find((variant) => variant.id === activeVariantId)?.name || variantName || 'Variante'
+
+  useEffect(() => {
+    writeCurrentCourseSnapshot({
+      storageKey,
+      courseType,
+      bearing,
+      points: clonePoints(points),
+      routeOrder: [...routeOrder],
+      variants: variants.map((variant) => ({ ...variant, points: clonePoints(variant.points), routeOrder: [...variant.routeOrder] })),
+      activeVariantId,
+      activeVariantName,
+    })
+  }, [storageKey, courseType, bearing, points, routeOrder, variants, activeVariantId, activeVariantName])
 
   useEffect(() => {
     const leaflet = (window as LeafletWindow).L
@@ -315,8 +344,6 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
       if (inputRef.current) inputRef.current.value = ''
     }
   }
-
-  const activeVariantName = activeVariantId === 'auto' ? 'Tracé automatique' : variants.find((variant) => variant.id === activeVariantId)?.name || 'Variante'
 
   return (
     <div className="course-preview-shell">
