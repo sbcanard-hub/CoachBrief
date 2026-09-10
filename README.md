@@ -45,12 +45,15 @@ La branche de travail ajoute désormais :
 - graphiques chronologiques des écarts modèle / réalité ;
 - suggestion de correction locale directement dans un nouveau briefing ;
 - calibration contextuelle par secteur de vent et plage de force ;
-- repli explicite vers la calibration générale du plan d’eau s’il n’y a pas assez de manches comparables ;
+- calibration affinée par saison et créneau de la journée lorsque l’historique le permet ;
+- repli progressif `contexte complet → secteur/force → plan d’eau` si l’échantillon est trop faible ;
 - aperçu du vent brut puis corrigé avant application ;
 - application ou retrait manuel de la correction sans modifier la prévision brute sauvegardée ;
 - propagation de la correction choisie au briefing, à Bernot, à l’évolution horaire et au dimensionnement ;
 - sauvegarde du METAR le plus proche avec les nouveaux briefings ;
 - comparaison de fiabilité `Open-Meteo / METAR / relevé coach` face à la réalité post-course ;
+- score de confiance indicatif par source, fondé sur le recul et les erreurs historiques ;
+- pénalité de distance appliquée au score METAR pour éviter de survaloriser une station éloignée ;
 - stockage local des variantes, briefings et retours post-course, sans serveur supplémentaire ;
 - vérification automatique du build avec GitHub Actions.
 
@@ -62,7 +65,7 @@ AviationWeather.gov ne permet pas les requêtes CORS directes depuis le navigate
 
 Les METAR sont des observations locales actuelles, pas des prévisions. Ils servent à confronter le modèle à la réalité observée ; ils ne remplacent pas les observations du coach sur le plan d’eau.
 
-Lorsqu’un briefing est sauvegardé, CoachBrief conserve désormais l’observation du METAR disponible à la station la plus proche, avec l’heure du rapport et la distance au plan d’eau. Cette donnée peut ensuite être comparée à la réalité post-course. Cette comparaison doit rester prudente : l’heure et l’exposition de l’aéroport peuvent différer de celles de la manche et du plan d’eau.
+Lorsqu’un briefing est sauvegardé, CoachBrief conserve l’observation du METAR disponible à la station la plus proche, avec l’heure du rapport et la distance au plan d’eau. Cette donnée peut ensuite être comparée à la réalité post-course. Cette comparaison doit rester prudente : l’heure et l’exposition de l’aéroport peuvent différer de celles de la manche et du plan d’eau.
 
 Le relevé saisi par le coach est volontairement traité comme une observation ponctuelle. CoachBrief calcule l’écart avec le modèle quand une heure comparable existe et augmente la priorité des facteurs locaux si cet écart devient significatif, sans extrapoler automatiquement ce relevé à toute la manche.
 
@@ -94,11 +97,13 @@ Chaque briefing affiche alors quatre états lorsque les données sont disponible
 
 La zone `Calibration par plan d’eau` regroupe les manches terminées autour d’un même point géographique. Elle calcule le biais moyen du modèle, l’erreur absolue moyenne et affiche une chronologie des écarts en force et en direction. Les différences angulaires sont calculées sur un cercle : par exemple 350° vers 010° correspond à +20° et non à -340°.
 
-Dans un nouveau briefing, CoachBrief cherche d’abord des manches terminées correspondant au même secteur de vent et à la même plage de force : `0–5 nd`, `6–10 nd`, `11–15 nd` ou `16 nd et +`. À partir de deux manches comparables, cette calibration contextuelle est utilisée pour la suggestion. Sinon, l’application l’indique et revient à la calibration générale du plan d’eau.
+Dans un nouveau briefing, CoachBrief cherche d’abord des manches terminées correspondant au même secteur de vent et à la même plage de force : `0–5 nd`, `6–10 nd`, `11–15 nd` ou `16 nd et +`. Il affine ensuite ce contexte avec la saison et le créneau horaire de la manche : matin tôt, fin de matinée, début d’après-midi, fin d’après-midi ou soir. À partir de deux manches dans ce contexte complet, cette calibration est privilégiée. Sinon l’application revient successivement au couple secteur/force, puis à la calibration générale du plan d’eau.
 
 La correction locale n’est jamais activée automatiquement. Le coach choisit de l’appliquer ou de la retirer. Lorsqu’elle est active, elle corrige la force et la direction du vent dans la vue courante, l’évolution horaire, le moteur Bernot et le dimensionnement du parcours.
 
-La zone `Fiabilité modèle / METAR / coach` compare séparément chaque source à la réalité post-course. Pour chaque source, CoachBrief affiche le nombre de comparaisons disponibles, l’erreur absolue moyenne en force et en direction ainsi que le biais moyen. Les anciens briefings sans instantané METAR restent compatibles ; la série METAR se constituera progressivement avec les nouvelles sauvegardes. Une comparaison METAR doit toujours être lue avec son heure de rapport et sa distance au plan d’eau.
+La zone `Fiabilité modèle / METAR / coach` compare séparément chaque source à la réalité post-course. Pour chaque source, CoachBrief conserve le nombre de comparaisons disponibles, l’erreur absolue moyenne en force et en direction ainsi que le biais moyen. Un score de confiance indicatif sur 100 combine le volume d’historique et la qualité des erreurs observées. Pour le METAR, une pénalité progressive est ajoutée selon la distance moyenne entre la station et le plan d’eau. Une seule comparaison ne peut pas produire un score de confiance élevé et reste explicitement marquée `À confirmer`.
+
+Ce score ne masque jamais les chiffres bruts et ne choisit pas encore automatiquement une source à la place du coach. Il sert à hiérarchiser la confiance avec l’expérience accumulée.
 
 La prévision Open-Meteo brute continue d’être conservée dans les sauvegardes et l’historique. Ce choix évite de réinjecter les corrections précédentes dans le calcul des biais futurs et de créer une boucle de calibration artificielle.
 
@@ -112,7 +117,7 @@ La mise en page d’impression conserve l’en-tête de régate, les paramètres
 
 ## Suite du prototype
 
-La prochaine étape naturelle est de rendre la calibration encore plus fine : tenir compte de la saison et de l’heure de la journée, puis proposer un score de confiance combiné qui privilégie automatiquement la source historiquement la plus fiable sans masquer les données brutes.
+La prochaine étape naturelle est d’utiliser les scores de confiance dans le briefing courant pour proposer une hiérarchie `modèle / METAR / coach` adaptée au plan d’eau, sans masquer les données brutes ni prendre la décision à la place du coach.
 
 ## Développement
 
