@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
-import { applyCalibrationToWeather, calibrationConfidence, calibrationForRequest } from '../calibration'
+import { applyCalibrationToWeather, calibrationConfidence, calibrationForSituation } from '../calibration'
 import { CourseSizingPanel } from '../components/CourseSizingPanel'
 import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
 import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
@@ -137,7 +137,8 @@ export function ResultsPage() {
   const startLineBias = request?.startLineBias || 'Neutre'
   const windwardOffset = formatOffset(request?.windwardOffset)
   const finishOrientation = request?.finishOrientation || 'Sous le vent'
-  const localCalibration = calibrationForRequest(savedBriefings, request)
+  const localCalibrationMatch = calibrationForSituation(savedBriefings, request, liveWeather)
+  const localCalibration = localCalibrationMatch?.calibration ?? null
   const correctedPreview = liveWeather && localCalibration ? applyCalibrationToWeather(liveWeather, localCalibration) : null
   const effectiveWeather = useLocalCalibration && correctedPreview ? correctedPreview : liveWeather
   const coachObservation = buildCoachObservationSignal(request, effectiveWeather)
@@ -186,10 +187,10 @@ export function ResultsPage() {
         <article><Flag /><div><small>Arrivée</small><strong>{finishOrientation}</strong></div></article>
       </section>
 
-      {localCalibration && <section className={`local-calibration-suggestion${useLocalCalibration ? ' is-applied' : ''}`} aria-labelledby="local-calibration-title">
+      {localCalibration && localCalibrationMatch && <section className={`local-calibration-suggestion${useLocalCalibration ? ' is-applied' : ''}`} aria-labelledby="local-calibration-title">
         <div className="local-calibration-copy">
           <div className="local-calibration-heading"><h2 id="local-calibration-title">Correction locale suggérée</h2><span>{calibrationConfidence(localCalibration.sampleCount)}</span></div>
-          <p>Historique {localCalibration.label} · {localCalibration.sampleCount} manche{localCalibration.sampleCount > 1 ? 's' : ''} terminée{localCalibration.sampleCount > 1 ? 's' : ''}. Le modèle {calibrationSpeedText(localCalibration.meanSpeedBias)} et est {calibrationDirectionText(localCalibration.meanDirectionBias)}.</p>
+          <p><strong>{localCalibrationMatch.situationLabel}</strong> · {localCalibrationMatch.scope === 'situation' ? `${localCalibrationMatch.situationSampleCount} manches comparables utilisées.` : `${localCalibrationMatch.situationSampleCount} manche${localCalibrationMatch.situationSampleCount > 1 ? 's' : ''} comparable${localCalibrationMatch.situationSampleCount > 1 ? 's' : ''} : repli sur l’historique global ${localCalibration.label}.`} Le modèle {calibrationSpeedText(localCalibration.meanSpeedBias)} et est {calibrationDirectionText(localCalibration.meanDirectionBias)}.</p>
           <div className="local-calibration-metrics">
             <span>Biais force <strong>{localCalibration.meanSpeedBias == null ? '—' : `${localCalibration.meanSpeedBias >= 0 ? '+' : ''}${formatDecimal(localCalibration.meanSpeedBias)} nd`}</strong></span>
             <span>Biais direction <strong>{localCalibration.meanDirectionBias == null ? '—' : `${localCalibration.meanDirectionBias >= 0 ? '+' : ''}${Math.round(localCalibration.meanDirectionBias)}°`}</strong></span>
@@ -199,7 +200,7 @@ export function ResultsPage() {
         <div className="local-calibration-actions">
           <button type="button" className={useLocalCalibration ? 'is-active' : ''} disabled={!liveWeather} onClick={() => setUseLocalCalibration((value) => !value)}>{useLocalCalibration ? 'Retirer la correction' : 'Appliquer la correction locale'}</button>
           {liveWeather && correctedPreview && <small className="local-calibration-preview">À la manche : {Math.round(liveWeather.race.speed)} nd · {formatDegrees(liveWeather.race.direction)} → {Math.round(correctedPreview.race.speed)} nd · {formatDegrees(correctedPreview.race.direction)}</small>}
-          <small>{useLocalCalibration ? 'Correction active dans le briefing, Bernot et le dimensionnement.' : 'Suggestion uniquement : la prévision brute reste inchangée tant que vous ne l’appliquez pas.'}</small>
+          <small>{useLocalCalibration ? 'Correction active dans le briefing, Bernot et le dimensionnement.' : localCalibrationMatch.scope === 'situation' ? 'Correction issue de manches du même secteur et de la même plage de force.' : 'Suggestion globale : pas encore assez de manches dans cette situation exacte.'}</small>
         </div>
       </section>}
 
