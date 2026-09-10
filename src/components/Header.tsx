@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BookmarkPlus, Check, FolderOpen, LoaderCircle, Sailboat } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { fetchWeatherForBriefing } from '../weather'
@@ -11,6 +11,10 @@ export function Header() {
   const request = location.pathname === '/resultats' ? location.state as BriefingRequest | null : null
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
+  useEffect(() => {
+    setSaveState('idle')
+  }, [location.key, location.pathname])
+
   async function saveCurrentBriefing() {
     if (!request || saveState === 'saving') return
     setSaveState('saving')
@@ -21,7 +25,9 @@ export function Header() {
       } catch {
         // Le briefing peut être sauvegardé même si la météo ne répond pas au moment précis de l'enregistrement.
       }
-      saveBriefing(request, weather, readCurrentCourseSnapshot())
+      const currentCourse = readCurrentCourseSnapshot()
+      const matchingCourse = currentCourse?.courseType === request.courseType ? currentCourse : null
+      saveBriefing(request, weather, matchingCourse)
       setSaveState('saved')
     } catch {
       setSaveState('error')
