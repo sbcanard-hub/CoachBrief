@@ -1,3 +1,4 @@
+.header-confidence-wrap { width: min(1180px, calc(100% - 40px)); margin: 18px auto 0; }
 .source-confidence-panel { margin: 0 0 18px; padding: 18px 20px; border: 1px solid #d7e2dd; border-left: 4px solid #216e8c; background: #f7fbfc; }
 .source-confidence-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .source-confidence-heading h2 { margin: 2px 0 0; color: #173b3a; font: 600 18px/1.15 'Manrope', sans-serif; letter-spacing: -.45px; }
@@ -20,12 +21,14 @@
 .source-confidence-empty { margin: 0; color: #647a74; font-size: 9px; line-height: 1.5; }
 
 @media (max-width: 760px) {
+  .header-confidence-wrap { width: min(100% - 24px, 1180px); margin-top: 12px; }
   .source-confidence-heading { display: grid; align-items: start; }
   .source-confidence-heading > small { text-align: left; }
   .source-confidence-grid { grid-template-columns: 1fr; }
 }
 
 @media print {
+  .header-confidence-wrap { width: auto !important; margin: 0 0 5mm !important; }
   .source-confidence-panel { padding: 4mm !important; border: 1px solid #d7e2dd !important; border-left: 3pt solid #216e8c !important; background: #fff !important; page-break-inside: avoid; }
   .source-confidence-heading h2 { font-size: 11pt !important; }
   .source-confidence-card, .source-confidence-grid { page-break-inside: avoid; }
