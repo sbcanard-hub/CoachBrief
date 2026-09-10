@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowLeft,
@@ -20,15 +20,17 @@ import {
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
+import { fetchWeatherForBriefing } from '../weather'
+import type { LiveWeatherData, WeatherHour } from '../weather'
 import type { BriefingRequest } from '../types'
 
-const hourlyForecast = [
-  { time: '09:00', speed: 7, gust: 10, direction: 'N-E', degrees: '045°', temperature: '18°' },
-  { time: '10:00', speed: 9, gust: 13, direction: 'E-N-E', degrees: '065°', temperature: '19°' },
-  { time: '11:00', speed: 11, gust: 15, direction: 'E', degrees: '080°', temperature: '20°', race: true },
-  { time: '12:00', speed: 13, gust: 17, direction: 'E', degrees: '090°', temperature: '21°' },
-  { time: '13:00', speed: 14, gust: 18, direction: 'E-S-E', degrees: '105°', temperature: '22°' },
-  { time: '14:00', speed: 13, gust: 17, direction: 'E-S-E', degrees: '110°', temperature: '22°' },
+const mockHourlyForecast: WeatherHour[] = [
+  { time: '09:00', speed: 7, gust: 10, direction: 45, temperature: 18 },
+  { time: '10:00', speed: 9, gust: 13, direction: 65, temperature: 19 },
+  { time: '11:00', speed: 11, gust: 15, direction: 80, temperature: 20 },
+  { time: '12:00', speed: 13, gust: 17, direction: 90, temperature: 21 },
+  { time: '13:00', speed: 14, gust: 18, direction: 105, temperature: 22 },
+  { time: '14:00', speed: 13, gust: 17, direction: 110, temperature: 22 },
 ]
 
 function formatDate(date?: string) {
@@ -51,10 +53,54 @@ function formatOffset(offset?: string) {
   return `${value > 0 ? '+' : ''}${value}° · ${value > 0 ? 'droite' : 'gauche'}`
 }
 
+function formatDegrees(value: number) {
+  return `${String(Math.round(value)).padStart(3, '0')}°`
+}
+
+function directionLabel(value: number) {
+  const labels = ['N', 'N-E', 'E', 'S-E', 'S', 'S-O', 'O', 'N-O']
+  return labels[Math.round((((value % 360) + 360) % 360) / 45) % 8]
+}
+
+function clockMinutes(value: string) {
+  const [hours, minutes] = value.split(':').map(Number)
+  return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0)
+}
+
+function isRaceHour(hour: string, raceTime: string) {
+  return Math.abs(clockMinutes(hour) - clockMinutes(raceTime)) <= 30
+}
+
 export function ResultsPage() {
   const { state } = useLocation()
   const request = state as BriefingRequest | null
   const [openWhy, setOpenWhy] = useState<number | null>(null)
+  const [liveWeather, setLiveWeather] = useState<LiveWeatherData | null>(null)
+  const [weatherState, setWeatherState] = useState<'idle' | 'loading' | 'live' | 'fallback'>('idle')
+  const [weatherError, setWeatherError] = useState('')
+
+  useEffect(() => {
+    if (!request?.location || !request.date) return
+    let active = true
+    setWeatherState('loading')
+    setWeatherError('')
+
+    fetchWeatherForBriefing(request)
+      .then((data) => {
+        if (!active) return
+        setLiveWeather(data)
+        setWeatherState('live')
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        setLiveWeather(null)
+        setWeatherState('fallback')
+        setWeatherError(error instanceof Error ? error.message : 'Météo réelle indisponible')
+      })
+
+    return () => { active = false }
+  }, [request])
+
   const location = request?.location || 'Antibes · Baie des Anges'
   const raceTime = request?.raceTime || request?.startTime || '11:00'
   const boatClass = request?.boatClass || 'Optimist'
@@ -63,8 +109,26 @@ export function ResultsPage() {
   const startLineBias = request?.startLineBias || 'Neutre'
   const windwardOffset = formatOffset(request?.windwardOffset)
   const finishOrientation = request?.finishOrientation || 'Sous le vent'
-  const bernotRows = buildBernotRows(request)
-  const recommendations = buildCoachRecommendations(request)
+  const bernotRows = buildBernotRows(request, liveWeather?.scenario)
+  const recommendations = buildCoachRecommendations(request, liveWeather?.scenario)
+  const forecast = liveWeather?.hourly.length ? liveWeather.hourly : mockHourlyForecast
+  const raceWeather = liveWeather?.race ?? {
+    speed: 11,
+    gust: 15,
+    direction: 80,
+    temperature: 20,
+    humidity: 62,
+    dewPoint: 14,
+    pressure: 1018,
+    cloudCover: 25,
+  }
+  const marine = liveWeather?.marine
+  const pressureTrend = liveWeather?.pressureTrend ?? 'hausse'
+  const weatherLabel = weatherState === 'live'
+    ? 'Météo réelle · Open-Meteo'
+    : weatherState === 'loading'
+      ? 'Connexion météo en cours…'
+      : 'Météo de démonstration'
 
   return (
     <main className="results-page briefing-page">
@@ -72,7 +136,7 @@ export function ResultsPage() {
 
       <section className="briefing-hero" aria-labelledby="briefing-title">
         <div>
-          <span className="step-label">Briefing météo & tactique · Données météo fictives</span>
+          <span className="step-label">Briefing météo & tactique · {weatherLabel}</span>
           <h1 id="briefing-title">{location}</h1>
           <div className="event-meta">
             <span><CalendarDays size={15} /> {formatDate(request?.date)}</span>
@@ -80,8 +144,10 @@ export function ResultsPage() {
             <span><Sailboat size={15} /> {boatClass}</span>
             <span><Flag size={15} /> Parcours {courseType}</span>
           </div>
+          {weatherState === 'live' && liveWeather && <p className="weather-source-note">Point météo : {liveWeather.placeName} · {liveWeather.latitude.toFixed(3)}, {liveWeather.longitude.toFixed(3)} · {liveWeather.timezone}</p>}
+          {weatherState === 'fallback' && weatherError && <p className="weather-source-note is-warning">Météo réelle indisponible : {weatherError}. Affichage de la maquette.</p>}
         </div>
-        <div className="hero-status"><span aria-hidden="true" /> Briefing prêt</div>
+        <div className="hero-status"><span aria-hidden="true" /> {weatherState === 'live' ? 'Données chargées' : 'Briefing prêt'}</div>
       </section>
 
       <section className="tactical-overview" aria-label="Paramètres tactiques du parcours">
@@ -95,20 +161,20 @@ export function ResultsPage() {
         <article className="wind-feature">
           <div className="card-kicker"><Wind size={17} /> Vent à la manche</div>
           <div className="wind-reading">
-            <div><strong>11</strong><span>nœuds<br />moyen</span></div>
-            <div className="wind-arrow" aria-hidden="true"><Navigation size={48} /></div>
+            <div><strong>{Math.round(raceWeather.speed)}</strong><span>nœuds<br />moyen</span></div>
+            <div className="wind-arrow" aria-hidden="true" style={{ transform: `rotate(${raceWeather.direction - 45}deg)` }}><Navigation size={48} /></div>
           </div>
           <div className="wind-details">
-            <span><small>Rafales</small><strong>15 nds</strong></span>
-            <span><small>Direction</small><strong>080° · Est</strong></span>
+            <span><small>Rafales</small><strong>{Math.round(raceWeather.gust)} nds</strong></span>
+            <span><small>Direction</small><strong>{formatDegrees(raceWeather.direction)} · {directionLabel(raceWeather.direction)}</strong></span>
           </div>
         </article>
 
         <div className="conditions-grid">
-          <article className="condition-card"><Thermometer /><div><small>Températures</small><strong>20°C <span>air</span></strong><p>19°C · eau</p></div></article>
-          <article className="condition-card"><Gauge /><div><small>Pression</small><strong>1018 <span>hPa</span></strong><p className="trend-up"><ArrowUpRight /> En hausse</p></div></article>
-          <article className="condition-card"><Droplets /><div><small>Point de rosée</small><strong>14°C</strong><p>Humidité 62 %</p></div></article>
-          <article className="condition-card"><CloudSun /><div><small>Nébulosité</small><strong>25 %</strong><p>Peu nuageux</p></div></article>
+          <article className="condition-card"><Thermometer /><div><small>Températures</small><strong>{Math.round(raceWeather.temperature)}°C <span>air</span></strong><p>{marine?.seaTemperature == null ? 'Mer —' : `${Math.round(marine.seaTemperature)}°C · eau`}</p></div></article>
+          <article className="condition-card"><Gauge /><div><small>Pression</small><strong>{Math.round(raceWeather.pressure)} <span>hPa</span></strong><p className="trend-up">{pressureTrend === 'hausse' ? <ArrowUpRight /> : pressureTrend === 'baisse' ? <ArrowDownRight /> : <span>→</span>} {pressureTrend === 'hausse' ? 'En hausse' : pressureTrend === 'baisse' ? 'En baisse' : 'Stable'}</p></div></article>
+          <article className="condition-card"><Droplets /><div><small>Point de rosée</small><strong>{Math.round(raceWeather.dewPoint)}°C</strong><p>Humidité {Math.round(raceWeather.humidity)} %</p></div></article>
+          <article className="condition-card"><CloudSun /><div><small>Nébulosité</small><strong>{Math.round(raceWeather.cloudCover)} %</strong><p>{raceWeather.cloudCover < 30 ? 'Peu nuageux' : raceWeather.cloudCover < 70 ? 'Variable' : 'Très nuageux'}</p></div></article>
         </div>
       </section>
 
@@ -118,17 +184,20 @@ export function ResultsPage() {
           <div className="legend"><span className="legend-average" /> Vent moyen <span className="legend-gust" /> Rafales</div>
         </div>
         <div className="forecast-scroll" tabIndex={0} aria-label="Prévisions horaires, faites défiler horizontalement sur mobile">
-          <div className="forecast-table">
-            {hourlyForecast.map((hour) => (
-              <article className={`forecast-hour${hour.race ? ' is-race' : ''}`} key={hour.time}>
-                <div className="forecast-time">{hour.time}{hour.race && <span>Manche</span>}</div>
-                <Navigation className="direction-arrow" size={27} aria-hidden="true" />
-                <strong className="hour-speed">{hour.speed}<small> nds</small></strong>
-                <span className="hour-gust">raf. {hour.gust}</span>
-                <span className="hour-direction">{hour.degrees} · {hour.direction}</span>
-                <span className="hour-temperature">{hour.temperature}</span>
-              </article>
-            ))}
+          <div className="forecast-table" style={{ gridTemplateColumns: `repeat(${forecast.length}, minmax(130px, 1fr))` }}>
+            {forecast.map((hour) => {
+              const race = isRaceHour(hour.time, raceTime)
+              return (
+                <article className={`forecast-hour${race ? ' is-race' : ''}`} key={hour.time}>
+                  <div className="forecast-time">{hour.time}{race && <span>Manche</span>}</div>
+                  <Navigation className="direction-arrow" size={27} aria-hidden="true" style={{ transform: `rotate(${hour.direction - 45}deg)` }} />
+                  <strong className="hour-speed">{Math.round(hour.speed)}<small> nds</small></strong>
+                  <span className="hour-gust">raf. {Math.round(hour.gust)}</span>
+                  <span className="hour-direction">{formatDegrees(hour.direction)} · {directionLabel(hour.direction)}</span>
+                  <span className="hour-temperature">{Math.round(hour.temperature)}°</span>
+                </article>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -137,16 +206,16 @@ export function ResultsPage() {
         <article className="detail-panel">
           <div className="panel-icon"><Compass /></div>
           <div><span className="step-label">Dynamique du vent</span><h2>Oscillation & rotation</h2></div>
-          <div className="metric-line"><span>Oscillation prévue</span><strong>± 8°</strong></div>
-          <div className="metric-line"><span>Tendance</span><strong className="rotation"><ArrowDownRight /> Droite</strong></div>
-          <p>Rotation progressive de 080° à 110° entre 11 h et 14 h. Oscillations régulières, période estimée à 8–12 minutes.</p>
+          <div className="metric-line"><span>Oscillation estimée</span><strong>± {liveWeather?.scenario.oscillation ?? 8}°</strong></div>
+          <div className="metric-line"><span>Tendance</span><strong className="rotation"><ArrowDownRight /> {liveWeather && liveWeather.scenario.windEnd < liveWeather.scenario.windStart ? 'Gauche' : 'Droite'}</strong></div>
+          <p>{liveWeather ? `Évolution calculée de ${formatDegrees(liveWeather.scenario.windStart)} à ${formatDegrees(liveWeather.scenario.windEnd)} sur la fenêtre choisie.` : 'Rotation progressive de 080° à 110° entre 11 h et 14 h. Oscillations régulières, période estimée à 8–12 minutes.'}</p>
         </article>
         <article className="detail-panel sea-panel">
           <div className="panel-icon"><Waves /></div>
           <div><span className="step-label">Plan d'eau</span><h2>État de la mer</h2></div>
-          <div className="sea-measure"><strong>0,6 <small>m</small></strong><span>Vague courte<br />de secteur Est</span></div>
-          <div className="metric-line"><span>Période</span><strong>4 secondes</strong></div>
-          <p>Mer peu agitée, devenant légèrement plus courte avec le renforcement de la brise en début d’après-midi.</p>
+          <div className="sea-measure"><strong>{marine?.waveHeight == null ? '—' : marine.waveHeight.toFixed(1).replace('.', ',')} {marine?.waveHeight == null ? '' : <small>m</small>}</strong><span>{marine?.waveDirection == null ? 'Donnée marine indisponible' : `Vagues depuis ${formatDegrees(marine.waveDirection)}`}<br />{marine?.wavePeriod == null ? '' : `Période ${marine.wavePeriod.toFixed(1).replace('.', ',')} s`}</span></div>
+          <div className="metric-line"><span>Courant modèle</span><strong>{marine?.currentVelocity == null ? '—' : `${marine.currentVelocity.toFixed(1).replace('.', ',')} nd · ${formatDegrees(marine.currentDirection ?? 0)}`}</strong></div>
+          <p>Les données marines servent au briefing tactique mais restent des données de modèle : elles ne remplacent pas les observations sur l’eau.</p>
         </article>
       </section>
 
@@ -171,7 +240,7 @@ export function ResultsPage() {
             ))}
           </div>
         </div>
-        <p className="bernot-note">La hiérarchie est maintenant recalculée à partir de la rotation et de l’oscillation du vent de la maquette, du lieu, de l’axe, de la ligne favorable et du désaxage saisi. Courant, relief détaillé et météo réelle seront branchés ensuite.</p>
+        <p className="bernot-note">La hiérarchie combine maintenant les paramètres de course avec les données météo disponibles. Quand Open-Meteo répond, vent, nébulosité, vagues et courant alimentent directement l’analyse.</p>
       </section>
 
       <section className="coach-section" aria-labelledby="coach-title">
@@ -196,7 +265,7 @@ export function ResultsPage() {
         </div>
       </section>
 
-      <p className="data-note">Météo encore fictive · Bernot et synthèse tactique calculés à partir des données disponibles · Aucune API externe connectée</p>
+      <p className="data-note">Source météo : Open-Meteo quand disponible · Repli automatique sur la maquette · Les recommandations restent une aide au briefing et doivent être confrontées aux observations du coach.</p>
     </main>
   )
 }
