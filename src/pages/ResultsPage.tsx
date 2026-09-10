@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
+import { CourseSizingPanel } from '../components/CourseSizingPanel'
 import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
 import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
 import type { MetarCache, MetarObservation } from '../metar'
@@ -130,6 +131,8 @@ export function ResultsPage() {
   const weatherLabel = weatherState === 'live' ? 'Météo réelle · Open-Meteo' : weatherState === 'loading' ? 'Connexion météo en cours…' : 'Météo de démonstration'
   const sourceLatitude = liveWeather?.latitude ?? Number(request?.latitude)
   const sourceLongitude = liveWeather?.longitude ?? Number(request?.longitude)
+  const courseAxisValue = Number.isFinite(Number(request?.courseAxis)) ? Number(request?.courseAxis) : raceWeather.direction
+  const windwardOffsetValue = Number.isFinite(Number(request?.windwardOffset)) ? Number(request?.windwardOffset) : 0
   const localSources = Number.isFinite(sourceLatitude) && Number.isFinite(sourceLongitude)
     ? nearbyMetarSources(sourceLatitude, sourceLongitude).filter((source) => source.distance <= 250)
     : []
@@ -219,6 +222,8 @@ export function ResultsPage() {
           <article className="condition-card"><CloudSun /><div><small>Nébulosité</small><strong>{Math.round(raceWeather.cloudCover)} %</strong><p>{raceWeather.cloudCover < 30 ? 'Peu nuageux' : raceWeather.cloudCover < 70 ? 'Variable' : 'Très nuageux'}</p></div></article>
         </div>
       </section>
+
+      <CourseSizingPanel boatClass={boatClass} courseType={courseType} windSpeed={raceWeather.speed} latitude={sourceLatitude} longitude={sourceLongitude} courseAxis={courseAxisValue} windwardOffset={windwardOffsetValue} />
 
       <section className="brief-section" aria-labelledby="evolution-title"><div className="section-heading"><div><span className="section-number">01</span><div><span className="step-label">Fenêtre de course</span><h2 id="evolution-title">Évolution heure par heure</h2></div></div><div className="legend"><span className="legend-average" /> Vent moyen <span className="legend-gust" /> Rafales</div></div>
         <div className="forecast-scroll" tabIndex={0} aria-label="Prévisions horaires"><div className="forecast-table" style={{ gridTemplateColumns: `repeat(${forecast.length}, minmax(130px, 1fr))` }}>{forecast.map((hour) => { const race = isRaceHour(hour.time, raceTime); return <article className={`forecast-hour${race ? ' is-race' : ''}`} key={hour.time}><div className="forecast-time">{hour.time}{race && <span>Manche</span>}</div><Navigation className="direction-arrow" size={27} aria-hidden="true" style={{ transform: `rotate(${hour.direction - 45}deg)` }} /><strong className="hour-speed">{Math.round(hour.speed)}<small> nds</small></strong><span className="hour-gust">raf. {Math.round(hour.gust)}</span><span className="hour-direction">{formatDegrees(hour.direction)} · {directionLabel(hour.direction)}</span><span className="hour-temperature">{Math.round(hour.temperature)}°</span></article> })}</div></div>
