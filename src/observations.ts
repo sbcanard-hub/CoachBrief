@@ -68,7 +68,7 @@ export function buildCoachObservationSignal(request: BriefingRequest | null, wea
   const currentDirection = numberFrom(request?.observedCurrentDirection)
   const cloudCover = numberFrom(request?.observedCloudCover)
   const pressure = numberFrom(request?.observedPressure)
-  const notes = request?.observationNotes.trim() || undefined
+  const notes = request?.observationNotes?.trim() || undefined
   const hasObservation = [windSpeed, windDirection, gust, waveHeight, currentVelocity, currentDirection, cloudCover, pressure].some((value) => value != null) || Boolean(notes)
   const modelHour = weather ? nearestModelHour(weather.hourly, observationTime) : undefined
 
@@ -89,8 +89,8 @@ export function buildCoachObservationSignal(request: BriefingRequest | null, wea
     windDirectionDelta: windDirection != null && modelHour ? signedDirectionDelta(modelHour.direction, windDirection) : undefined,
     gustDelta: gust != null && modelHour ? gust - modelHour.gust : undefined,
     waveHeightDelta: waveHeight != null && weather?.marine?.waveHeight != null ? waveHeight - weather.marine.waveHeight : undefined,
-    cloudCoverDelta: cloudCover != null ? cloudCover - weather?.race.cloudCover! : undefined,
-    pressureDelta: pressure != null ? pressure - weather?.race.pressure! : undefined,
+    cloudCoverDelta: cloudCover != null && weather ? cloudCover - weather.race.cloudCover : undefined,
+    pressureDelta: pressure != null && weather ? pressure - weather.race.pressure : undefined,
   }
 }
 
