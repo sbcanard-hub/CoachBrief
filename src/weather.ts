@@ -1,16 +1,16 @@
 import type { WeatherScenario } from './bernot'
 import type { BriefingRequest } from './types'
 
-type GeocodingResponse = {
-  results?: Array<{
-    name: string
-    latitude: number
-    longitude: number
-    timezone?: string
-    admin1?: string
-    country?: string
-  }>
+type GeoPlace = {
+  name: string
+  latitude: number
+  longitude: number
+  timezone?: string
+  admin1?: string
+  country?: string
 }
+
+type GeocodingResponse = { results?: GeoPlace[] }
 
 type ForecastHourly = {
   time: string[]
@@ -41,9 +41,7 @@ type MarineHourly = {
   ocean_current_direction: Array<number | null>
 }
 
-type MarineResponse = {
-  hourly?: MarineHourly
-}
+type MarineResponse = { hourly?: MarineHourly }
 
 export type WeatherHour = {
   time: string
@@ -92,7 +90,6 @@ function simplifyLocation(location: string) {
 
 async function geocode(location: string) {
   const candidates = Array.from(new Set([location.trim(), simplifyLocation(location)]))
-
   for (const name of candidates) {
     if (name.length < 2) continue
     const params = new URLSearchParams({ name, count: '1', language: 'fr', format: 'json' })
@@ -102,8 +99,16 @@ async function geocode(location: string) {
     const result = data.results?.[0]
     if (result) return result
   }
-
   throw new Error('Lieu introuvable')
+}
+
+async function resolvePlace(request: BriefingRequest): Promise<GeoPlace> {
+  const latitude = Number(request.latitude)
+  const longitude = Number(request.longitude)
+  if (Number.isFinite(latitude) && Number.isFinite(longitude) && request.latitude !== '' && request.longitude !== '') {
+    return { name: request.location || 'Point du plan d’eau', latitude, longitude }
+  }
+  return geocode(request.location)
 }
 
 function minutesFromIso(value: string) {
@@ -123,7 +128,6 @@ function nearestIndex(times: string[], clock: string | undefined) {
   const target = minutesFromClock(clock, 12 * 60)
   let bestIndex = 0
   let bestDistance = Number.POSITIVE_INFINITY
-
   times.forEach((time, index) => {
     const distance = Math.abs(minutesFromIso(time) - target)
     if (distance < bestDistance) {
@@ -131,7 +135,6 @@ function nearestIndex(times: string[], clock: string | undefined) {
       bestIndex = index
     }
   })
-
   return bestIndex
 }
 
@@ -145,13 +148,11 @@ function estimateOscillation(directions: number[]) {
   const last = directions[directions.length - 1]
   const trend = signedAngleDelta(first, last)
   let maxDeviation = 0
-
   directions.forEach((direction, index) => {
     const ratio = directions.length === 1 ? 0 : index / (directions.length - 1)
     const expected = (first + trend * ratio + 360) % 360
     maxDeviation = Math.max(maxDeviation, Math.abs(signedAngleDelta(expected, direction)))
   })
-
   return Math.max(3, Math.min(25, Math.round(maxDeviation || 5)))
 }
 
@@ -161,16 +162,10 @@ function safeNumber(value: number | null | undefined) {
 
 async function fetchMarine(latitude: number, longitude: number, date: string, raceTime: string | undefined) {
   const params = new URLSearchParams({
-    latitude: String(latitude),
-    longitude: String(longitude),
+    latitude: String(latitude), longitude: String(longitude),
     hourly: 'wave_height,wave_direction,wave_period,sea_surface_temperature,ocean_current_velocity,ocean_current_direction',
-    start_date: date,
-    end_date: date,
-    timezone: 'auto',
-    wind_speed_unit: 'kn',
-    cell_selection: 'sea',
+    start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn', cell_selection: 'sea',
   })
-
   try {
     const response = await fetch(`https://marine-api.open-meteo.com/v1/marine?${params}`)
     if (!response.ok) return undefined
@@ -185,23 +180,17 @@ async function fetchMarine(latitude: number, longitude: number, date: string, ra
       currentVelocity: safeNumber(data.hourly.ocean_current_velocity[index]),
       currentDirection: safeNumber(data.hourly.ocean_current_direction[index]),
     }
-  } catch {
-    return undefined
-  }
+  } catch { return undefined }
 }
 
 export async function fetchWeatherForBriefing(request: BriefingRequest): Promise<LiveWeatherData> {
   if (!request.location.trim() || !request.date) throw new Error('Lieu et date requis')
 
-  const place = await geocode(request.location)
+  const place = await resolvePlace(request)
   const params = new URLSearchParams({
-    latitude: String(place.latitude),
-    longitude: String(place.longitude),
+    latitude: String(place.latitude), longitude: String(place.longitude),
     hourly: 'temperature_2m,relative_humidity_2m,dew_point_2m,pressure_msl,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
-    start_date: request.date,
-    end_date: request.date,
-    timezone: 'auto',
-    wind_speed_unit: 'kn',
+    start_date: request.date, end_date: request.date, timezone: 'auto', wind_speed_unit: 'kn',
   })
 
   const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
@@ -212,17 +201,14 @@ export async function fetchWeatherForBriefing(request: BriefingRequest): Promise
   const startMinutes = minutesFromClock(request.startTime, 0)
   const endMinutes = minutesFromClock(request.endTime, 24 * 60 - 1)
   const selectedIndexes = forecast.hourly.time
-    .map((time, index) => ({ time, index, minute: minutesFromIso(time) }))
+    .map((time, index) => ({ index, minute: minutesFromIso(time) }))
     .filter(({ minute }) => minute >= startMinutes && minute <= endMinutes)
     .map(({ index }) => index)
-
   const indexes = selectedIndexes.length ? selectedIndexes : forecast.hourly.time.map((_, index) => index)
   const hourly = indexes.map((index) => ({
     time: forecast.hourly.time[index].split('T')[1] ?? forecast.hourly.time[index],
-    speed: forecast.hourly.wind_speed_10m[index],
-    gust: forecast.hourly.wind_gusts_10m[index],
-    direction: forecast.hourly.wind_direction_10m[index],
-    temperature: forecast.hourly.temperature_2m[index],
+    speed: forecast.hourly.wind_speed_10m[index], gust: forecast.hourly.wind_gusts_10m[index],
+    direction: forecast.hourly.wind_direction_10m[index], temperature: forecast.hourly.temperature_2m[index],
   }))
 
   const raceIndex = nearestIndex(forecast.hourly.time, request.raceTime || request.startTime)
@@ -230,40 +216,26 @@ export async function fetchWeatherForBriefing(request: BriefingRequest): Promise
   const pressureDelta = forecast.hourly.pressure_msl[raceIndex] - forecast.hourly.pressure_msl[previousIndex]
   const pressureTrend: LiveWeatherData['pressureTrend'] = pressureDelta > 0.7 ? 'hausse' : pressureDelta < -0.7 ? 'baisse' : 'stable'
   const marine = await fetchMarine(place.latitude, place.longitude, request.date, request.raceTime || request.startTime)
-
   const directions = indexes.map((index) => forecast.hourly.wind_direction_10m[index])
   const speeds = indexes.map((index) => forecast.hourly.wind_speed_10m[index])
   const scenario: WeatherScenario = {
     windStart: directions[0] ?? forecast.hourly.wind_direction_10m[raceIndex],
     windEnd: directions[directions.length - 1] ?? forecast.hourly.wind_direction_10m[raceIndex],
-    oscillation: estimateOscillation(directions),
-    raceWindSpeed: forecast.hourly.wind_speed_10m[raceIndex],
-    maxWindSpeed: Math.max(...speeds, forecast.hourly.wind_speed_10m[raceIndex]),
-    cloudCover: forecast.hourly.cloud_cover[raceIndex],
-    waveHeight: marine?.waveHeight ?? 0,
-    waveDirection: marine?.waveDirection ?? undefined,
-    currentVelocity: marine?.currentVelocity ?? undefined,
-    currentDirection: marine?.currentDirection ?? undefined,
+    oscillation: estimateOscillation(directions), raceWindSpeed: forecast.hourly.wind_speed_10m[raceIndex],
+    maxWindSpeed: Math.max(...speeds, forecast.hourly.wind_speed_10m[raceIndex]), cloudCover: forecast.hourly.cloud_cover[raceIndex],
+    waveHeight: marine?.waveHeight ?? 0, waveDirection: marine?.waveDirection ?? undefined,
+    currentVelocity: marine?.currentVelocity ?? undefined, currentDirection: marine?.currentDirection ?? undefined,
   }
 
   return {
-    placeName: [place.name, place.admin1].filter(Boolean).join(' · '),
-    latitude: place.latitude,
-    longitude: place.longitude,
-    timezone: forecast.timezone,
-    hourly,
+    placeName: request.latitude && request.longitude ? `${request.location} · point précis` : [place.name, place.admin1].filter(Boolean).join(' · '),
+    latitude: place.latitude, longitude: place.longitude, timezone: forecast.timezone, hourly,
     race: {
-      speed: forecast.hourly.wind_speed_10m[raceIndex],
-      gust: forecast.hourly.wind_gusts_10m[raceIndex],
-      direction: forecast.hourly.wind_direction_10m[raceIndex],
-      temperature: forecast.hourly.temperature_2m[raceIndex],
-      humidity: forecast.hourly.relative_humidity_2m[raceIndex],
-      dewPoint: forecast.hourly.dew_point_2m[raceIndex],
-      pressure: forecast.hourly.pressure_msl[raceIndex],
-      cloudCover: forecast.hourly.cloud_cover[raceIndex],
+      speed: forecast.hourly.wind_speed_10m[raceIndex], gust: forecast.hourly.wind_gusts_10m[raceIndex],
+      direction: forecast.hourly.wind_direction_10m[raceIndex], temperature: forecast.hourly.temperature_2m[raceIndex],
+      humidity: forecast.hourly.relative_humidity_2m[raceIndex], dewPoint: forecast.hourly.dew_point_2m[raceIndex],
+      pressure: forecast.hourly.pressure_msl[raceIndex], cloudCover: forecast.hourly.cloud_cover[raceIndex],
     },
-    pressureTrend,
-    marine,
-    scenario,
+    pressureTrend, marine, scenario,
   }
 }
