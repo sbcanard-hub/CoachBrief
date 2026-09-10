@@ -54,6 +54,10 @@ Un tracé ajusté peut être enregistré comme variante avec un nom libre, par e
 
 Ce stockage est volontairement local pour le prototype : une variante enregistrée sur un téléphone ou un ordinateur n’est pas encore synchronisée automatiquement vers un autre appareil. L’export GPX permet déjà de transférer un tracé entre appareils.
 
+## Suite du prototype
+
+La prochaine étape prévue est de mémoriser un briefing complet — paramètres de course, observations terrain et variante de parcours — afin de pouvoir retrouver rapidement une régate préparée et produire un export de briefing partageable.
+
 ## Développement
 
 ```bash
