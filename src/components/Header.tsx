@@ -8,6 +8,7 @@ import { fetchWeatherForBriefing } from '../weather'
 import { loadSavedBriefings, readCurrentCourseSnapshot, saveBriefing } from '../savedBriefings'
 import type { SavedMetarSnapshot } from '../savedBriefings'
 import type { BriefingRequest } from '../types'
+import { LocalEffectsPanel } from './LocalEffectsPanel'
 import { SourceConfidencePanel } from './SourceConfidencePanel'
 import './headerActions.css'
 import '../print.css'
@@ -93,6 +94,9 @@ export function Header() {
         {!request && <span className="header-label">Météo de régate</span>}
       </nav>
     </header>
-    {request && <div className="header-confidence-wrap"><SourceConfidencePanel reliability={sourceReliability} /></div>}
+    {request && <>
+      <div className="header-confidence-wrap"><SourceConfidencePanel reliability={sourceReliability} /></div>
+      <LocalEffectsPanel request={request} />
+    </>}
   </>
 }
