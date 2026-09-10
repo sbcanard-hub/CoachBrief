@@ -1,9 +1,16 @@
 import { FormEvent, useState } from 'react'
-import { ArrowRight, CalendarDays, Clock3, MapPin, Wind } from 'lucide-react'
+import { ArrowRight, CalendarDays, Clock3, Flag, MapPin, Sailboat, Wind } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { BriefingRequest } from '../types'
 
-const initialForm: BriefingRequest = { location: '', date: '', startTime: '', endTime: '' }
+const initialForm: BriefingRequest = {
+  location: '',
+  date: '',
+  startTime: '',
+  endTime: '',
+  boatClass: 'Optimist',
+  courseType: 'Banane',
+}
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -38,7 +45,7 @@ export function HomePage() {
         <form onSubmit={submit}>
           <label className="field field-wide">
             <span><MapPin size={16} /> Lieu de la régate</span>
-            <input required name="location" placeholder="ex. Baie de Quiberon" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
+            <input required name="location" placeholder="ex. Baie d'Antibes" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
           </label>
 
           <div className="form-row">
@@ -53,6 +60,25 @@ export function HomePage() {
             <label className="field">
               <span><Clock3 size={16} /> Fin</span>
               <input required type="time" name="endTime" value={form.endTime} onChange={(e) => updateField('endTime', e.target.value)} />
+            </label>
+          </div>
+
+          <div className="form-row form-row-two">
+            <label className="field">
+              <span><Sailboat size={16} /> Classe</span>
+              <select name="boatClass" value={form.boatClass} onChange={(e) => updateField('boatClass', e.target.value)}>
+                <option value="Optimist">Optimist</option>
+                <option value="420">420</option>
+                <option value="ILCA">ILCA</option>
+              </select>
+            </label>
+            <label className="field">
+              <span><Flag size={16} /> Parcours</span>
+              <select name="courseType" value={form.courseType} onChange={(e) => updateField('courseType', e.target.value)}>
+                <option value="Banane">Banane</option>
+                <option value="Trapèze">Trapèze</option>
+                <option value="Triangle">Triangle</option>
+              </select>
             </label>
           </div>
 
