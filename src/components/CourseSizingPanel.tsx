@@ -1,6 +1,7 @@
 import { Compass, Ruler, Sailboat } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { calculateCourseSizing } from '../courseSizing'
-import type { BoatClass, CourseType } from '../types'
+import type { BoatClass, BriefingRequest, CourseType } from '../types'
 import { CoursePreview } from './CoursePreview'
 
 type CourseSizingPanelProps = {
@@ -16,6 +17,11 @@ type CourseSizingPanelProps = {
 export function CourseSizingPanel({ boatClass, courseType, windSpeed, latitude, longitude, courseAxis, windwardOffset }: CourseSizingPanelProps) {
   const sizing = calculateCourseSizing(boatClass, courseType, windSpeed)
   const hasPoint = Number.isFinite(latitude) && Number.isFinite(longitude)
+  const { state } = useLocation()
+  const request = state as BriefingRequest | null
+  const committeeLatitude = Number(request?.committeeLatitude)
+  const committeeLongitude = Number(request?.committeeLongitude)
+  const hasCommittee = request?.committeeLatitude !== '' && request?.committeeLongitude !== '' && Number.isFinite(committeeLatitude) && Number.isFinite(committeeLongitude)
 
   return (
     <section className="course-sizing" aria-labelledby="course-sizing-title">
@@ -37,7 +43,17 @@ export function CourseSizingPanel({ boatClass, courseType, windSpeed, latitude, 
           <small className="course-sizing-disclaimer">La carte dessine maintenant une géométrie complète adaptée au type de parcours choisi. C’est une aide de préparation : les instructions de course, la flotte, le clapot, le courant, la visibilité et la zone disponible restent prioritaires.</small>
         </div>
 
-        {hasPoint ? <CoursePreview latitude={latitude} longitude={longitude} axis={courseAxis} windwardOffset={windwardOffset} firstLegNm={sizing.firstLegNm} courseType={courseType} /> : <div className="course-preview-empty">Placez précisément le plan d’eau pour afficher le parcours complet sur la carte.</div>}
+        {hasPoint ? <CoursePreview
+          latitude={latitude}
+          longitude={longitude}
+          axis={courseAxis}
+          windwardOffset={windwardOffset}
+          firstLegNm={sizing.firstLegNm}
+          courseType={courseType}
+          committeeLatitude={hasCommittee ? committeeLatitude : undefined}
+          committeeLongitude={hasCommittee ? committeeLongitude : undefined}
+          committeeAccuracy={request?.committeeAccuracy || ''}
+        /> : <div className="course-preview-empty">Placez précisément le plan d’eau pour afficher le parcours complet sur la carte.</div>}
       </div>
     </section>
   )

@@ -8,6 +8,9 @@ const initialForm: BriefingRequest = {
   location: '',
   latitude: '',
   longitude: '',
+  committeeLatitude: '',
+  committeeLongitude: '',
+  committeeAccuracy: '',
   date: '',
   startTime: '',
   endTime: '',
@@ -38,6 +41,9 @@ type HomeNavigationState = {
 function duplicatedForm(request: BriefingRequest) {
   return {
     ...request,
+    committeeLatitude: '',
+    committeeLongitude: '',
+    committeeAccuracy: '',
     observationTime: '',
     observedWindSpeed: '',
     observedWindDirection: '',
@@ -67,6 +73,10 @@ export function HomePage() {
     setForm((current) => ({ ...current, latitude, longitude }))
   }
 
+  function updateCommitteePoint(latitude: string, longitude: string, accuracy: string) {
+    setForm((current) => ({ ...current, committeeLatitude: latitude, committeeLongitude: longitude, committeeAccuracy: accuracy }))
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     navigate('/resultats', { state: form })
@@ -85,7 +95,7 @@ export function HomePage() {
           <div>
             <span className="step-label">{navigation?.duplicate ? 'Duplication rapide' : 'Nouveau briefing'}</span>
             <h2 id="brief-title">{navigation?.duplicate ? 'Préparer la manche suivante' : 'Votre prochaine régate'}</h2>
-            {navigation?.duplicate && <p className="observation-intro"><Copy size={13} /> Parcours et paramètres repris. Les observations terrain précédentes ont été effacées.</p>}
+            {navigation?.duplicate && <p className="observation-intro"><Copy size={13} /> Parcours et paramètres repris. Les observations terrain et la position GPS du comité ont été effacées.</p>}
           </div>
           <span className="step-number">01</span>
         </div>
@@ -98,7 +108,16 @@ export function HomePage() {
             <input required name="location" placeholder="ex. Baie d'Antibes" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
           </label>
 
-          <MapPicker location={form.location} latitude={form.latitude} longitude={form.longitude} onPointChange={updateMapPoint} />
+          <MapPicker
+            location={form.location}
+            latitude={form.latitude}
+            longitude={form.longitude}
+            committeeLatitude={form.committeeLatitude || ''}
+            committeeLongitude={form.committeeLongitude || ''}
+            committeeAccuracy={form.committeeAccuracy || ''}
+            onPointChange={updateMapPoint}
+            onCommitteeChange={updateCommitteePoint}
+          />
 
           <div className="form-row">
             <label className="field">

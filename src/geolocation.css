@@ -1,0 +1,73 @@
+.map-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.map-picker-actions button {
+  margin-top: 0;
+}
+
+.committee-location-button {
+  background: #216e8c;
+}
+
+.committee-location-button:hover {
+  background: #185a74;
+}
+
+.committee-location-button:disabled {
+  cursor: progress;
+  opacity: .68;
+  transform: none;
+}
+
+.committee-marker-icon {
+  background: transparent;
+  border: 0;
+}
+
+.committee-marker-icon span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #173b3a;
+  border-radius: 50%;
+  background: #f3c64e;
+  color: #173b3a;
+  font: 800 15px/1 'DM Sans', sans-serif;
+  box-shadow: 0 2px 8px rgba(23, 59, 58, .28);
+}
+
+.map-position-values {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+}
+
+.committee-position-value,
+.committee-course-summary {
+  color: #216e8c;
+}
+
+@media (max-width: 760px) {
+  .map-picker-heading {
+    align-items: flex-start;
+  }
+
+  .map-picker-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .map-picker-actions button {
+    flex: 1 1 180px;
+    padding: 12px 14px;
+  }
+
+  .map-position-values {
+    justify-items: start;
+  }
+}

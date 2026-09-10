@@ -3,6 +3,7 @@ import { Download, Layers3, RotateCcw, Save, Trash2, Upload } from 'lucide-react
 import { courseToGpx, parseCourseGpx } from '../gpx'
 import type { GpxPoint } from '../gpx'
 import '../gpx.css'
+import '../geolocation.css'
 import { loadLeaflet } from '../leafletLoader'
 import { consumeCourseRestore, writeCurrentCourseSnapshot } from '../savedBriefings'
 import type { CourseType } from '../types'
@@ -14,6 +15,9 @@ type CoursePreviewProps = {
   windwardOffset: number
   firstLegNm: number
   courseType: CourseType
+  committeeLatitude?: number
+  committeeLongitude?: number
+  committeeAccuracy?: string
 }
 
 type Point = { latitude: number; longitude: number }
@@ -142,7 +146,7 @@ function persistVariants(key: string, variants: CourseVariant[]) {
   }
 }
 
-export function CoursePreview({ latitude, longitude, axis, windwardOffset, firstLegNm, courseType }: CoursePreviewProps) {
+export function CoursePreview({ latitude, longitude, axis, windwardOffset, firstLegNm, courseType, committeeLatitude, committeeLongitude, committeeAccuracy = '' }: CoursePreviewProps) {
   const elementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -252,7 +256,25 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
         .bindTooltip('Centre choisi du plan d’eau', { permanent: false })
         .addTo(map)
 
+      const committeePoint = typeof committeeLatitude === 'number' && Number.isFinite(committeeLatitude)
+        && typeof committeeLongitude === 'number' && Number.isFinite(committeeLongitude)
+        ? { latitude: committeeLatitude, longitude: committeeLongitude }
+        : null
+
+      if (committeePoint) {
+        const committeeIcon = leaflet.divIcon({
+          className: 'committee-marker-icon',
+          html: '<span>C</span>',
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
+        })
+        leaflet.marker([committeePoint.latitude, committeePoint.longitude], { icon: committeeIcon, title: 'Comité / bateau coach' })
+          .bindTooltip(`Comité / bateau coach${committeeAccuracy ? ` · ±${committeeAccuracy} m` : ''}`, { permanent: false })
+          .addTo(map)
+      }
+
       const bounds = [startLine.left, startLine.right, finishLine.left, finishLine.right, ...points].map(latLng)
+      if (committeePoint) bounds.push([committeePoint.latitude, committeePoint.longitude])
       map.fitBounds(bounds, { padding: [32, 32] })
       mapRef.current = map
       window.requestAnimationFrame(() => map?.invalidateSize(false))
@@ -266,7 +288,7 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
       map?.remove()
       if (mapRef.current === map) mapRef.current = null
     }
-  }, [latitude, longitude, bearing, firstLegNm, points, routeOrder, activeVariantId, storageKey])
+  }, [latitude, longitude, bearing, firstLegNm, points, routeOrder, activeVariantId, storageKey, committeeLatitude, committeeLongitude, committeeAccuracy])
 
   function resetCourse() {
     setPoints(defaultCourse.points)
@@ -362,6 +384,7 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
           <strong>{courseType} · {activeVariantName}</strong>
           <span>{routeSequence(points, routeOrder)}</span>
           <small>Axe : {String(Math.round(bearing)).padStart(3, '0')}° · faites glisser les points pour ajuster le tracé</small>
+          {typeof committeeLatitude === 'number' && Number.isFinite(committeeLatitude) && typeof committeeLongitude === 'number' && Number.isFinite(committeeLongitude) && <small className="committee-course-summary">Repère C = Comité / bateau coach{committeeAccuracy ? ` · précision GPS ±${committeeAccuracy} m` : ''}</small>}
         </div>
 
         <div className="course-variant-panel">
