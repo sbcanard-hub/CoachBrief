@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { CalendarDays, Copy, Download, FileUp, FolderOpen, Gauge, MapPin, Navigation, Sailboat, Save, Trash2, Waves, Wind } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { buildPlanCalibrations, calibrationConfidence, signedAngleDelta } from '../calibration'
 import {
   briefingToJson,
   deleteSavedBriefing,
@@ -51,10 +52,6 @@ function windSummary(speed: string | number | null | undefined, direction: strin
   return `${hasSpeed ? `${speedValue.toFixed(1).replace('.0', '')} nd` : 'vent —'} · ${hasDirection ? `${String(Math.round(directionValue)).padStart(3, '0')}°` : 'dir. —'}`
 }
 
-function signedAngleDelta(from: number, to: number) {
-  return ((to - from + 540) % 360) - 180
-}
-
 function finalGap(item: SavedBriefing) {
   const forecast = item.weather?.race
   const reality = item.reality
@@ -64,10 +61,42 @@ function finalGap(item: SavedBriefing) {
   const speedGap = reality.windSpeed !== '' && Number.isFinite(actualSpeed) ? actualSpeed - forecast.speed : null
   const directionGap = reality.windDirection !== '' && Number.isFinite(actualDirection) ? signedAngleDelta(forecast.direction, actualDirection) : null
   if (speedGap == null && directionGap == null) return null
-  return {
-    speedGap,
-    directionGap,
-  }
+  return { speedGap, directionGap }
+}
+
+function signedGap(value: number | null, unit: string) {
+  if (value == null) return '—'
+  const rounded = unit === 'nd' ? value.toFixed(1).replace('.0', '') : String(Math.round(value))
+  return `${value > 0 ? '+' : ''}${rounded} ${unit}`
+}
+
+function directionBiasLabel(value: number | null) {
+  if (value == null) return '—'
+  if (Math.abs(value) < 1) return 'quasi neutre'
+  return `${Math.abs(Math.round(value))}° vers la ${value > 0 ? 'droite' : 'gauche'}`
+}
+
+function MiniGapChart({ values, unit, ariaLabel }: { values: number[]; unit: string; ariaLabel: string }) {
+  if (!values.length) return <div className="calibration-chart-empty">Pas assez de valeurs</div>
+  const limit = Math.max(unit === 'nd' ? 3 : 15, ...values.map((value) => Math.abs(value)))
+  const width = 260
+  const height = 72
+  const middle = height / 2
+  const padding = 10
+  const step = values.length === 1 ? 0 : (width - padding * 2) / (values.length - 1)
+  const points = values.map((value, index) => {
+    const x = values.length === 1 ? width / 2 : padding + index * step
+    const y = middle - (value / limit) * (middle - 10)
+    return { x, y, value }
+  })
+  return <div className="calibration-chart-wrap">
+    <svg className="calibration-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel}>
+      <line className="calibration-zero" x1="0" y1={middle} x2={width} y2={middle} />
+      {points.length > 1 && <polyline className="calibration-line" points={points.map((point) => `${point.x},${point.y}`).join(' ')} fill="none" />}
+      {points.map((point, index) => <circle className="calibration-dot" key={`${point.x}-${index}`} cx={point.x} cy={point.y} r="3.5"><title>{signedGap(point.value, unit)}</title></circle>)}
+    </svg>
+    <div className="calibration-chart-axis"><span>−</span><span>0</span><span>+</span></div>
+  </div>
 }
 
 export function SavedBriefingsPage() {
@@ -77,6 +106,7 @@ export function SavedBriefingsPage() {
   const [status, setStatus] = useState('')
   const [editingRealityId, setEditingRealityId] = useState<string | null>(null)
   const [realityDraft, setRealityDraft] = useState<Omit<RaceReality, 'recordedAt'>>(emptyReality)
+  const calibrations = useMemo(() => buildPlanCalibrations(items), [items])
 
   function openBriefing(item: SavedBriefing) {
     prepareBriefingRestore(item)
@@ -148,6 +178,29 @@ export function SavedBriefingsPage() {
       </section>
 
       {status && <p className="saved-briefings-status" role="status">{status}</p>}
+
+      {calibrations.length > 0 && <section className="calibration-section" aria-labelledby="calibration-title">
+        <div className="calibration-heading">
+          <div><span className="step-label">Apprentissage local</span><h2 id="calibration-title">Calibration par plan d’eau</h2></div>
+          <p>Écart entre la prévision sauvegardée et la réalité saisie après la manche. Positif en direction = réalité plus à droite que le modèle.</p>
+        </div>
+        <div className="calibration-grid">{calibrations.map((calibration) => {
+          const speedValues = calibration.samples.flatMap((sample) => sample.speedGap == null ? [] : [sample.speedGap])
+          const directionValues = calibration.samples.flatMap((sample) => sample.directionGap == null ? [] : [sample.directionGap])
+          return <article className="calibration-card" key={calibration.key}>
+            <div className="calibration-card-heading"><div><strong>{calibration.label}</strong><span>{calibration.sampleCount} manche{calibration.sampleCount > 1 ? 's' : ''} terminée{calibration.sampleCount > 1 ? 's' : ''}</span></div><small>{calibrationConfidence(calibration.sampleCount)}</small></div>
+            <div className="calibration-metrics">
+              <div><small>Biais moyen force</small><strong>{signedGap(calibration.meanSpeedBias, 'nd')}</strong><span>erreur abs. moy. {calibration.meanAbsSpeedError == null ? '—' : `${calibration.meanAbsSpeedError.toFixed(1).replace('.0', '')} nd`}</span></div>
+              <div><small>Biais moyen direction</small><strong>{directionBiasLabel(calibration.meanDirectionBias)}</strong><span>erreur abs. moy. {calibration.meanAbsDirectionError == null ? '—' : `${Math.round(calibration.meanAbsDirectionError)}°`}</span></div>
+            </div>
+            <div className="calibration-charts">
+              <div><small>Écart de force · chronologie</small><MiniGapChart values={speedValues} unit="nd" ariaLabel={`Écarts de force à ${calibration.label}`} /></div>
+              <div><small>Écart de direction · chronologie</small><MiniGapChart values={directionValues} unit="°" ariaLabel={`Écarts de direction à ${calibration.label}`} /></div>
+            </div>
+            <p className="calibration-note">Cette calibration décrit l’historique disponible ; elle ne corrige pas encore automatiquement la prochaine prévision.</p>
+          </article>
+        })}</div>
+      </section>}
 
       {items.length === 0 ? (
         <section className="saved-briefings-empty">
