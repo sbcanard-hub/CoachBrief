@@ -2,6 +2,7 @@ export type BoatClass = 'Optimist' | '420' | 'ILCA'
 export type CourseType = 'Banane' | 'Trapèze' | 'Triangle'
 export type StartLineBias = 'Comité' | 'Neutre' | 'Pin'
 export type FinishOrientation = 'Sous le vent' | 'Travers' | 'Au vent'
+export type WeatherModelKey = 'best_match' | 'meteofrance_arome_france' | 'ecmwf_ifs' | 'icon_eu' | 'ncep_gfs_global'
 
 export type BriefingRequest = {
   location: string
@@ -10,6 +11,7 @@ export type BriefingRequest = {
   committeeLatitude?: string
   committeeLongitude?: string
   committeeAccuracy?: string
+  weatherModel?: WeatherModelKey
   date: string
   startTime: string
   endTime: string

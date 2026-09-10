@@ -1,5 +1,5 @@
 import type { WeatherScenario } from './bernot'
-import type { BriefingRequest } from './types'
+import type { BriefingRequest, WeatherModelKey } from './types'
 
 type GeoPlace = {
   name: string
@@ -31,6 +31,16 @@ type ForecastResponse = {
   hourly: ForecastHourly
 }
 
+type WindForecastResponse = {
+  timezone: string
+  hourly?: {
+    time: string[]
+    wind_speed_10m: Array<number | null>
+    wind_direction_10m: Array<number | null>
+    wind_gusts_10m: Array<number | null>
+  }
+}
+
 type MarineHourly = {
   time: string[]
   wave_height: Array<number | null>
@@ -51,11 +61,84 @@ export type WeatherHour = {
   temperature: number
 }
 
+export type WeatherModelInfo = {
+  key: WeatherModelKey
+  label: string
+  shortLabel: string
+  provider: string
+  resolution: string
+  horizon: string
+  note: string
+}
+
+export const WEATHER_MODELS: WeatherModelInfo[] = [
+  {
+    key: 'best_match',
+    label: 'Open-Meteo · Best Match',
+    shortLabel: 'Best Match',
+    provider: 'Open-Meteo',
+    resolution: 'variable',
+    horizon: 'jusqu’à 16 j',
+    note: 'Sélection automatique du modèle jugé le plus adapté au point demandé.',
+  },
+  {
+    key: 'meteofrance_arome_france',
+    label: 'Météo-France · AROME France',
+    shortLabel: 'AROME',
+    provider: 'Météo-France',
+    resolution: '≈ 2,5 km',
+    horizon: '≈ 2 j',
+    note: 'Modèle à maille fine, particulièrement intéressant sur le littoral français à courte échéance.',
+  },
+  {
+    key: 'ecmwf_ifs',
+    label: 'ECMWF · IFS HRES',
+    shortLabel: 'ECMWF',
+    provider: 'ECMWF',
+    resolution: '≈ 9 km',
+    horizon: '≈ 10–15 j',
+    note: 'Référence globale à haute résolution, utile pour la tendance synoptique et la cohérence générale.',
+  },
+  {
+    key: 'icon_eu',
+    label: 'DWD · ICON-EU',
+    shortLabel: 'ICON-EU',
+    provider: 'DWD',
+    resolution: '≈ 7 km',
+    horizon: '≈ 5 j',
+    note: 'Modèle européen indépendant, utile pour confronter les rotations et gradients de vent.',
+  },
+  {
+    key: 'ncep_gfs_global',
+    label: 'NOAA · GFS Global',
+    shortLabel: 'GFS',
+    provider: 'NOAA/NCEP',
+    resolution: '≈ 11–25 km',
+    horizon: '≈ 16 j',
+    note: 'Modèle global américain, moins fin localement mais utile pour vérifier la tendance de fond.',
+  },
+]
+
+export function weatherModelInfo(key: WeatherModelKey | undefined) {
+  return WEATHER_MODELS.find((model) => model.key === key) ?? WEATHER_MODELS[0]
+}
+
+export type WindModelComparison = {
+  model: WeatherModelInfo
+  available: boolean
+  speed: number | null
+  gust: number | null
+  direction: number | null
+  timezone: string | null
+  error?: string
+}
+
 export type LiveWeatherData = {
   placeName: string
   latitude: number
   longitude: number
   timezone: string
+  model?: WeatherModelInfo
   hourly: WeatherHour[]
   race: {
     speed: number
@@ -183,20 +266,67 @@ async function fetchMarine(latitude: number, longitude: number, date: string, ra
   } catch { return undefined }
 }
 
-export async function fetchWeatherForBriefing(request: BriefingRequest): Promise<LiveWeatherData> {
+export async function fetchWindModelComparisons(
+  request: BriefingRequest,
+  latitude: number,
+  longitude: number,
+): Promise<WindModelComparison[]> {
+  if (!request.date || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return []
+  const raceTime = request.raceTime || request.startTime
+
+  return Promise.all(WEATHER_MODELS.map(async (model): Promise<WindModelComparison> => {
+    const params = new URLSearchParams({
+      latitude: String(latitude),
+      longitude: String(longitude),
+      hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+      start_date: request.date,
+      end_date: request.date,
+      timezone: 'auto',
+      wind_speed_unit: 'kn',
+      models: model.key,
+    })
+
+    try {
+      const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
+      if (!response.ok) {
+        return { model, available: false, speed: null, gust: null, direction: null, timezone: null, error: 'Indisponible pour cette échéance ou cette zone.' }
+      }
+      const forecast = await response.json() as WindForecastResponse
+      if (!forecast.hourly?.time.length) {
+        return { model, available: false, speed: null, gust: null, direction: null, timezone: forecast.timezone ?? null, error: 'Pas de donnée à l’heure de la manche.' }
+      }
+      const raceIndex = nearestIndex(forecast.hourly.time, raceTime)
+      const speed = safeNumber(forecast.hourly.wind_speed_10m[raceIndex])
+      const gust = safeNumber(forecast.hourly.wind_gusts_10m[raceIndex])
+      const direction = safeNumber(forecast.hourly.wind_direction_10m[raceIndex])
+      if (speed == null || direction == null) {
+        return { model, available: false, speed, gust, direction, timezone: forecast.timezone ?? null, error: 'Vent incomplet pour cette échéance.' }
+      }
+      return { model, available: true, speed, gust, direction, timezone: forecast.timezone ?? null }
+    } catch {
+      return { model, available: false, speed: null, gust: null, direction: null, timezone: null, error: 'Connexion au modèle impossible.' }
+    }
+  }))
+}
+
+export async function fetchWeatherForBriefing(
+  request: BriefingRequest,
+  modelKey: WeatherModelKey = request.weatherModel ?? 'best_match',
+): Promise<LiveWeatherData> {
   if (!request.location.trim() || !request.date) throw new Error('Lieu et date requis')
 
   const place = await resolvePlace(request)
+  const selectedModel = weatherModelInfo(modelKey)
   const params = new URLSearchParams({
     latitude: String(place.latitude), longitude: String(place.longitude),
     hourly: 'temperature_2m,relative_humidity_2m,dew_point_2m,pressure_msl,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
-    start_date: request.date, end_date: request.date, timezone: 'auto', wind_speed_unit: 'kn',
+    start_date: request.date, end_date: request.date, timezone: 'auto', wind_speed_unit: 'kn', models: selectedModel.key,
   })
 
   const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
-  if (!response.ok) throw new Error('Prévision indisponible pour cette date')
+  if (!response.ok) throw new Error(`${selectedModel.shortLabel} indisponible pour cette date`)
   const forecast = await response.json() as ForecastResponse
-  if (!forecast.hourly?.time.length) throw new Error('Aucune prévision horaire disponible')
+  if (!forecast.hourly?.time.length) throw new Error(`Aucune prévision horaire ${selectedModel.shortLabel}`)
 
   const startMinutes = minutesFromClock(request.startTime, 0)
   const endMinutes = minutesFromClock(request.endTime, 24 * 60 - 1)
@@ -229,7 +359,7 @@ export async function fetchWeatherForBriefing(request: BriefingRequest): Promise
 
   return {
     placeName: request.latitude && request.longitude ? `${request.location} · point précis` : [place.name, place.admin1].filter(Boolean).join(' · '),
-    latitude: place.latitude, longitude: place.longitude, timezone: forecast.timezone, hourly,
+    latitude: place.latitude, longitude: place.longitude, timezone: forecast.timezone, model: selectedModel, hourly,
     race: {
       speed: forecast.hourly.wind_speed_10m[raceIndex], gust: forecast.hourly.wind_gusts_10m[raceIndex],
       direction: forecast.hourly.wind_direction_10m[raceIndex], temperature: forecast.hourly.temperature_2m[raceIndex],
