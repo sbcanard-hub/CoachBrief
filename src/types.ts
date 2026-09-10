@@ -7,6 +7,9 @@ export type BriefingRequest = {
   location: string
   latitude: string
   longitude: string
+  committeeLatitude?: string
+  committeeLongitude?: string
+  committeeAccuracy?: string
   date: string
   startTime: string
   endTime: string
