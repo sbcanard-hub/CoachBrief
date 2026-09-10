@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { WEATHER_MODELS } from '../weather'
 import type { WindModelComparison } from '../weather'
 import type { BriefingRequest, WeatherModelKey } from '../types'
+import { MultiModelSynthesisPanel } from './MultiModelSynthesisPanel'
 import './windModelComparison.css'
 
 type ComparisonState = 'idle' | 'loading' | 'ready' | 'error'
@@ -327,7 +328,9 @@ export function WindModelComparisonPanel() {
         </div>
       </div>}
 
-      <div className="wind-model-summary"><Wind size={16} /><p><strong>Lecture d’ensemble :</strong> {summary}</p></div>
+      <MultiModelSynthesisPanel comparisons={comparisons} />
+
+      <div className="wind-model-summary"><Wind size={16} /><p><strong>Lecture brute :</strong> {summary}</p></div>
       <div className="wind-model-active-explainer">
         <Check size={15} />
         <p><strong>Évolution détaillée affichée plus bas :</strong> elle utilise actuellement <b>{activeModelLabel}</b>. Le tableau ci-dessus sert à comparer les modèles ; la grande section horaire du briefing n’en affiche volontairement qu’un à la fois.</p>
