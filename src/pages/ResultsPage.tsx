@@ -9,6 +9,7 @@ import {
   CloudSun,
   Compass,
   Droplets,
+  Flag,
   Gauge,
   HelpCircle,
   Navigation,
@@ -61,6 +62,8 @@ export function ResultsPage() {
   const [openWhy, setOpenWhy] = useState<number | null>(null)
   const location = request?.location || 'Antibes · Baie des Anges'
   const raceTime = request?.startTime || '11:00'
+  const boatClass = request?.boatClass || 'Optimist'
+  const courseType = request?.courseType || 'Banane'
 
   return (
     <main className="results-page briefing-page">
@@ -73,7 +76,8 @@ export function ResultsPage() {
           <div className="event-meta">
             <span><CalendarDays size={15} /> {formatDate(request?.date)}</span>
             <span><Clock3 size={15} /> Manche à {raceTime}</span>
-            <span><Sailboat size={15} /> Laser / ILCA 7</span>
+            <span><Sailboat size={15} /> {boatClass}</span>
+            <span><Flag size={15} /> Parcours {courseType}</span>
           </div>
         </div>
         <div className="hero-status"><span aria-hidden="true" /> Conditions favorables</div>
