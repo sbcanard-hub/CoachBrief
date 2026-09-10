@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react'
-import { ArrowRight, CalendarDays, Clock3, Flag, MapPin, Sailboat, Wind } from 'lucide-react'
+import { ArrowRight, CalendarDays, Clock3, Compass, Flag, MapPin, Navigation, Sailboat, Wind } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { BriefingRequest } from '../types'
 
@@ -8,8 +8,13 @@ const initialForm: BriefingRequest = {
   date: '',
   startTime: '',
   endTime: '',
+  raceTime: '',
   boatClass: 'Optimist',
   courseType: 'Banane',
+  courseAxis: '080',
+  startLineBias: 'Neutre',
+  windwardOffset: '0',
+  finishOrientation: 'Sous le vent',
 }
 
 export function HomePage() {
@@ -30,7 +35,7 @@ export function HomePage() {
       <section className="hero">
         <div className="eyebrow"><Wind size={15} /> Le bon plan, avant le départ</div>
         <h1>La météo claire.<br /><em>La course en tête.</em></h1>
-        <p className="hero-copy">Préparez votre briefing météo de régate en quelques instants. Renseignez les informations de course, nous nous occupons du reste.</p>
+        <p className="hero-copy">Préparez votre briefing météo et tactique de régate en quelques instants. Renseignez le plan d'eau, la course et le parcours : CoachBrief rassemble ensuite les éléments utiles au coach.</p>
       </section>
 
       <section className="brief-card" aria-labelledby="brief-title">
@@ -43,6 +48,8 @@ export function HomePage() {
         </div>
 
         <form onSubmit={submit}>
+          <div className="form-section-title"><span>01</span> Course & météo</div>
+
           <label className="field field-wide">
             <span><MapPin size={16} /> Lieu de la régate</span>
             <input required name="location" placeholder="ex. Baie d'Antibes" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
@@ -54,11 +61,11 @@ export function HomePage() {
               <input required type="date" name="date" value={form.date} onChange={(e) => updateField('date', e.target.value)} />
             </label>
             <label className="field">
-              <span><Clock3 size={16} /> Début</span>
+              <span><Clock3 size={16} /> Début météo</span>
               <input required type="time" name="startTime" value={form.startTime} onChange={(e) => updateField('startTime', e.target.value)} />
             </label>
             <label className="field">
-              <span><Clock3 size={16} /> Fin</span>
+              <span><Clock3 size={16} /> Fin météo</span>
               <input required type="time" name="endTime" value={form.endTime} onChange={(e) => updateField('endTime', e.target.value)} />
             </label>
           </div>
@@ -78,6 +85,49 @@ export function HomePage() {
                 <option value="Banane">Banane</option>
                 <option value="Trapèze">Trapèze</option>
                 <option value="Triangle">Triangle</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="form-section-title"><span>02</span> Paramètres tactiques</div>
+
+          <div className="form-row tactical-form-row">
+            <label className="field">
+              <span><Clock3 size={16} /> Heure de manche</span>
+              <input required type="time" name="raceTime" value={form.raceTime} onChange={(e) => updateField('raceTime', e.target.value)} />
+            </label>
+            <label className="field">
+              <span><Compass size={16} /> Axe du parcours</span>
+              <div className="input-with-unit">
+                <input required type="number" min="0" max="359" step="1" name="courseAxis" value={form.courseAxis} onChange={(e) => updateField('courseAxis', e.target.value)} />
+                <span>°</span>
+              </div>
+            </label>
+            <label className="field">
+              <span><Navigation size={16} /> Ligne favorable</span>
+              <select name="startLineBias" value={form.startLineBias} onChange={(e) => updateField('startLineBias', e.target.value)}>
+                <option value="Comité">Comité</option>
+                <option value="Neutre">Neutre</option>
+                <option value="Pin">Pin</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="form-row form-row-two">
+            <label className="field">
+              <span><Compass size={16} /> Désaxage bouée au vent</span>
+              <div className="input-with-unit">
+                <input required type="number" min="-30" max="30" step="1" name="windwardOffset" value={form.windwardOffset} onChange={(e) => updateField('windwardOffset', e.target.value)} />
+                <span>°</span>
+              </div>
+              <small className="field-help">Négatif = gauche · positif = droite</small>
+            </label>
+            <label className="field">
+              <span><Flag size={16} /> Orientation arrivée</span>
+              <select name="finishOrientation" value={form.finishOrientation} onChange={(e) => updateField('finishOrientation', e.target.value)}>
+                <option value="Sous le vent">Sous le vent</option>
+                <option value="Travers">Travers</option>
+                <option value="Au vent">Au vent</option>
               </select>
             </label>
           </div>
