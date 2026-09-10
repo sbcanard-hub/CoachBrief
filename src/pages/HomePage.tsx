@@ -1,10 +1,13 @@
 import { FormEvent, useState } from 'react'
 import { ArrowRight, CalendarDays, Clock3, Compass, Flag, MapPin, Navigation, Sailboat, Wind } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { MapPicker } from '../components/MapPicker'
 import type { BriefingRequest } from '../types'
 
 const initialForm: BriefingRequest = {
   location: '',
+  latitude: '',
+  longitude: '',
   date: '',
   startTime: '',
   endTime: '',
@@ -23,6 +26,10 @@ export function HomePage() {
 
   function updateField(field: keyof BriefingRequest, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function updateMapPoint(latitude: string, longitude: string) {
+    setForm((current) => ({ ...current, latitude, longitude }))
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -54,6 +61,8 @@ export function HomePage() {
             <span><MapPin size={16} /> Lieu de la régate</span>
             <input required name="location" placeholder="ex. Baie d'Antibes" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
           </label>
+
+          <MapPicker location={form.location} latitude={form.latitude} longitude={form.longitude} onPointChange={updateMapPoint} />
 
           <div className="form-row">
             <label className="field">
