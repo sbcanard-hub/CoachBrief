@@ -29,7 +29,12 @@ La branche de travail ajoute désormais :
 - variantes de parcours enregistrables par plan d’eau et type de parcours ;
 - bascule instantanée entre tracé automatique et variantes sauvegardées ;
 - mise à jour automatique d’une variante active quand une marque est déplacée ;
-- stockage local des variantes sur l’appareil, sans serveur supplémentaire ;
+- sauvegarde d’un briefing complet depuis l’écran de résultats ;
+- bibliothèque `Mes briefings` avec réouverture et suppression ;
+- conservation des paramètres, observations terrain, instantané météo et tracé/variante actif ;
+- restauration du parcours exact lors de la réouverture ;
+- import et export JSON d’un briefing complet pour le transférer entre appareils ;
+- stockage local des variantes et briefings, sans serveur supplémentaire ;
 - vérification automatique du build avec GitHub Actions.
 
 ## Sources météo et observations
@@ -52,11 +57,19 @@ Les points sont déplaçables à la souris ou au tactile via les marqueurs Leafl
 
 Un tracé ajusté peut être enregistré comme variante avec un nom libre, par exemple `Axe 090°`, `Vent mollissant` ou `Rotation droite`. Les variantes sont stockées dans `localStorage` pour le plan d’eau et le type de parcours concernés. Quand une variante est active, déplacer une marque met à jour automatiquement sa géométrie sauvegardée. Le tracé automatique reste toujours disponible comme point de départ.
 
-Ce stockage est volontairement local pour le prototype : une variante enregistrée sur un téléphone ou un ordinateur n’est pas encore synchronisée automatiquement vers un autre appareil. L’export GPX permet déjà de transférer un tracé entre appareils.
+## Briefings sauvegardés
+
+Depuis l’écran de résultats, le bouton `Enregistrer` crée une copie locale du briefing. CoachBrief sauvegarde la demande complète de régate, les observations terrain, un instantané météo récupéré au moment de l’enregistrement ainsi que le parcours actuellement affiché et ses variantes.
+
+La page `Mes briefings` permet de rouvrir une régate. Les paramètres sont réinjectés dans le briefing, la météo est à nouveau actualisée par l’application et le tracé sauvegardé est restauré sur la carte. L’instantané météo ancien reste présent dans la sauvegarde pour l’historique et l’export.
+
+Un briefing complet peut être exporté en JSON CoachBrief puis importé sur un autre appareil. Le GPX reste le format léger destiné au tracé seul ; le JSON transporte l’ensemble du briefing.
+
+Le stockage reste volontairement local pour ce prototype. Il n’y a pas encore de synchronisation automatique entre téléphone et ordinateur, mais l’export/import JSON permet déjà un transfert manuel complet.
 
 ## Suite du prototype
 
-La prochaine étape prévue est de mémoriser un briefing complet — paramètres de course, observations terrain et variante de parcours — afin de pouvoir retrouver rapidement une régate préparée et produire un export de briefing partageable.
+Les prochaines étapes naturelles sont l’export d’une fiche de briefing lisible/imprimable et la possibilité de dupliquer rapidement un briefing pour une nouvelle manche ou une nouvelle journée de régate.
 
 ## Développement
 
