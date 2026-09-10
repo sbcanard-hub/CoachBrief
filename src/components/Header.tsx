@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BookmarkPlus, Check, FolderOpen, LoaderCircle, Sailboat } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { fetchWeatherForBriefing } from '../weather'
@@ -8,7 +9,7 @@ import './headerActions.css'
 export function Header() {
   const location = useLocation()
   const request = location.pathname === '/resultats' ? location.state as BriefingRequest | null : null
-  const [saveState, setSaveState] = React.useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   async function saveCurrentBriefing() {
     if (!request || saveState === 'saving') return
@@ -45,5 +46,3 @@ export function Header() {
     </header>
   )
 }
-
-import React from 'react'
