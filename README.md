@@ -19,6 +19,9 @@ La branche de travail ajoute désormais :
 - sources locales METAR Côte d’Azur (LFMD, LFMN, LFTH), classées par distance au plan d’eau ;
 - récupération automatique des METAR AviationWeather côté GitHub ;
 - comparaison METAR / modèle lorsque le briefing concerne aujourd’hui et qu’une heure modèle proche est disponible ;
+- calculateur de premier bord selon la classe et le vent prévu à la manche ;
+- estimation en milles nautiques et mètres, avec fourchette de réglage et VMG simplifiée ;
+- prévisualisation cartographique de la ligne de départ, de l’axe et de la bouée 1 ;
 - vérification automatique du build avec GitHub Actions.
 
 ## Sources météo et observations
@@ -30,6 +33,12 @@ AviationWeather.gov ne permet pas les requêtes CORS directes depuis le navigate
 Les METAR sont des observations locales actuelles, pas des prévisions. Ils servent à confronter le modèle à la réalité observée ; ils ne remplacent pas les observations du coach sur le plan d’eau.
 
 Le relevé saisi par le coach est volontairement traité comme une observation ponctuelle. CoachBrief calcule l’écart avec le modèle quand une heure comparable existe et augmente la priorité des facteurs locaux si cet écart devient significatif, sans extrapoler automatiquement ce relevé à toute la manche.
+
+## Dimensionnement du parcours
+
+Le calculateur actuel est une estimation coach volontairement simple et calibrable. Il estime une VMG au près selon la classe et le vent, puis dimensionne le premier bord autour d’un temps cible de 11 à 12 minutes. Il ne constitue pas une longueur réglementaire : la taille de la flotte, le courant, le clapot, la visibilité et la zone disponible restent prioritaires.
+
+La prévisualisation place le premier bord autour du centre de plan d’eau sélectionné et applique l’axe du parcours ainsi que le désaxage de la bouée au vent.
 
 ## Développement
 
