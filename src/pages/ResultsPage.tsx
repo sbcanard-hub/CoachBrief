@@ -19,6 +19,7 @@ import {
   Wind,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
 import type { BriefingRequest } from '../types'
 
 const hourlyForecast = [
@@ -29,36 +30,6 @@ const hourlyForecast = [
   { time: '13:00', speed: 14, gust: 18, direction: 'E-S-E', degrees: '105°', temperature: '22°' },
   { time: '14:00', speed: 13, gust: 17, direction: 'E-S-E', degrees: '110°', temperature: '22°' },
 ]
-
-const recommendations = [
-  {
-    title: 'Privilégier le côté droit du plan d’eau',
-    text: 'Le vent devrait adonner progressivement vers la droite après le départ.',
-    why: 'La brise thermique se renforce en s’orientant de 080° à 110°. Se positionner à droite permet d’être parmi les premiers à bénéficier de cette rotation.',
-  },
-  {
-    title: 'Construire le départ à partir de la ligne',
-    text: 'Croiser le côté favorable de la ligne avec la première rotation attendue avant de choisir sa zone de départ.',
-    why: 'Une extrémité favorable ne suffit pas à elle seule : il faut aussi conserver une voie de sortie cohérente avec le bord que l’on veut jouer après le départ.',
-  },
-  {
-    title: 'Anticiper la montée en puissance',
-    text: 'Préparer les réglages médium dès la première manche, puis retendre progressivement.',
-    why: 'Le vent moyen passe de 11 à 14 nœuds entre 11 h et 13 h, avec des rafales à 18 nœuds. La mer courte demandera aussi davantage de contrôle.',
-  },
-]
-
-const bernotColumns = ['Gauche', 'Centre G.', 'Centre', 'Centre D.', 'Droite'] as const
-
-const bernotRows = [
-  { factor: 'Vent', priority: 1, zone: 'Centre D.', note: 'Rotation progressive vers la droite.' },
-  { factor: 'Relief / côte', priority: 2, zone: 'Droite', note: 'Effet de côte à confronter aux observations locales.' },
-  { factor: 'Courant', priority: 3, zone: 'Centre', note: 'À renseigner dès que la donnée locale est disponible.' },
-  { factor: 'Nuages', priority: 4, zone: 'Centre D.', note: 'Faible nébulosité, influence secondaire pour cette maquette.' },
-  { factor: 'Vagues', priority: 5, zone: 'Centre', note: 'Mer courte, surtout importante pour la vitesse.' },
-  { factor: 'Axe parcours', priority: 6, zone: 'Centre', note: 'Dépend de l’axe et du désaxage saisis.' },
-  { factor: 'Adversaires', priority: 7, zone: 'Centre', note: 'À ajuster selon flotte et stratégie de départ.' },
-] as const
 
 function formatDate(date?: string) {
   if (!date) return 'Samedi 6 septembre 2026'
@@ -92,6 +63,8 @@ export function ResultsPage() {
   const startLineBias = request?.startLineBias || 'Neutre'
   const windwardOffset = formatOffset(request?.windwardOffset)
   const finishOrientation = request?.finishOrientation || 'Sous le vent'
+  const bernotRows = buildBernotRows(request)
+  const recommendations = buildCoachRecommendations(request)
 
   return (
     <main className="results-page briefing-page">
@@ -180,7 +153,7 @@ export function ResultsPage() {
       <section className="bernot-section" aria-labelledby="bernot-title">
         <div className="section-heading">
           <div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div>
-          <span className="bernot-help">1 = facteur prioritaire du jour</span>
+          <span className="bernot-help">Calcul dynamique · 1 = facteur prioritaire</span>
         </div>
         <div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot">
           <div className="bernot-board">
@@ -198,11 +171,11 @@ export function ResultsPage() {
             ))}
           </div>
         </div>
-        <p className="bernot-note">Cette première grille est une maquette : les positions et priorités seront ensuite calculées à partir de la météo réelle, du courant, du relief, du parcours et des observations du coach.</p>
+        <p className="bernot-note">La hiérarchie est maintenant recalculée à partir de la rotation et de l’oscillation du vent de la maquette, du lieu, de l’axe, de la ligne favorable et du désaxage saisi. Courant, relief détaillé et météo réelle seront branchés ensuite.</p>
       </section>
 
       <section className="coach-section" aria-labelledby="coach-title">
-        <div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points clés</span></div>
+        <div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div>
         <div className="recommendations">
           {recommendations.map((recommendation, index) => {
             const isOpen = openWhy === index
@@ -223,7 +196,7 @@ export function ResultsPage() {
         </div>
       </section>
 
-      <p className="data-note">Données météo et hiérarchisation Bernot fictives pour la maquette · Aucune API externe connectée</p>
+      <p className="data-note">Météo encore fictive · Bernot et synthèse tactique calculés à partir des données disponibles · Aucune API externe connectée</p>
     </main>
   )
 }
