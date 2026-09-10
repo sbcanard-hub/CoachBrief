@@ -32,6 +32,18 @@ export type RaceReality = {
   notes: string
 }
 
+export type SavedMetarSnapshot = {
+  capturedAt: string
+  station: string
+  stationName: string
+  distanceKm: number
+  reportTime: string | null
+  windSpeed: number | null
+  windDirection: number | null
+  gust: number | null
+  raw: string
+}
+
 export type SavedBriefing = {
   version: 1
   id: string
@@ -41,6 +53,7 @@ export type SavedBriefing = {
   weather: LiveWeatherData | null
   course: CourseSnapshot | null
   reality?: RaceReality | null
+  metar?: SavedMetarSnapshot | null
 }
 
 const STORAGE_KEY = 'coachbrief:saved-briefings:v1'
@@ -92,7 +105,7 @@ export function readCurrentCourseSnapshot(): CourseSnapshot | null {
   }
 }
 
-export function saveBriefing(request: BriefingRequest, weather: LiveWeatherData | null, course: CourseSnapshot | null, name?: string) {
+export function saveBriefing(request: BriefingRequest, weather: LiveWeatherData | null, course: CourseSnapshot | null, name?: string, metar?: SavedMetarSnapshot | null) {
   const item: SavedBriefing = {
     version: 1,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -102,6 +115,7 @@ export function saveBriefing(request: BriefingRequest, weather: LiveWeatherData 
     weather: weather ? clone(weather) : null,
     course: course ? clone(course) : null,
     reality: null,
+    metar: metar ? clone(metar) : null,
   }
   const next = [item, ...loadSavedBriefings()]
   persistSavedBriefings(next)
