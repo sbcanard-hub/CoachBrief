@@ -35,7 +35,11 @@ La branche de travail ajoute désormais :
 - restauration du parcours exact lors de la réouverture ;
 - import et export JSON d’un briefing complet pour le transférer entre appareils ;
 - impression A4 dédiée et export PDF via la fonction native du navigateur ;
-- stockage local des variantes et briefings, sans serveur supplémentaire ;
+- duplication rapide d’un briefing pour préparer une manche ou une journée suivante ;
+- effacement automatique des observations terrain de la manche précédente lors d’une duplication ;
+- saisie post-course de la réalité : vent, direction, rafale, vagues, courant et retour du coach ;
+- historique `prévision → relevé avant départ → réalité` avec calcul de l’écart final ;
+- stockage local des variantes, briefings et retours post-course, sans serveur supplémentaire ;
 - vérification automatique du build avec GitHub Actions.
 
 ## Sources météo et observations
@@ -58,15 +62,25 @@ Les points sont déplaçables à la souris ou au tactile via les marqueurs Leafl
 
 Un tracé ajusté peut être enregistré comme variante avec un nom libre, par exemple `Axe 090°`, `Vent mollissant` ou `Rotation droite`. Les variantes sont stockées dans `localStorage` pour le plan d’eau et le type de parcours concernés. Quand une variante est active, déplacer une marque met à jour automatiquement sa géométrie sauvegardée. Le tracé automatique reste toujours disponible comme point de départ.
 
-## Briefings sauvegardés
+## Briefings sauvegardés et duplication
 
 Depuis l’écran de résultats, le bouton `Enregistrer` crée une copie locale du briefing. CoachBrief sauvegarde la demande complète de régate, les observations terrain, un instantané météo récupéré au moment de l’enregistrement ainsi que le parcours actuellement affiché et ses variantes.
 
 La page `Mes briefings` permet de rouvrir une régate. Les paramètres sont réinjectés dans le briefing, la météo est à nouveau actualisée par l’application et le tracé sauvegardé est restauré sur la carte. L’instantané météo ancien reste présent dans la sauvegarde pour l’historique et l’export.
 
+Le bouton `Dupliquer` repart du briefing choisi avec le même plan d’eau, la même classe, le même parcours et les mêmes paramètres tactiques. Le formulaire est prérempli pour ne modifier que la date, l’heure ou les réglages utiles. Les observations terrain de la manche précédente sont volontairement effacées afin d’éviter de mélanger deux situations réelles différentes.
+
 Un briefing complet peut être exporté en JSON CoachBrief puis importé sur un autre appareil. Le GPX reste le format léger destiné au tracé seul ; le JSON transporte l’ensemble du briefing.
 
-Le stockage reste volontairement local pour ce prototype. Il n’y a pas encore de synchronisation automatique entre téléphone et ordinateur, mais l’export/import JSON permet déjà un transfert manuel complet.
+## Historique prévision / observation / réalité
+
+Après une manche, `Mes briefings` permet d’ajouter la réalité observée : vent moyen, direction, rafale, hauteur de vague, courant et commentaire du coach.
+
+Chaque briefing affiche alors trois états côte à côte : l’instantané de prévision conservé au moment de la préparation, le relevé terrain saisi avant le départ et la réalité post-course. Lorsque la prévision et la réalité sont toutes les deux renseignées, CoachBrief calcule l’écart final de force du vent et de direction.
+
+Cette base est destinée à devenir un outil de calibration : à mesure que les régates sont renseignées, il sera possible d’identifier les situations où le modèle, les observations locales ou certains effets de côte sont systématiquement plus fiables.
+
+Le stockage reste volontairement local pour ce prototype. Il n’y a pas encore de synchronisation automatique entre téléphone et ordinateur, mais l’export/import JSON permet déjà un transfert manuel complet, y compris la réalité post-course.
 
 ## Impression et PDF
 
@@ -76,7 +90,7 @@ La mise en page d’impression conserve l’en-tête de régate, les paramètres
 
 ## Suite du prototype
 
-La prochaine étape naturelle est la duplication rapide d’un briefing pour une nouvelle manche ou une nouvelle journée de régate, puis l’ajout d’un historique permettant de comparer les prévisions, les observations et ce qui s’est réellement passé sur l’eau.
+Les prochaines étapes naturelles sont la correction fine de l’affichage des rotations de vent autour du nord, puis des graphiques d’historique et une première calibration par plan d’eau pour comparer la fiabilité des prévisions, METAR et observations du coach.
 
 ## Développement
 
