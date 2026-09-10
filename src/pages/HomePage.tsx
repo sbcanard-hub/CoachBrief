@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react'
-import { ArrowRight, CalendarDays, Clock3, Compass, Flag, MapPin, Navigation, Sailboat, Wind } from 'lucide-react'
+import { ArrowRight, CalendarDays, Clock3, CloudSun, Compass, Flag, Gauge, MapPin, Navigation, Sailboat, Waves, Wind } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { MapPicker } from '../components/MapPicker'
 import type { BriefingRequest } from '../types'
@@ -18,6 +18,16 @@ const initialForm: BriefingRequest = {
   startLineBias: 'Neutre',
   windwardOffset: '0',
   finishOrientation: 'Sous le vent',
+  observationTime: '',
+  observedWindSpeed: '',
+  observedWindDirection: '',
+  observedGust: '',
+  observedWaveHeight: '',
+  observedCurrentSpeed: '',
+  observedCurrentDirection: '',
+  observedCloudCover: '',
+  observedPressure: '',
+  observationNotes: '',
 }
 
 export function HomePage() {
@@ -140,6 +150,59 @@ export function HomePage() {
               </select>
             </label>
           </div>
+
+          <div className="form-section-title observation-title"><span>03</span> Observations terrain <small>facultatif</small></div>
+          <p className="observation-intro">À remplir si vous avez déjà un relevé sur le plan d’eau. Ces valeurs servent à confronter le modèle à ce que vous observez réellement.</p>
+
+          <div className="form-row tactical-form-row">
+            <label className="field">
+              <span><Clock3 size={16} /> Heure du relevé</span>
+              <input type="time" name="observationTime" value={form.observationTime} onChange={(e) => updateField('observationTime', e.target.value)} />
+            </label>
+            <label className="field">
+              <span><Wind size={16} /> Vent observé</span>
+              <div className="input-with-unit"><input type="number" min="0" max="80" step="0.1" name="observedWindSpeed" value={form.observedWindSpeed} onChange={(e) => updateField('observedWindSpeed', e.target.value)} /><span>nd</span></div>
+            </label>
+            <label className="field">
+              <span><Compass size={16} /> Direction observée</span>
+              <div className="input-with-unit"><input type="number" min="0" max="359" step="1" name="observedWindDirection" value={form.observedWindDirection} onChange={(e) => updateField('observedWindDirection', e.target.value)} /><span>°</span></div>
+            </label>
+          </div>
+
+          <div className="form-row tactical-form-row">
+            <label className="field">
+              <span><Wind size={16} /> Rafale observée</span>
+              <div className="input-with-unit"><input type="number" min="0" max="100" step="0.1" name="observedGust" value={form.observedGust} onChange={(e) => updateField('observedGust', e.target.value)} /><span>nd</span></div>
+            </label>
+            <label className="field">
+              <span><Waves size={16} /> Vagues</span>
+              <div className="input-with-unit"><input type="number" min="0" max="10" step="0.1" name="observedWaveHeight" value={form.observedWaveHeight} onChange={(e) => updateField('observedWaveHeight', e.target.value)} /><span>m</span></div>
+            </label>
+            <label className="field">
+              <span><CloudSun size={16} /> Nébulosité</span>
+              <div className="input-with-unit"><input type="number" min="0" max="100" step="5" name="observedCloudCover" value={form.observedCloudCover} onChange={(e) => updateField('observedCloudCover', e.target.value)} /><span>%</span></div>
+            </label>
+          </div>
+
+          <div className="form-row tactical-form-row">
+            <label className="field">
+              <span><Navigation size={16} /> Courant observé</span>
+              <div className="input-with-unit"><input type="number" min="0" max="8" step="0.1" name="observedCurrentSpeed" value={form.observedCurrentSpeed} onChange={(e) => updateField('observedCurrentSpeed', e.target.value)} /><span>nd</span></div>
+            </label>
+            <label className="field">
+              <span><Compass size={16} /> Direction courant</span>
+              <div className="input-with-unit"><input type="number" min="0" max="359" step="1" name="observedCurrentDirection" value={form.observedCurrentDirection} onChange={(e) => updateField('observedCurrentDirection', e.target.value)} /><span>°</span></div>
+            </label>
+            <label className="field">
+              <span><Gauge size={16} /> Pression observée</span>
+              <div className="input-with-unit"><input type="number" min="950" max="1050" step="0.1" name="observedPressure" value={form.observedPressure} onChange={(e) => updateField('observedPressure', e.target.value)} /><span>hPa</span></div>
+            </label>
+          </div>
+
+          <label className="field field-wide">
+            <span><Flag size={16} /> Note du coach</span>
+            <textarea name="observationNotes" rows={3} placeholder="ex. davantage de pression à droite, risées sous nuage, mer plus courte près de la côte…" value={form.observationNotes} onChange={(e) => updateField('observationNotes', e.target.value)} />
+          </label>
 
           <button type="submit">Préparer mon briefing <ArrowRight size={19} /></button>
         </form>
