@@ -72,7 +72,7 @@ Le stockage reste volontairement local pour ce prototype. Il n’y a pas encore 
 
 Sur l’écran de briefing, le bouton `Imprimer / PDF` déclenche l’impression native du navigateur. Une feuille de style A4 dédiée masque automatiquement la navigation, les commandes GPX et les contrôles interactifs pour ne garder que la fiche utile au coach.
 
-La mise en page d’impression conserve l’en-tête de régate, les paramètres tactiques, les observations terrain, les METAR disponibles, la météo à la manche, le calcul du parcours, la carte, l’évolution horaire, les 7 piles de Bernot et la synthèse tactique. Les explications `Pourquoi` des recommandations sont développées à l’impression. Le navigateur peut ensuite imprimer sur papier ou enregistrer directement le document en PDF.
+La mise en page d’impression conserve l’en-tête de régate, les paramètres tactiques, les observations terrain, les METAR disponibles, la météo à la manche, le calcul du parcours, la carte, l’évolution horaire, les 7 piles de Bernot et la synthèse tactique. Les explications `Pourquoi` des recommandations sont développées à l’impression. Le navigateur peut ensuite imprimer sur papier ou enregistrer directement le document en PDF. Le titre du document reprend le lieu et la date afin de produire un nom de fichier plus utile lors de l’enregistrement.
 
 ## Suite du prototype
 
