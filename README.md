@@ -52,6 +52,8 @@ Les points sont déplaçables à la souris ou au tactile via les marqueurs Leafl
 
 Un tracé ajusté peut être enregistré comme variante avec un nom libre, par exemple `Axe 090°`, `Vent mollissant` ou `Rotation droite`. Les variantes sont stockées dans `localStorage` pour le plan d’eau et le type de parcours concernés. Quand une variante est active, déplacer une marque met à jour automatiquement sa géométrie sauvegardée. Le tracé automatique reste toujours disponible comme point de départ.
 
+Ce stockage est volontairement local pour le prototype : une variante enregistrée sur un téléphone ou un ordinateur n’est pas encore synchronisée automatiquement vers un autre appareil. L’export GPX permet déjà de transférer un tracé entre appareils.
+
 ## Développement
 
 ```bash
