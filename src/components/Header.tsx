@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { BookmarkPlus, Check, FolderOpen, LoaderCircle, Printer, Sailboat } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import { nearbyMetarSources } from '../localSources'
+import { fetchMetarCache, observationForStation } from '../metar'
 import { fetchWeatherForBriefing } from '../weather'
 import { readCurrentCourseSnapshot, saveBriefing } from '../savedBriefings'
+import type { SavedMetarSnapshot } from '../savedBriefings'
 import type { BriefingRequest } from '../types'
 import './headerActions.css'
 import '../print.css'
@@ -16,6 +19,29 @@ export function Header() {
     setSaveState('idle')
   }, [location.key, location.pathname])
 
+  async function captureNearestMetar(latitude: number, longitude: number): Promise<SavedMetarSnapshot | null> {
+    try {
+      const source = nearbyMetarSources(latitude, longitude, 1)[0]
+      if (!source) return null
+      const cache = await fetchMetarCache()
+      const observation = observationForStation(cache, source.id)
+      if (!observation) return null
+      return {
+        capturedAt: new Date().toISOString(),
+        station: source.id,
+        stationName: source.name,
+        distanceKm: source.distance,
+        reportTime: observation.reportTime,
+        windSpeed: observation.windSpeed,
+        windDirection: observation.windDirection,
+        gust: observation.gust,
+        raw: observation.raw,
+      }
+    } catch {
+      return null
+    }
+  }
+
   async function saveCurrentBriefing() {
     if (!request || saveState === 'saving') return
     setSaveState('saving')
@@ -26,9 +52,10 @@ export function Header() {
       } catch {
         // Le briefing peut être sauvegardé même si la météo ne répond pas au moment précis de l'enregistrement.
       }
+      const metar = weather ? await captureNearestMetar(weather.latitude, weather.longitude) : null
       const currentCourse = readCurrentCourseSnapshot()
       const matchingCourse = currentCourse?.courseType === request.courseType ? currentCourse : null
-      saveBriefing(request, weather, matchingCourse)
+      saveBriefing(request, weather, matchingCourse, undefined, metar)
       setSaveState('saved')
     } catch {
       setSaveState('error')
