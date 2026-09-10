@@ -5,6 +5,8 @@ export type FinishOrientation = 'Sous le vent' | 'Travers' | 'Au vent'
 
 export type BriefingRequest = {
   location: string
+  latitude: string
+  longitude: string
   date: string
   startTime: string
   endTime: string
