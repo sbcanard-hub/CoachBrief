@@ -39,6 +39,10 @@ La branche de travail ajoute désormais :
 - effacement automatique des observations terrain de la manche précédente lors d’une duplication ;
 - saisie post-course de la réalité : vent, direction, rafale, vagues, courant et retour du coach ;
 - historique `prévision → relevé avant départ → réalité` avec calcul de l’écart final ;
+- lecture circulaire correcte des rotations autour de 0° / 360° ;
+- calibration par plan d’eau à partir des manches terminées ;
+- biais moyen et erreur absolue moyenne en force et direction ;
+- graphiques chronologiques des écarts modèle / réalité ;
 - stockage local des variantes, briefings et retours post-course, sans serveur supplémentaire ;
 - vérification automatique du build avec GitHub Actions.
 
@@ -72,13 +76,15 @@ Le bouton `Dupliquer` repart du briefing choisi avec le même plan d’eau, la m
 
 Un briefing complet peut être exporté en JSON CoachBrief puis importé sur un autre appareil. Le GPX reste le format léger destiné au tracé seul ; le JSON transporte l’ensemble du briefing.
 
-## Historique prévision / observation / réalité
+## Historique et calibration locale
 
 Après une manche, `Mes briefings` permet d’ajouter la réalité observée : vent moyen, direction, rafale, hauteur de vague, courant et commentaire du coach.
 
 Chaque briefing affiche alors trois états côte à côte : l’instantané de prévision conservé au moment de la préparation, le relevé terrain saisi avant le départ et la réalité post-course. Lorsque la prévision et la réalité sont toutes les deux renseignées, CoachBrief calcule l’écart final de force du vent et de direction.
 
-Cette base est destinée à devenir un outil de calibration : à mesure que les régates sont renseignées, il sera possible d’identifier les situations où le modèle, les observations locales ou certains effets de côte sont systématiquement plus fiables.
+La zone `Calibration par plan d’eau` regroupe les manches terminées autour d’un même point géographique. Elle calcule le biais moyen du modèle, l’erreur absolue moyenne et affiche une chronologie des écarts en force et en direction. Les différences angulaires sont calculées sur un cercle : par exemple 350° vers 010° correspond à +20° et non à -340°.
+
+Cette calibration est pour l’instant informative : elle permet au coach de voir les tendances locales mais ne modifie pas automatiquement la prévision suivante. Le niveau affiché dépend du nombre de manches disponibles afin d’éviter de donner trop de poids à une seule observation.
 
 Le stockage reste volontairement local pour ce prototype. Il n’y a pas encore de synchronisation automatique entre téléphone et ordinateur, mais l’export/import JSON permet déjà un transfert manuel complet, y compris la réalité post-course.
 
@@ -90,7 +96,7 @@ La mise en page d’impression conserve l’en-tête de régate, les paramètres
 
 ## Suite du prototype
 
-Les prochaines étapes naturelles sont la correction fine de l’affichage des rotations de vent autour du nord, puis des graphiques d’historique et une première calibration par plan d’eau pour comparer la fiabilité des prévisions, METAR et observations du coach.
+La prochaine étape naturelle est d’utiliser la calibration de manière assistée dans un nouveau briefing : afficher une correction locale suggérée sans l’imposer, puis comparer séparément la fiabilité du modèle, du METAR et des observations terrain selon le plan d’eau et la situation météo.
 
 ## Développement
 
