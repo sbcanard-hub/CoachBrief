@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { CalendarDays, Copy, Download, FileUp, FolderOpen, Gauge, MapPin, Navigation, Sailboat, Save, Trash2, Waves, Wind } from 'lucide-react'
+import { CalendarDays, Copy, Download, FileUp, FolderOpen, Gauge, MapPin, Navigation, Radio, Sailboat, Save, Trash2, Waves, Wind } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { buildPlanCalibrations, calibrationConfidence, signedAngleDelta } from '../calibration'
+import { buildPlanCalibrations, buildSourceReliabilities, calibrationConfidence, signedAngleDelta } from '../calibration'
 import {
   briefingToJson,
   deleteSavedBriefing,
@@ -107,6 +107,7 @@ export function SavedBriefingsPage() {
   const [editingRealityId, setEditingRealityId] = useState<string | null>(null)
   const [realityDraft, setRealityDraft] = useState<Omit<RaceReality, 'recordedAt'>>(emptyReality)
   const calibrations = useMemo(() => buildPlanCalibrations(items), [items])
+  const sourceReliabilities = useMemo(() => buildSourceReliabilities(items), [items])
 
   function openBriefing(item: SavedBriefing) {
     prepareBriefingRestore(item)
@@ -169,7 +170,7 @@ export function SavedBriefingsPage() {
         <div>
           <span className="step-label">Bibliothèque locale</span>
           <h1>Mes briefings</h1>
-          <p>Retrouvez vos régates, dupliquez une préparation pour la manche suivante et comparez ensuite la prévision à ce qui s’est réellement passé sur l’eau.</p>
+          <p>Retrouvez vos régates, dupliquez une préparation pour la manche suivante et comparez ensuite les différentes sources à ce qui s’est réellement passé sur l’eau.</p>
         </div>
         <div className="saved-briefings-import">
           <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={(event) => void importFile(event.target.files?.[0])} />
@@ -197,9 +198,29 @@ export function SavedBriefingsPage() {
               <div><small>Écart de force · chronologie</small><MiniGapChart values={speedValues} unit="nd" ariaLabel={`Écarts de force à ${calibration.label}`} /></div>
               <div><small>Écart de direction · chronologie</small><MiniGapChart values={directionValues} unit="°" ariaLabel={`Écarts de direction à ${calibration.label}`} /></div>
             </div>
-            <p className="calibration-note">Cette calibration décrit l’historique disponible ; elle ne corrige pas encore automatiquement la prochaine prévision.</p>
+            <p className="calibration-note">Cette calibration générale sert de repli lorsqu’il n’y a pas encore assez de manches dans le même secteur et la même plage de force.</p>
           </article>
         })}</div>
+      </section>}
+
+      {sourceReliabilities.length > 0 && <section className="source-reliability-section" aria-labelledby="source-reliability-title">
+        <div className="calibration-heading">
+          <div><span className="step-label">Qualité des sources</span><h2 id="source-reliability-title">Fiabilité modèle / METAR / coach</h2></div>
+          <p>L’erreur absolue moyenne est calculée face à la réalité post-course. Pour le METAR, l’instantané correspond au rapport disponible au moment où le briefing a été sauvegardé.</p>
+        </div>
+        <div className="source-reliability-plans">{sourceReliabilities.map((entry) => <article className="source-reliability-plan" key={entry.key}>
+          <div className="source-reliability-plan-title"><MapPin size={14} /><strong>{entry.label}</strong></div>
+          <div className="source-reliability-grid">{entry.metrics.map((metric) => <div className={`source-reliability-card source-${metric.key}`} key={metric.key}>
+            <div className="source-reliability-name">{metric.key === 'metar' ? <Radio size={15} /> : metric.key === 'coach' ? <Gauge size={15} /> : <Wind size={15} />}<strong>{metric.label}</strong></div>
+            <span>{metric.sampleCount ? `${metric.sampleCount} comparaison${metric.sampleCount > 1 ? 's' : ''}` : 'Pas encore de comparaison'}</span>
+            <div className="source-reliability-values">
+              <small>Erreur force <strong>{metric.meanAbsSpeedError == null ? '—' : `${metric.meanAbsSpeedError.toFixed(1).replace('.0', '')} nd`}</strong></small>
+              <small>Erreur direction <strong>{metric.meanAbsDirectionError == null ? '—' : `${Math.round(metric.meanAbsDirectionError)}°`}</strong></small>
+            </div>
+            {metric.sampleCount > 0 && <small className="source-reliability-bias">Biais : {signedGap(metric.meanSpeedBias, 'nd')} · {signedGap(metric.meanDirectionBias, '°')}</small>}
+            {metric.key === 'metar' && metric.sampleCount === 0 && <small className="source-reliability-bias">Les nouveaux briefings sauvegardés capturent désormais le METAR proche.</small>}
+          </div>)}</div>
+        </article>)}</div>
       </section>}
 
       {items.length === 0 ? (
@@ -234,9 +255,10 @@ export function SavedBriefingsPage() {
               </div>
 
               <div className="history-block">
-                <div className="history-title"><Gauge size={15} /><strong>Prévision → terrain → réalité</strong></div>
+                <div className="history-title"><Gauge size={15} /><strong>Prévision → METAR → terrain → réalité</strong></div>
                 <div className="history-grid">
                   <article><small>Prévision sauvegardée</small><strong>{raceWeather ? windSummary(raceWeather.speed, raceWeather.direction) : '—'}</strong><span>{raceWeather ? `raf. ${Math.round(raceWeather.gust)} nd` : 'Pas d’instantané météo'}</span></article>
+                  <article><small>METAR sauvegardé</small><strong>{item.metar ? windSummary(item.metar.windSpeed, item.metar.windDirection) : 'Non capturé'}</strong><span>{item.metar ? `${item.metar.station} · ${Math.round(item.metar.distanceKm)} km${item.metar.reportTime ? ` · ${item.metar.reportTime}` : ''}` : 'Disponible sur les prochaines sauvegardes'}</span></article>
                   <article><small>Relevé avant départ</small><strong>{windSummary(item.request.observedWindSpeed, item.request.observedWindDirection)}</strong><span>{item.request.observationTime ? `relevé ${item.request.observationTime}` : 'Pas de relevé coach'}</span></article>
                   <article className={item.reality ? 'has-reality' : ''}><small>Réalité de la manche</small><strong>{item.reality ? windSummary(item.reality.windSpeed, item.reality.windDirection) : 'À renseigner'}</strong><span>{item.reality ? `saisie ${formatSavedAt(item.reality.recordedAt)}` : 'Après la course'}</span></article>
                 </div>
