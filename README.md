@@ -13,14 +13,18 @@ La branche de travail ajoute désormais :
 - données marines quand disponibles : vagues, température de mer et courant ;
 - moteur dynamique des 7 piles de Bernot ;
 - synthèse tactique recalculée selon les données de course et météo ;
-- premières sources locales METAR autour de la Côte d’Azur (LFMD, LFMN, LFTH), classées par distance au plan d’eau ;
+- sources locales METAR Côte d’Azur (LFMD, LFMN, LFTH), classées par distance au plan d’eau ;
+- récupération automatique des METAR AviationWeather côté GitHub ;
+- comparaison METAR / modèle lorsque le briefing concerne aujourd’hui et qu’une heure modèle proche est disponible ;
 - vérification automatique du build avec GitHub Actions.
 
 ## Sources météo
 
 Open-Meteo est appelé directement depuis le navigateur pour les prévisions météo et marines.
 
-Les METAR AviationWeather sont, à ce stade, proposés en consultation externe. L’API officielle AviationWeather ne permet pas les requêtes CORS directes depuis le navigateur ; un relais serveur léger sera nécessaire pour les intégrer automatiquement à une application statique hébergée sur GitHub Pages.
+AviationWeather.gov ne permet pas les requêtes CORS directes depuis le navigateur. CoachBrief contourne proprement cette limite sans serveur supplémentaire : le workflow GitHub Pages récupère les derniers METAR côté GitHub, écrit `public/metar-latest.json`, puis construit le site. Un déploiement programmé chaque heure renouvelle ce cache sans créer de commit météo.
+
+Les METAR sont des observations locales actuelles, pas des prévisions. Ils servent à confronter le modèle à la réalité observée ; ils ne remplacent pas les observations du coach sur le plan d’eau.
 
 ## Développement
 
@@ -32,6 +36,7 @@ npm run dev
 Vérification de production :
 
 ```bash
+python3 scripts/fetch_metar.py
 npm run build
 ```
 
