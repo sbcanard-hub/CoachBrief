@@ -38,15 +38,19 @@ La branche de travail ajoute désormais :
 - duplication rapide d’un briefing pour préparer une manche ou une journée suivante ;
 - effacement automatique des observations terrain de la manche précédente lors d’une duplication ;
 - saisie post-course de la réalité : vent, direction, rafale, vagues, courant et retour du coach ;
-- historique `prévision → relevé avant départ → réalité` avec calcul de l’écart final ;
+- historique `prévision → METAR → relevé avant départ → réalité` ;
 - lecture circulaire correcte des rotations autour de 0° / 360° ;
 - calibration par plan d’eau à partir des manches terminées ;
 - biais moyen et erreur absolue moyenne en force et direction ;
 - graphiques chronologiques des écarts modèle / réalité ;
 - suggestion de correction locale directement dans un nouveau briefing ;
+- calibration contextuelle par secteur de vent et plage de force ;
+- repli explicite vers la calibration générale du plan d’eau s’il n’y a pas assez de manches comparables ;
 - aperçu du vent brut puis corrigé avant application ;
 - application ou retrait manuel de la correction sans modifier la prévision brute sauvegardée ;
 - propagation de la correction choisie au briefing, à Bernot, à l’évolution horaire et au dimensionnement ;
+- sauvegarde du METAR le plus proche avec les nouveaux briefings ;
+- comparaison de fiabilité `Open-Meteo / METAR / relevé coach` face à la réalité post-course ;
 - stockage local des variantes, briefings et retours post-course, sans serveur supplémentaire ;
 - vérification automatique du build avec GitHub Actions.
 
@@ -57,6 +61,8 @@ Open-Meteo est appelé directement depuis le navigateur pour les prévisions mé
 AviationWeather.gov ne permet pas les requêtes CORS directes depuis le navigateur. CoachBrief contourne proprement cette limite sans serveur supplémentaire : le workflow GitHub Pages récupère les derniers METAR côté GitHub, écrit `public/metar-latest.json`, puis construit le site. Un déploiement programmé chaque heure renouvelle ce cache sans créer de commit météo.
 
 Les METAR sont des observations locales actuelles, pas des prévisions. Ils servent à confronter le modèle à la réalité observée ; ils ne remplacent pas les observations du coach sur le plan d’eau.
+
+Lorsqu’un briefing est sauvegardé, CoachBrief conserve désormais l’observation du METAR disponible à la station la plus proche, avec l’heure du rapport et la distance au plan d’eau. Cette donnée peut ensuite être comparée à la réalité post-course. Cette comparaison doit rester prudente : l’heure et l’exposition de l’aéroport peuvent différer de celles de la manche et du plan d’eau.
 
 Le relevé saisi par le coach est volontairement traité comme une observation ponctuelle. CoachBrief calcule l’écart avec le modèle quand une heure comparable existe et augmente la priorité des facteurs locaux si cet écart devient significatif, sans extrapoler automatiquement ce relevé à toute la manche.
 
@@ -72,7 +78,7 @@ Un tracé ajusté peut être enregistré comme variante avec un nom libre, par e
 
 ## Briefings sauvegardés et duplication
 
-Depuis l’écran de résultats, le bouton `Enregistrer` crée une copie locale du briefing. CoachBrief sauvegarde la demande complète de régate, les observations terrain, un instantané météo récupéré au moment de l’enregistrement ainsi que le parcours actuellement affiché et ses variantes.
+Depuis l’écran de résultats, le bouton `Enregistrer` crée une copie locale du briefing. CoachBrief sauvegarde la demande complète de régate, les observations terrain, un instantané météo Open-Meteo, l’observation METAR la plus proche lorsqu’elle est disponible ainsi que le parcours actuellement affiché et ses variantes.
 
 La page `Mes briefings` permet de rouvrir une régate. Les paramètres sont réinjectés dans le briefing, la météo est à nouveau actualisée par l’application et le tracé sauvegardé est restauré sur la carte. L’instantané météo ancien reste présent dans la sauvegarde pour l’historique et l’export.
 
@@ -80,19 +86,23 @@ Le bouton `Dupliquer` repart du briefing choisi avec le même plan d’eau, la m
 
 Un briefing complet peut être exporté en JSON CoachBrief puis importé sur un autre appareil. Le GPX reste le format léger destiné au tracé seul ; le JSON transporte l’ensemble du briefing.
 
-## Historique et calibration locale
+## Historique, calibration locale et fiabilité des sources
 
 Après une manche, `Mes briefings` permet d’ajouter la réalité observée : vent moyen, direction, rafale, hauteur de vague, courant et commentaire du coach.
 
-Chaque briefing affiche alors trois états côte à côte : l’instantané de prévision conservé au moment de la préparation, le relevé terrain saisi avant le départ et la réalité post-course. Lorsque la prévision et la réalité sont toutes les deux renseignées, CoachBrief calcule l’écart final de force du vent et de direction.
+Chaque briefing affiche alors quatre états lorsque les données sont disponibles : l’instantané de prévision conservé au moment de la préparation, le METAR sauvegardé, le relevé terrain saisi avant le départ et la réalité post-course.
 
 La zone `Calibration par plan d’eau` regroupe les manches terminées autour d’un même point géographique. Elle calcule le biais moyen du modèle, l’erreur absolue moyenne et affiche une chronologie des écarts en force et en direction. Les différences angulaires sont calculées sur un cercle : par exemple 350° vers 010° correspond à +20° et non à -340°.
 
-Lorsqu’un nouveau briefing correspond à un plan d’eau déjà calibré, CoachBrief affiche une correction locale suggérée avec le nombre de manches disponibles, le niveau de confiance, le biais moyen et un aperçu `prévision brute → prévision corrigée`. Cette correction n’est jamais activée automatiquement. Le coach choisit de l’appliquer ou de la retirer. Lorsqu’elle est active, elle corrige la force et la direction du vent dans la vue courante, l’évolution horaire, le moteur Bernot et le dimensionnement du parcours.
+Dans un nouveau briefing, CoachBrief cherche d’abord des manches terminées correspondant au même secteur de vent et à la même plage de force : `0–5 nd`, `6–10 nd`, `11–15 nd` ou `16 nd et +`. À partir de deux manches comparables, cette calibration contextuelle est utilisée pour la suggestion. Sinon, l’application l’indique et revient à la calibration générale du plan d’eau.
+
+La correction locale n’est jamais activée automatiquement. Le coach choisit de l’appliquer ou de la retirer. Lorsqu’elle est active, elle corrige la force et la direction du vent dans la vue courante, l’évolution horaire, le moteur Bernot et le dimensionnement du parcours.
+
+La zone `Fiabilité modèle / METAR / coach` compare séparément chaque source à la réalité post-course. Pour chaque source, CoachBrief affiche le nombre de comparaisons disponibles, l’erreur absolue moyenne en force et en direction ainsi que le biais moyen. Les anciens briefings sans instantané METAR restent compatibles ; la série METAR se constituera progressivement avec les nouvelles sauvegardes.
 
 La prévision Open-Meteo brute continue d’être conservée dans les sauvegardes et l’historique. Ce choix évite de réinjecter les corrections précédentes dans le calcul des biais futurs et de créer une boucle de calibration artificielle.
 
-Le stockage reste volontairement local pour ce prototype. Il n’y a pas encore de synchronisation automatique entre téléphone et ordinateur, mais l’export/import JSON permet déjà un transfert manuel complet, y compris la réalité post-course.
+Le stockage reste volontairement local pour ce prototype. Il n’y a pas encore de synchronisation automatique entre téléphone et ordinateur, mais l’export/import JSON permet déjà un transfert manuel complet, y compris la réalité post-course et les instantanés disponibles.
 
 ## Impression et PDF
 
@@ -102,7 +112,7 @@ La mise en page d’impression conserve l’en-tête de régate, les paramètres
 
 ## Suite du prototype
 
-La prochaine étape naturelle est de comparer séparément la fiabilité du modèle, du METAR et du relevé terrain selon le plan d’eau et la situation météo, puis de commencer à conditionner la calibration par secteur de vent et force de vent plutôt que d’utiliser une correction moyenne unique.
+La prochaine étape naturelle est de rendre la calibration encore plus fine : tenir compte de la saison et de l’heure de la journée, puis proposer un score de confiance combiné qui privilégie automatiquement la source historiquement la plus fiable sans masquer les données brutes.
 
 ## Développement
 
