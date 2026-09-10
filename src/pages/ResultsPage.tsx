@@ -5,14 +5,17 @@ import {
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
+import { applyCalibrationToWeather, calibrationConfidence, calibrationForRequest } from '../calibration'
 import { CourseSizingPanel } from '../components/CourseSizingPanel'
 import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
 import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
 import type { MetarCache, MetarObservation } from '../metar'
 import { buildCoachObservationSignal, observationImpactLabel } from '../observations'
+import { loadSavedBriefings } from '../savedBriefings'
 import { fetchWeatherForBriefing } from '../weather'
 import type { LiveWeatherData, WeatherHour } from '../weather'
 import type { BriefingRequest } from '../types'
+import './resultsCalibration.css'
 
 const mockHourlyForecast: WeatherHour[] = [
   { time: '09:00', speed: 7, gust: 10, direction: 45, temperature: 18 },
@@ -83,6 +86,16 @@ function signed(value: number, unit: string) {
   const rounded = Math.round(value)
   return `${rounded > 0 ? '+' : ''}${rounded}${unit}`
 }
+function calibrationSpeedText(value: number | null) {
+  if (value == null) return 'force non calibrée'
+  if (Math.abs(value) < 0.2) return 'force bien centrée'
+  return value > 0 ? `sous-estime de ${formatDecimal(Math.abs(value))} nd` : `surestime de ${formatDecimal(Math.abs(value))} nd`
+}
+function calibrationDirectionText(value: number | null) {
+  if (value == null) return 'direction non calibrée'
+  if (Math.abs(value) < 2) return 'direction bien centrée'
+  return value > 0 ? `${Math.round(Math.abs(value))}° trop à gauche` : `${Math.round(Math.abs(value))}° trop à droite`
+}
 
 export function ResultsPage() {
   const { state } = useLocation()
@@ -93,12 +106,15 @@ export function ResultsPage() {
   const [weatherError, setWeatherError] = useState('')
   const [metarCache, setMetarCache] = useState<MetarCache | null>(null)
   const [metarState, setMetarState] = useState<'loading' | 'ready' | 'unavailable'>('loading')
+  const [savedBriefings] = useState(() => loadSavedBriefings())
+  const [useLocalCalibration, setUseLocalCalibration] = useState(false)
 
   useEffect(() => {
     if (!request?.location || !request.date) return
     let active = true
     setWeatherState('loading')
     setWeatherError('')
+    setUseLocalCalibration(false)
     fetchWeatherForBriefing(request)
       .then((data) => { if (active) { setLiveWeather(data); setWeatherState('live') } })
       .catch((error: unknown) => { if (active) { setLiveWeather(null); setWeatherState('fallback'); setWeatherError(error instanceof Error ? error.message : 'Météo réelle indisponible') } })
@@ -121,23 +137,28 @@ export function ResultsPage() {
   const startLineBias = request?.startLineBias || 'Neutre'
   const windwardOffset = formatOffset(request?.windwardOffset)
   const finishOrientation = request?.finishOrientation || 'Sous le vent'
-  const coachObservation = buildCoachObservationSignal(request, liveWeather)
-  const bernotRows = buildBernotRows(request, liveWeather?.scenario, coachObservation)
-  const recommendations = buildCoachRecommendations(request, liveWeather?.scenario, coachObservation)
-  const forecast = liveWeather?.hourly.length ? liveWeather.hourly : mockHourlyForecast
-  const raceWeather = liveWeather?.race ?? { speed: 11, gust: 15, direction: 80, temperature: 20, humidity: 62, dewPoint: 14, pressure: 1018, cloudCover: 25 }
-  const marine = liveWeather?.marine
-  const pressureTrend = liveWeather?.pressureTrend ?? 'hausse'
-  const weatherLabel = weatherState === 'live' ? 'Météo réelle · Open-Meteo' : weatherState === 'loading' ? 'Connexion météo en cours…' : 'Météo de démonstration'
-  const sourceLatitude = liveWeather?.latitude ?? Number(request?.latitude)
-  const sourceLongitude = liveWeather?.longitude ?? Number(request?.longitude)
+  const localCalibration = calibrationForRequest(savedBriefings, request)
+  const correctedPreview = liveWeather && localCalibration ? applyCalibrationToWeather(liveWeather, localCalibration) : null
+  const effectiveWeather = useLocalCalibration && correctedPreview ? correctedPreview : liveWeather
+  const coachObservation = buildCoachObservationSignal(request, effectiveWeather)
+  const bernotRows = buildBernotRows(request, effectiveWeather?.scenario, coachObservation)
+  const recommendations = buildCoachRecommendations(request, effectiveWeather?.scenario, coachObservation)
+  const forecast = effectiveWeather?.hourly.length ? effectiveWeather.hourly : mockHourlyForecast
+  const raceWeather = effectiveWeather?.race ?? { speed: 11, gust: 15, direction: 80, temperature: 20, humidity: 62, dewPoint: 14, pressure: 1018, cloudCover: 25 }
+  const marine = effectiveWeather?.marine
+  const pressureTrend = effectiveWeather?.pressureTrend ?? 'hausse'
+  const weatherLabel = weatherState === 'live'
+    ? useLocalCalibration ? 'Open-Meteo · correction locale appliquée' : 'Météo réelle · Open-Meteo'
+    : weatherState === 'loading' ? 'Connexion météo en cours…' : 'Météo de démonstration'
+  const sourceLatitude = effectiveWeather?.latitude ?? Number(request?.latitude)
+  const sourceLongitude = effectiveWeather?.longitude ?? Number(request?.longitude)
   const courseAxisValue = Number.isFinite(Number(request?.courseAxis)) ? Number(request?.courseAxis) : raceWeather.direction
   const windwardOffsetValue = Number.isFinite(Number(request?.windwardOffset)) ? Number(request?.windwardOffset) : 0
   const localSources = Number.isFinite(sourceLatitude) && Number.isFinite(sourceLongitude)
     ? nearbyMetarSources(sourceLatitude, sourceLongitude).filter((source) => source.distance <= 250)
     : []
-  const currentModelHour = request?.date === todayIso() && liveWeather ? closestCurrentModelHour(liveWeather.hourly) : null
-  const windRotation = liveWeather ? signedDirectionDelta(liveWeather.scenario.windStart, liveWeather.scenario.windEnd) : 30
+  const currentModelHour = request?.date === todayIso() && effectiveWeather ? closestCurrentModelHour(effectiveWeather.hourly) : null
+  const windRotation = effectiveWeather ? signedDirectionDelta(effectiveWeather.scenario.windStart, effectiveWeather.scenario.windEnd) : 30
   const windRotationLabel = Math.abs(windRotation) < 2 ? 'Stable' : `${windRotation > 0 ? 'Droite' : 'Gauche'} · ${signed(windRotation, '°')}`
 
   return (
@@ -152,7 +173,7 @@ export function ResultsPage() {
             <span><CalendarDays size={15} /> {formatDate(request?.date)}</span><span><Clock3 size={15} /> Manche à {raceTime}</span>
             <span><Sailboat size={15} /> {boatClass}</span><span><Flag size={15} /> Parcours {courseType}</span>
           </div>
-          {weatherState === 'live' && liveWeather && <p className="weather-source-note">Point météo : {liveWeather.placeName} · {liveWeather.latitude.toFixed(3)}, {liveWeather.longitude.toFixed(3)} · {liveWeather.timezone}</p>}
+          {weatherState === 'live' && effectiveWeather && <p className="weather-source-note">Point météo : {effectiveWeather.placeName} · {effectiveWeather.latitude.toFixed(3)}, {effectiveWeather.longitude.toFixed(3)} · {effectiveWeather.timezone}</p>}
           {weatherState === 'fallback' && weatherError && <p className="weather-source-note is-warning">Météo réelle indisponible : {weatherError}. Affichage de la maquette.</p>}
         </div>
         <div className="hero-status"><span aria-hidden="true" /> {weatherState === 'live' ? 'Données chargées' : 'Briefing prêt'}</div>
@@ -164,6 +185,23 @@ export function ResultsPage() {
         <article><Wind /><div><small>Bouée au vent</small><strong>{windwardOffset}</strong></div></article>
         <article><Flag /><div><small>Arrivée</small><strong>{finishOrientation}</strong></div></article>
       </section>
+
+      {localCalibration && <section className={`local-calibration-suggestion${useLocalCalibration ? ' is-applied' : ''}`} aria-labelledby="local-calibration-title">
+        <div className="local-calibration-copy">
+          <div className="local-calibration-heading"><h2 id="local-calibration-title">Correction locale suggérée</h2><span>{calibrationConfidence(localCalibration.sampleCount)}</span></div>
+          <p>Historique {localCalibration.label} · {localCalibration.sampleCount} manche{localCalibration.sampleCount > 1 ? 's' : ''} terminée{localCalibration.sampleCount > 1 ? 's' : ''}. Le modèle {calibrationSpeedText(localCalibration.meanSpeedBias)} et est {calibrationDirectionText(localCalibration.meanDirectionBias)}.</p>
+          <div className="local-calibration-metrics">
+            <span>Biais force <strong>{localCalibration.meanSpeedBias == null ? '—' : `${localCalibration.meanSpeedBias >= 0 ? '+' : ''}${formatDecimal(localCalibration.meanSpeedBias)} nd`}</strong></span>
+            <span>Biais direction <strong>{localCalibration.meanDirectionBias == null ? '—' : `${localCalibration.meanDirectionBias >= 0 ? '+' : ''}${Math.round(localCalibration.meanDirectionBias)}°`}</strong></span>
+            <span>Erreur moyenne <strong>{localCalibration.meanAbsSpeedError == null ? '—' : `${formatDecimal(localCalibration.meanAbsSpeedError)} nd`}{localCalibration.meanAbsDirectionError == null ? '' : ` · ${Math.round(localCalibration.meanAbsDirectionError)}°`}</strong></span>
+          </div>
+        </div>
+        <div className="local-calibration-actions">
+          <button type="button" className={useLocalCalibration ? 'is-active' : ''} disabled={!liveWeather} onClick={() => setUseLocalCalibration((value) => !value)}>{useLocalCalibration ? 'Retirer la correction' : 'Appliquer la correction locale'}</button>
+          {liveWeather && correctedPreview && <small className="local-calibration-preview">À la manche : {Math.round(liveWeather.race.speed)} nd · {formatDegrees(liveWeather.race.direction)} → {Math.round(correctedPreview.race.speed)} nd · {formatDegrees(correctedPreview.race.direction)}</small>}
+          <small>{useLocalCalibration ? 'Correction active dans le briefing, Bernot et le dimensionnement.' : 'Suggestion uniquement : la prévision brute reste inchangée tant que vous ne l’appliquez pas.'}</small>
+        </div>
+      </section>}
 
       {coachObservation.hasObservation && <section className="coach-observation" aria-labelledby="coach-observation-title">
         <div className="coach-observation-heading">
@@ -232,15 +270,15 @@ export function ResultsPage() {
       </section>
 
       <section className="dynamics-grid" aria-label="Dynamique du vent et état de la mer">
-        <article className="detail-panel"><div className="panel-icon"><Compass /></div><div><span className="step-label">Dynamique du vent</span><h2>Oscillation & rotation</h2></div><div className="metric-line"><span>Oscillation estimée</span><strong>± {liveWeather?.scenario.oscillation ?? 8}°</strong></div><div className="metric-line"><span>Tendance</span><strong className="rotation"><span aria-hidden="true">{Math.abs(windRotation) < 2 ? '→' : windRotation > 0 ? '↻' : '↺'}</span> {windRotationLabel}</strong></div><p>{liveWeather ? `Évolution calculée de ${formatDegrees(liveWeather.scenario.windStart)} à ${formatDegrees(liveWeather.scenario.windEnd)} sur la fenêtre choisie.` : 'Rotation progressive de 080° à 110° entre 11 h et 14 h.'}</p></article>
+        <article className="detail-panel"><div className="panel-icon"><Compass /></div><div><span className="step-label">Dynamique du vent</span><h2>Oscillation & rotation</h2></div><div className="metric-line"><span>Oscillation estimée</span><strong>± {effectiveWeather?.scenario.oscillation ?? 8}°</strong></div><div className="metric-line"><span>Tendance</span><strong className="rotation"><span aria-hidden="true">{Math.abs(windRotation) < 2 ? '→' : windRotation > 0 ? '↻' : '↺'}</span> {windRotationLabel}</strong></div><p>{effectiveWeather ? `Évolution calculée de ${formatDegrees(effectiveWeather.scenario.windStart)} à ${formatDegrees(effectiveWeather.scenario.windEnd)} sur la fenêtre choisie.` : 'Rotation progressive de 080° à 110° entre 11 h et 14 h.'}</p></article>
         <article className="detail-panel sea-panel"><div className="panel-icon"><Waves /></div><div><span className="step-label">Plan d'eau</span><h2>État de la mer</h2></div><div className="sea-measure"><strong>{marine?.waveHeight == null ? '—' : marine.waveHeight.toFixed(1).replace('.', ',')} {marine?.waveHeight == null ? '' : <small>m</small>}</strong><span>{marine?.waveDirection == null ? 'Donnée marine indisponible' : `Vagues depuis ${formatDegrees(marine.waveDirection)}`}<br />{marine?.wavePeriod == null ? '' : `Période ${marine.wavePeriod.toFixed(1).replace('.', ',')} s`}</span></div><div className="metric-line"><span>Courant modèle</span><strong>{marine?.currentVelocity == null ? '—' : `${marine.currentVelocity.toFixed(1).replace('.', ',')} nd · ${formatDegrees(marine.currentDirection ?? 0)}`}</strong></div><p>Les données marines servent au briefing tactique mais restent des données de modèle : elles ne remplacent pas les observations sur l’eau.</p></article>
       </section>
 
-      <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div><span className="bernot-help">Calcul dynamique · 1 = facteur prioritaire</span></div><div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot"><div className="bernot-board"><div className="bernot-head factor-head">Facteur</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}{bernotRows.map((row) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>{row.zone === column ? <><span className="zone-marker">●</span><small>tendance</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">La hiérarchie combine les paramètres de course, les modèles et, lorsqu’il est renseigné, le relevé terrain du coach.</p></section>
+      <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div><span className="bernot-help">Calcul dynamique · 1 = facteur prioritaire</span></div><div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot"><div className="bernot-board"><div className="bernot-head factor-head">Facteur</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}{bernotRows.map((row) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>{row.zone === column ? <><span className="zone-marker">●</span><small>tendance</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">La hiérarchie combine les paramètres de course, les modèles et, lorsqu’il est renseigné, le relevé terrain du coach.{useLocalCalibration ? ' La correction locale historique est actuellement appliquée.' : ''}</p></section>
 
       <section className="coach-section" aria-labelledby="coach-title"><div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div><div className="recommendations">{recommendations.map((recommendation, index) => { const isOpen = openWhy === index; return <article className="recommendation" key={recommendation.title}><span className="recommendation-number">0{index + 1}</span><div className="recommendation-content"><h3>{recommendation.title}</h3><p>{recommendation.text}</p><button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}><HelpCircle size={15} /> Pourquoi <ChevronDown className={isOpen ? 'rotated' : ''} size={15} /></button><div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div></div></article> })}</div></section>
 
-      <p className="data-note">Source modèle : Open-Meteo · Observations externes : METAR AviationWeather · Relevé terrain : saisie du coach · Les recommandations restent une aide au briefing à confronter aux conditions réelles.</p>
+      <p className="data-note">Source modèle : Open-Meteo · Observations externes : METAR AviationWeather · Relevé terrain : saisie du coach · {useLocalCalibration ? 'Correction locale historique appliquée sur cette vue · ' : ''}Les recommandations restent une aide au briefing à confronter aux conditions réelles.</p>
     </main>
   )
 }
