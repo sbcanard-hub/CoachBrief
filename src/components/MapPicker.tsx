@@ -15,33 +15,63 @@ type MapPickerProps = {
 }
 
 const ANTIBES = { latitude: 43.5804, longitude: 7.1251 }
+const COMMITTEE_MAX_ACCURACY_METERS = 150
 
 function parseCoordinate(value: string) {
+  if (!value.trim()) return undefined
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
 function geolocationErrorMessage(error: GeolocationPositionError) {
   if (error.code === error.PERMISSION_DENIED) {
-    return 'Localisation refusée. Autorisez la position pour ce site dans les réglages du navigateur, puis réessayez. Sur iPhone : Réglages > Confidentialité et sécurité > Service de localisation > Safari.'
+    return 'Localisation refusée. Autorisez la position pour ce site dans les réglages du navigateur. Sur iPhone, activez aussi « Position exacte ».'
   }
   if (error.code === error.POSITION_UNAVAILABLE) {
-    return 'Position indisponible. Vérifiez que le service de localisation du téléphone est activé, puis réessayez.'
+    return 'Position GPS indisponible. Sur téléphone, activez le service de localisation et « Position exacte », puis réessayez à ciel ouvert.'
   }
   if (error.code === error.TIMEOUT) {
-    return 'La localisation n’a pas répondu. Réessayez à ciel ouvert ou ouvrez CoachBrief directement dans Safari/Chrome.'
+    return 'La localisation n’a pas obtenu de position assez précise. Réessayez à ciel ouvert. Sur ordinateur, la position peut rester approximative car il n’y a généralement pas de GPS.'
   }
-  return 'Impossible de récupérer la position. Ouvrez CoachBrief directement dans Safari/Chrome et vérifiez l’autorisation de localisation.'
-}
-
-function requestPosition(options: PositionOptions) {
-  return new Promise<GeolocationPosition>((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, options)
-  })
+  return 'Impossible de récupérer une position fiable. Ouvrez CoachBrief directement dans Safari/Chrome et vérifiez les autorisations de localisation.'
 }
 
 function isGeolocationError(error: unknown): error is GeolocationPositionError {
   return Boolean(error && typeof error === 'object' && 'code' in error)
+}
+
+function bestPositionFromWatch(onAccuracy: (accuracy: number) => void) {
+  return new Promise<GeolocationPosition>((resolve, reject) => {
+    let watchId: number | null = null
+    let timeoutId: number | null = null
+    let best: GeolocationPosition | null = null
+    let lastError: GeolocationPositionError | null = null
+    let finished = false
+
+    const finish = (error?: unknown) => {
+      if (finished) return
+      finished = true
+      if (watchId != null) navigator.geolocation.clearWatch(watchId)
+      if (timeoutId != null) window.clearTimeout(timeoutId)
+      if (best) resolve(best)
+      else reject(error ?? lastError ?? new Error('Position indisponible'))
+    }
+
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        if (!best || position.coords.accuracy < best.coords.accuracy) best = position
+        onAccuracy(position.coords.accuracy)
+        if (position.coords.accuracy <= 35) finish()
+      },
+      (error) => {
+        lastError = error
+        if (error.code === error.PERMISSION_DENIED) finish(error)
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+    )
+
+    timeoutId = window.setTimeout(() => finish(lastError ?? undefined), 18000)
+  })
 }
 
 export function MapPicker({
@@ -87,9 +117,7 @@ export function MapPicker({
       committeeMarkerRef.current.setLatLng([lat, lng])
     }
 
-    if (accuracy) {
-      setMessage(`Position Comité détectée · précision ±${accuracy} m.`)
-    }
+    if (accuracy) setMessage(`Position Comité détectée · précision ±${accuracy} m.`)
   }
 
   useEffect(() => {
@@ -220,34 +248,37 @@ export function MapPicker({
       try {
         const permission = await navigator.permissions?.query({ name: 'geolocation' })
         if (permission?.state === 'denied') {
-          setMessage('Localisation bloquée pour ce site. Réactivez l’autorisation de localisation dans les réglages du navigateur, puis réessayez.')
-          setLocatingCommittee(false)
+          setMessage('Localisation bloquée pour ce site. Réactivez l’autorisation et, sur iPhone, activez « Position exacte ».')
           return
         }
       } catch {
         // Certains navigateurs mobiles ne prennent pas en charge Permissions API pour la géolocalisation.
       }
 
-      setMessage('Recherche GPS précise du comité…')
-      let position: GeolocationPosition
-
-      try {
-        position = await requestPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 })
-      } catch (firstError) {
-        if (isGeolocationError(firstError) && firstError.code === firstError.PERMISSION_DENIED) throw firstError
-        setMessage('GPS précis lent ou indisponible · essai avec la localisation standard…')
-        position = await requestPosition({ enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 })
-      }
+      setMessage('Recherche de la meilleure position GPS…')
+      const position = await bestPositionFromWatch((accuracy) => {
+        const rounded = Math.max(1, Math.round(accuracy))
+        setMessage(`GPS en cours d’affinage · précision actuelle ±${rounded} m…`)
+      })
 
       const lat = position.coords.latitude
       const lng = position.coords.longitude
-      const accuracy = String(Math.max(1, Math.round(position.coords.accuracy)))
+      const accuracyNumber = Math.max(1, Math.round(position.coords.accuracy))
+      const accuracy = String(accuracyNumber)
+
+      if (accuracyNumber > COMMITTEE_MAX_ACCURACY_METERS) {
+        mapRef.current?.setView([lat, lng], 12)
+        mapRef.current?.invalidateSize(false)
+        setMessage(`Position reçue trop approximative (±${accuracyNumber} m) : elle n’est pas enregistrée comme Comité. Sur téléphone, activez « Position exacte » et réessayez à ciel ouvert. Sur ordinateur, l’estimation Wi‑Fi/IP peut rester imprécise.`)
+        return
+      }
+
       onCommitteeChange(lat.toFixed(5), lng.toFixed(5), accuracy)
       placeCommitteeMarker(lat, lng, accuracy)
-      mapRef.current?.setView([lat, lng], Math.max(mapRef.current.getZoom(), position.coords.accuracy <= 100 ? 15 : 13))
+      mapRef.current?.setView([lat, lng], Math.max(mapRef.current.getZoom(), accuracyNumber <= 50 ? 16 : 15))
       mapRef.current?.invalidateSize(false)
     } catch (error) {
-      setMessage(isGeolocationError(error) ? geolocationErrorMessage(error) : 'Impossible de récupérer la position. Ouvrez CoachBrief directement dans Safari/Chrome et réessayez.')
+      setMessage(isGeolocationError(error) ? geolocationErrorMessage(error) : 'Impossible de récupérer une position fiable. Vérifiez les autorisations de localisation et réessayez.')
     } finally {
       setLocatingCommittee(false)
     }
