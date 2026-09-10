@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Crosshair, MapPin } from 'lucide-react'
+import { loadLeaflet } from '../leafletLoader'
 
 type MapPickerProps = {
   location: string
@@ -7,8 +8,6 @@ type MapPickerProps = {
   longitude: string
   onPointChange: (latitude: string, longitude: string) => void
 }
-
-type LeafletWindow = Window & { L?: any }
 
 const ANTIBES = { latitude: 43.5804, longitude: 7.1251 }
 
@@ -21,43 +20,58 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
   const elementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
-  const [message, setMessage] = useState('Cliquez sur le plan d’eau pour placer le centre du parcours.')
+  const [message, setMessage] = useState('Préparation de la carte…')
 
   useEffect(() => {
-    const leaflet = (window as LeafletWindow).L
-    if (!leaflet || !elementRef.current || mapRef.current) return
+    let cancelled = false
+    let map: any = null
 
-    const initialLatitude = parseCoordinate(latitude) ?? ANTIBES.latitude
-    const initialLongitude = parseCoordinate(longitude) ?? ANTIBES.longitude
-    const map = leaflet.map(elementRef.current, { zoomControl: true }).setView([initialLatitude, initialLongitude], 12)
+    void loadLeaflet().then((leaflet) => {
+      if (cancelled || !elementRef.current || mapRef.current) return
 
-    leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map)
+      const initialLatitude = parseCoordinate(latitude) ?? ANTIBES.latitude
+      const initialLongitude = parseCoordinate(longitude) ?? ANTIBES.longitude
+      map = leaflet.map(elementRef.current, { zoomControl: true }).setView([initialLatitude, initialLongitude], 12)
 
-    const marker = leaflet.marker([initialLatitude, initialLongitude], { draggable: true }).addTo(map)
+      const tiles = leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      })
+      tiles.on('loading', () => setMessage('Chargement du fond de carte…'))
+      tiles.on('load', () => setMessage((current) => current === 'Chargement du fond de carte…' || current === 'Préparation de la carte…'
+        ? 'Cliquez sur le plan d’eau pour placer le centre du parcours.'
+        : current))
+      tiles.on('tileerror', () => setMessage('Le fond de carte répond lentement. La carte peut continuer à se charger progressivement.'))
+      tiles.addTo(map)
 
-    function savePoint(lat: number, lng: number) {
-      const latText = lat.toFixed(5)
-      const lngText = lng.toFixed(5)
-      marker.setLatLng([lat, lng])
-      onPointChange(latText, lngText)
-      setMessage(`Point précis : ${latText}, ${lngText}`)
-    }
+      const marker = leaflet.marker([initialLatitude, initialLongitude], { draggable: true }).addTo(map)
 
-    map.on('click', (event: any) => savePoint(event.latlng.lat, event.latlng.lng))
-    marker.on('dragend', () => {
-      const point = marker.getLatLng()
-      savePoint(point.lat, point.lng)
+      function savePoint(lat: number, lng: number) {
+        const latText = lat.toFixed(5)
+        const lngText = lng.toFixed(5)
+        marker.setLatLng([lat, lng])
+        onPointChange(latText, lngText)
+        setMessage(`Point précis : ${latText}, ${lngText}`)
+      }
+
+      map.on('click', (event: any) => savePoint(event.latlng.lat, event.latlng.lng))
+      marker.on('dragend', () => {
+        const point = marker.getLatLng()
+        savePoint(point.lat, point.lng)
+      })
+
+      mapRef.current = map
+      markerRef.current = marker
+      window.requestAnimationFrame(() => map?.invalidateSize(false))
+      window.setTimeout(() => map?.invalidateSize(false), 250)
+    }).catch((error: unknown) => {
+      if (!cancelled) setMessage(error instanceof Error ? error.message : 'Cartographie indisponible.')
     })
 
-    mapRef.current = map
-    markerRef.current = marker
-
     return () => {
-      map.remove()
-      mapRef.current = null
+      cancelled = true
+      map?.remove()
+      if (mapRef.current === map) mapRef.current = null
       markerRef.current = null
     }
   }, [])
@@ -74,6 +88,10 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
       setMessage('Renseignez d’abord un lieu, puis recentrez la carte.')
       return
     }
+    if (!mapRef.current || !markerRef.current) {
+      setMessage('La carte est encore en cours de préparation…')
+      return
+    }
 
     setMessage('Recherche du lieu…')
     const params = new URLSearchParams({ name: location.trim(), count: '1', language: 'fr', format: 'json' })
@@ -85,8 +103,9 @@ export function MapPicker({ location, latitude, longitude, onPointChange }: MapP
       const point = data.results?.[0]
       if (!point) throw new Error()
 
-      mapRef.current?.setView([point.latitude, point.longitude], 13)
-      markerRef.current?.setLatLng([point.latitude, point.longitude])
+      mapRef.current.setView([point.latitude, point.longitude], 13)
+      markerRef.current.setLatLng([point.latitude, point.longitude])
+      mapRef.current.invalidateSize(false)
       onPointChange(point.latitude.toFixed(5), point.longitude.toFixed(5))
       setMessage(`${point.name} trouvé. Déplacez maintenant le point sur la zone de course.`)
     } catch {
