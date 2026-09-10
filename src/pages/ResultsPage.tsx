@@ -8,6 +8,7 @@ import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../be
 import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
 import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
 import type { MetarCache, MetarObservation } from '../metar'
+import { buildCoachObservationSignal, observationImpactLabel } from '../observations'
 import { fetchWeatherForBriefing } from '../weather'
 import type { LiveWeatherData, WeatherHour } from '../weather'
 import type { BriefingRequest } from '../types'
@@ -39,6 +40,7 @@ function formatOffset(offset?: string) {
 }
 
 function formatDegrees(value: number) { return `${String(Math.round(value)).padStart(3, '0')}°` }
+function formatDecimal(value: number, digits = 1) { return value.toFixed(digits).replace('.', ',') }
 function directionLabel(value: number) {
   const labels = ['N', 'N-E', 'E', 'S-E', 'S', 'S-O', 'O', 'N-O']
   return labels[Math.round((((value % 360) + 360) % 360) / 45) % 8]
@@ -118,8 +120,9 @@ export function ResultsPage() {
   const startLineBias = request?.startLineBias || 'Neutre'
   const windwardOffset = formatOffset(request?.windwardOffset)
   const finishOrientation = request?.finishOrientation || 'Sous le vent'
-  const bernotRows = buildBernotRows(request, liveWeather?.scenario)
-  const recommendations = buildCoachRecommendations(request, liveWeather?.scenario)
+  const coachObservation = buildCoachObservationSignal(request, liveWeather)
+  const bernotRows = buildBernotRows(request, liveWeather?.scenario, coachObservation)
+  const recommendations = buildCoachRecommendations(request, liveWeather?.scenario, coachObservation)
   const forecast = liveWeather?.hourly.length ? liveWeather.hourly : mockHourlyForecast
   const raceWeather = liveWeather?.race ?? { speed: 11, gust: 15, direction: 80, temperature: 20, humidity: 62, dewPoint: 14, pressure: 1018, cloudCover: 25 }
   const marine = liveWeather?.marine
@@ -157,9 +160,28 @@ export function ResultsPage() {
         <article><Flag /><div><small>Arrivée</small><strong>{finishOrientation}</strong></div></article>
       </section>
 
+      {coachObservation.hasObservation && <section className="coach-observation" aria-labelledby="coach-observation-title">
+        <div className="coach-observation-heading">
+          <div><Radio size={18} /><div><span className="step-label">Votre relevé</span><h2 id="coach-observation-title">Observation du coach</h2></div></div>
+          <strong>{observationImpactLabel(coachObservation)}</strong>
+        </div>
+        <div className="coach-observation-grid">
+          <article><small>Heure</small><strong>{coachObservation.observationTime || '—'}</strong>{coachObservation.modelHour && <span>modèle comparé : {coachObservation.modelHour.time}</span>}</article>
+          <article><small>Vent</small><strong>{coachObservation.windSpeed == null ? '—' : `${formatDecimal(coachObservation.windSpeed)} nd`}</strong>{coachObservation.windSpeedDelta != null && <span>écart modèle {signed(coachObservation.windSpeedDelta, ' nd')}</span>}</article>
+          <article><small>Direction</small><strong>{coachObservation.windDirection == null ? '—' : formatDegrees(coachObservation.windDirection)}</strong>{coachObservation.windDirectionDelta != null && <span>écart modèle {signed(coachObservation.windDirectionDelta, '°')}</span>}</article>
+          <article><small>Rafale</small><strong>{coachObservation.gust == null ? '—' : `${formatDecimal(coachObservation.gust)} nd`}</strong>{coachObservation.gustDelta != null && <span>écart modèle {signed(coachObservation.gustDelta, ' nd')}</span>}</article>
+          <article><small>Vagues</small><strong>{coachObservation.waveHeight == null ? '—' : `${formatDecimal(coachObservation.waveHeight)} m`}</strong>{coachObservation.waveHeightDelta != null && <span>écart modèle {coachObservation.waveHeightDelta > 0 ? '+' : ''}{formatDecimal(coachObservation.waveHeightDelta)} m</span>}</article>
+          <article><small>Courant</small><strong>{coachObservation.currentVelocity == null ? '—' : `${formatDecimal(coachObservation.currentVelocity)} nd`}</strong>{coachObservation.currentDirection != null && <span>vers {formatDegrees(coachObservation.currentDirection)}</span>}</article>
+          <article><small>Nébulosité</small><strong>{coachObservation.cloudCover == null ? '—' : `${Math.round(coachObservation.cloudCover)} %`}</strong></article>
+          <article><small>Pression</small><strong>{coachObservation.pressure == null ? '—' : `${formatDecimal(coachObservation.pressure)} hPa`}</strong></article>
+        </div>
+        {coachObservation.notes && <p className="coach-observation-note"><strong>Note terrain :</strong> {coachObservation.notes}</p>}
+        <p className="coach-observation-help">Le relevé du coach influence la hiérarchie Bernot. Un écart important avec le modèle augmente la priorité du vent et des effets locaux, sans transformer l’observation ponctuelle en prévision pour toute la manche.</p>
+      </section>}
+
       {localSources.length > 0 && <section className="local-sources" aria-labelledby="local-sources-title">
         <div className="local-sources-heading">
-          <div><Radio size={18} /><div><span className="step-label">Observations terrain</span><h2 id="local-sources-title">Stations METAR proches</h2></div></div>
+          <div><Radio size={18} /><div><span className="step-label">Observations externes</span><h2 id="local-sources-title">Stations METAR proches</h2></div></div>
           <small>{metarState === 'loading' ? 'Chargement des observations…' : metarState === 'unavailable' ? 'Cache METAR indisponible' : `Cache : ${formatMetarGeneratedAt(metarCache?.generatedAt ?? null)}`}</small>
         </div>
         <div className="local-source-grid">{localSources.map((source) => {
@@ -181,7 +203,7 @@ export function ResultsPage() {
             </> : <div className="metar-empty">Observation non disponible dans le dernier cache.</div>}
           </article>
         })}</div>
-        <p className="local-source-note">Les METAR sont désormais récupérés côté GitHub au déploiement, puis lus localement par CoachBrief. Ils décrivent les conditions observées aux aéroports : pour une régate aujourd’hui, l’écart au modèle est affiché lorsqu’une heure modèle proche de l’heure actuelle existe. Pour une date future, le METAR reste une référence d’observation et non une prévision.</p>
+        <p className="local-source-note">Les METAR sont récupérés côté GitHub au déploiement, puis lus localement par CoachBrief. Ils décrivent les conditions observées aux aéroports : pour une régate aujourd’hui, l’écart au modèle est affiché lorsqu’une heure modèle proche de l’heure actuelle existe. Pour une date future, le METAR reste une référence d’observation et non une prévision.</p>
       </section>}
 
       <section className="weather-overview" aria-label="Conditions principales">
@@ -207,11 +229,11 @@ export function ResultsPage() {
         <article className="detail-panel sea-panel"><div className="panel-icon"><Waves /></div><div><span className="step-label">Plan d'eau</span><h2>État de la mer</h2></div><div className="sea-measure"><strong>{marine?.waveHeight == null ? '—' : marine.waveHeight.toFixed(1).replace('.', ',')} {marine?.waveHeight == null ? '' : <small>m</small>}</strong><span>{marine?.waveDirection == null ? 'Donnée marine indisponible' : `Vagues depuis ${formatDegrees(marine.waveDirection)}`}<br />{marine?.wavePeriod == null ? '' : `Période ${marine.wavePeriod.toFixed(1).replace('.', ',')} s`}</span></div><div className="metric-line"><span>Courant modèle</span><strong>{marine?.currentVelocity == null ? '—' : `${marine.currentVelocity.toFixed(1).replace('.', ',')} nd · ${formatDegrees(marine.currentDirection ?? 0)}`}</strong></div><p>Les données marines servent au briefing tactique mais restent des données de modèle : elles ne remplacent pas les observations sur l’eau.</p></article>
       </section>
 
-      <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div><span className="bernot-help">Calcul dynamique · 1 = facteur prioritaire</span></div><div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot"><div className="bernot-board"><div className="bernot-head factor-head">Facteur</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}{bernotRows.map((row) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>{row.zone === column ? <><span className="zone-marker">●</span><small>tendance</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">La hiérarchie combine les paramètres de course avec les données météo disponibles.</p></section>
+      <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div><span className="bernot-help">Calcul dynamique · 1 = facteur prioritaire</span></div><div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot"><div className="bernot-board"><div className="bernot-head factor-head">Facteur</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}{bernotRows.map((row) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>{row.zone === column ? <><span className="zone-marker">●</span><small>tendance</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">La hiérarchie combine les paramètres de course, les modèles et, lorsqu’il est renseigné, le relevé terrain du coach.</p></section>
 
       <section className="coach-section" aria-labelledby="coach-title"><div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div><div className="recommendations">{recommendations.map((recommendation, index) => { const isOpen = openWhy === index; return <article className="recommendation" key={recommendation.title}><span className="recommendation-number">0{index + 1}</span><div className="recommendation-content"><h3>{recommendation.title}</h3><p>{recommendation.text}</p><button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}><HelpCircle size={15} /> Pourquoi <ChevronDown className={isOpen ? 'rotated' : ''} size={15} /></button><div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div></div></article> })}</div></section>
 
-      <p className="data-note">Prévisions : Open-Meteo · Observations METAR : AviationWeather.gov via cache GitHub Pages · Repli automatique sur la maquette · Les recommandations restent une aide au briefing.</p>
+      <p className="data-note">Source modèle : Open-Meteo · Observations externes : METAR AviationWeather · Relevé terrain : saisie du coach · Les recommandations restent une aide au briefing à confronter aux conditions réelles.</p>
     </main>
   )
 }
