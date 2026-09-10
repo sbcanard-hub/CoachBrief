@@ -43,6 +43,10 @@ La branche de travail ajoute désormais :
 - calibration par plan d’eau à partir des manches terminées ;
 - biais moyen et erreur absolue moyenne en force et direction ;
 - graphiques chronologiques des écarts modèle / réalité ;
+- suggestion de correction locale directement dans un nouveau briefing ;
+- aperçu du vent brut puis corrigé avant application ;
+- application ou retrait manuel de la correction sans modifier la prévision brute sauvegardée ;
+- propagation de la correction choisie au briefing, à Bernot, à l’évolution horaire et au dimensionnement ;
 - stockage local des variantes, briefings et retours post-course, sans serveur supplémentaire ;
 - vérification automatique du build avec GitHub Actions.
 
@@ -84,7 +88,9 @@ Chaque briefing affiche alors trois états côte à côte : l’instantané de p
 
 La zone `Calibration par plan d’eau` regroupe les manches terminées autour d’un même point géographique. Elle calcule le biais moyen du modèle, l’erreur absolue moyenne et affiche une chronologie des écarts en force et en direction. Les différences angulaires sont calculées sur un cercle : par exemple 350° vers 010° correspond à +20° et non à -340°.
 
-Cette calibration est pour l’instant informative : elle permet au coach de voir les tendances locales mais ne modifie pas automatiquement la prévision suivante. Le niveau affiché dépend du nombre de manches disponibles afin d’éviter de donner trop de poids à une seule observation.
+Lorsqu’un nouveau briefing correspond à un plan d’eau déjà calibré, CoachBrief affiche une correction locale suggérée avec le nombre de manches disponibles, le niveau de confiance, le biais moyen et un aperçu `prévision brute → prévision corrigée`. Cette correction n’est jamais activée automatiquement. Le coach choisit de l’appliquer ou de la retirer. Lorsqu’elle est active, elle corrige la force et la direction du vent dans la vue courante, l’évolution horaire, le moteur Bernot et le dimensionnement du parcours.
+
+La prévision Open-Meteo brute continue d’être conservée dans les sauvegardes et l’historique. Ce choix évite de réinjecter les corrections précédentes dans le calcul des biais futurs et de créer une boucle de calibration artificielle.
 
 Le stockage reste volontairement local pour ce prototype. Il n’y a pas encore de synchronisation automatique entre téléphone et ordinateur, mais l’export/import JSON permet déjà un transfert manuel complet, y compris la réalité post-course.
 
@@ -96,7 +102,7 @@ La mise en page d’impression conserve l’en-tête de régate, les paramètres
 
 ## Suite du prototype
 
-La prochaine étape naturelle est d’utiliser la calibration de manière assistée dans un nouveau briefing : afficher une correction locale suggérée sans l’imposer, puis comparer séparément la fiabilité du modèle, du METAR et des observations terrain selon le plan d’eau et la situation météo.
+La prochaine étape naturelle est de comparer séparément la fiabilité du modèle, du METAR et du relevé terrain selon le plan d’eau et la situation météo, puis de commencer à conditionner la calibration par secteur de vent et force de vent plutôt que d’utiliser une correction moyenne unique.
 
 ## Développement
 
