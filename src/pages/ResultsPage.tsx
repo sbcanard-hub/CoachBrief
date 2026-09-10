@@ -6,6 +6,8 @@ import {
 import { Link, useLocation } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
 import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
+import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
+import type { MetarCache, MetarObservation } from '../metar'
 import { fetchWeatherForBriefing } from '../weather'
 import type { LiveWeatherData, WeatherHour } from '../weather'
 import type { BriefingRequest } from '../types'
@@ -46,6 +48,38 @@ function clockMinutes(value: string) {
   return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0)
 }
 function isRaceHour(hour: string, raceTime: string) { return Math.abs(clockMinutes(hour) - clockMinutes(raceTime)) <= 30 }
+function todayIso() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+function closestCurrentModelHour(hours: WeatherHour[]) {
+  if (!hours.length) return null
+  const now = new Date()
+  const target = now.getHours() * 60 + now.getMinutes()
+  let closest: WeatherHour | null = null
+  let distance = Number.POSITIVE_INFINITY
+  for (const hour of hours) {
+    const candidateDistance = Math.abs(clockMinutes(hour.time) - target)
+    if (candidateDistance < distance) {
+      distance = candidateDistance
+      closest = hour
+    }
+  }
+  return distance <= 90 ? closest : null
+}
+function metarWindLabel(observation: MetarObservation) {
+  const direction = observation.variableWind ? 'VRB' : observation.windDirection == null ? '—' : formatDegrees(observation.windDirection)
+  const speed = observation.windSpeed == null ? '—' : `${observation.windSpeed} nd`
+  const gust = observation.gust == null ? '' : ` · raf. ${observation.gust}`
+  return `${direction} · ${speed}${gust}`
+}
+function signed(value: number, unit: string) {
+  const rounded = Math.round(value)
+  return `${rounded > 0 ? '+' : ''}${rounded}${unit}`
+}
 
 export function ResultsPage() {
   const { state } = useLocation()
@@ -54,6 +88,8 @@ export function ResultsPage() {
   const [liveWeather, setLiveWeather] = useState<LiveWeatherData | null>(null)
   const [weatherState, setWeatherState] = useState<'idle' | 'loading' | 'live' | 'fallback'>('idle')
   const [weatherError, setWeatherError] = useState('')
+  const [metarCache, setMetarCache] = useState<MetarCache | null>(null)
+  const [metarState, setMetarState] = useState<'loading' | 'ready' | 'unavailable'>('loading')
 
   useEffect(() => {
     if (!request?.location || !request.date) return
@@ -65,6 +101,14 @@ export function ResultsPage() {
       .catch((error: unknown) => { if (active) { setLiveWeather(null); setWeatherState('fallback'); setWeatherError(error instanceof Error ? error.message : 'Météo réelle indisponible') } })
     return () => { active = false }
   }, [request])
+
+  useEffect(() => {
+    let active = true
+    fetchMetarCache()
+      .then((cache) => { if (active) { setMetarCache(cache); setMetarState('ready') } })
+      .catch(() => { if (active) setMetarState('unavailable') })
+    return () => { active = false }
+  }, [])
 
   const location = request?.location || 'Antibes · Baie des Anges'
   const raceTime = request?.raceTime || request?.startTime || '11:00'
@@ -86,6 +130,7 @@ export function ResultsPage() {
   const localSources = Number.isFinite(sourceLatitude) && Number.isFinite(sourceLongitude)
     ? nearbyMetarSources(sourceLatitude, sourceLongitude).filter((source) => source.distance <= 250)
     : []
+  const currentModelHour = request?.date === todayIso() && liveWeather ? closestCurrentModelHour(liveWeather.hourly) : null
 
   return (
     <main className="results-page briefing-page">
@@ -113,9 +158,30 @@ export function ResultsPage() {
       </section>
 
       {localSources.length > 0 && <section className="local-sources" aria-labelledby="local-sources-title">
-        <div className="local-sources-heading"><div><Radio size={18} /><div><span className="step-label">Observations à confronter</span><h2 id="local-sources-title">Stations METAR proches</h2></div></div><small>Ouverture manuelle pour cette version GitHub Pages</small></div>
-        <div className="local-source-grid">{localSources.map((source) => <a key={source.id} href={aviationWeatherMetarUrl(source.id)} target="_blank" rel="noreferrer" className="local-source-card"><div><strong>{source.id}</strong><span>{source.name}</span></div><small>{Math.round(source.distance)} km du plan d’eau</small><ExternalLink size={15} /></a>)}</div>
-        <p className="local-source-note">L’API officielle METAR ne permet pas les appels directs depuis un navigateur. CoachBrief indique donc les stations les plus proches ; le chargement automatique passera ensuite par un petit relais serveur sécurisé.</p>
+        <div className="local-sources-heading">
+          <div><Radio size={18} /><div><span className="step-label">Observations terrain</span><h2 id="local-sources-title">Stations METAR proches</h2></div></div>
+          <small>{metarState === 'loading' ? 'Chargement des observations…' : metarState === 'unavailable' ? 'Cache METAR indisponible' : `Cache : ${formatMetarGeneratedAt(metarCache?.generatedAt ?? null)}`}</small>
+        </div>
+        <div className="local-source-grid">{localSources.map((source) => {
+          const observation = observationForStation(metarCache, source.id)
+          const speedDelta = observation?.windSpeed != null && currentModelHour ? observation.windSpeed - currentModelHour.speed : null
+          const directionDelta = observation?.windDirection != null && currentModelHour ? signedDirectionDelta(currentModelHour.direction, observation.windDirection) : null
+          return <article key={source.id} className={`local-source-card${observation ? ' has-observation' : ''}`}>
+            <a href={aviationWeatherMetarUrl(source.id)} target="_blank" rel="noreferrer" className="local-source-link" aria-label={`Ouvrir le METAR ${source.id}`}><ExternalLink size={15} /></a>
+            <div className="local-source-title"><strong>{source.id}</strong><span>{source.name}</span></div>
+            <small>{Math.round(source.distance)} km du plan d’eau{observation?.reportTime ? ` · ${observation.reportTime}` : ''}</small>
+            {observation ? <>
+              <div className="metar-reading"><span>Vent observé</span><strong>{metarWindLabel(observation)}</strong></div>
+              <div className="metar-secondary">
+                <span>{observation.temperature == null ? 'T° —' : `${observation.temperature}°C`}</span>
+                <span>{observation.pressure == null ? 'QNH —' : `${observation.pressure} hPa`}</span>
+              </div>
+              {speedDelta != null && <div className="metar-comparison">Vs modèle maintenant : <strong>{signed(speedDelta, ' nd')}</strong>{directionDelta != null && <> · direction <strong>{signed(directionDelta, '°')}</strong></>}</div>}
+              <p className="metar-raw">{observation.raw}</p>
+            </> : <div className="metar-empty">Observation non disponible dans le dernier cache.</div>}
+          </article>
+        })}</div>
+        <p className="local-source-note">Les METAR sont désormais récupérés côté GitHub au déploiement, puis lus localement par CoachBrief. Ils décrivent les conditions observées aux aéroports : pour une régate aujourd’hui, l’écart au modèle est affiché lorsqu’une heure modèle proche de l’heure actuelle existe. Pour une date future, le METAR reste une référence d’observation et non une prévision.</p>
       </section>}
 
       <section className="weather-overview" aria-label="Conditions principales">
@@ -145,7 +211,7 @@ export function ResultsPage() {
 
       <section className="coach-section" aria-labelledby="coach-title"><div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div><div className="recommendations">{recommendations.map((recommendation, index) => { const isOpen = openWhy === index; return <article className="recommendation" key={recommendation.title}><span className="recommendation-number">0{index + 1}</span><div className="recommendation-content"><h3>{recommendation.title}</h3><p>{recommendation.text}</p><button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}><HelpCircle size={15} /> Pourquoi <ChevronDown className={isOpen ? 'rotated' : ''} size={15} /></button><div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div></div></article> })}</div></section>
 
-      <p className="data-note">Source météo : Open-Meteo quand disponible · METAR : AviationWeather en consultation externe · Repli automatique sur la maquette · Les recommandations restent une aide au briefing.</p>
+      <p className="data-note">Prévisions : Open-Meteo · Observations METAR : AviationWeather.gov via cache GitHub Pages · Repli automatique sur la maquette · Les recommandations restent une aide au briefing.</p>
     </main>
   )
 }
