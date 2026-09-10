@@ -256,21 +256,25 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
         .bindTooltip('Centre choisi du plan d’eau', { permanent: false })
         .addTo(map)
 
-      const hasCommittee = Number.isFinite(committeeLatitude) && Number.isFinite(committeeLongitude)
-      if (hasCommittee) {
+      const committeePoint = typeof committeeLatitude === 'number' && Number.isFinite(committeeLatitude)
+        && typeof committeeLongitude === 'number' && Number.isFinite(committeeLongitude)
+        ? { latitude: committeeLatitude, longitude: committeeLongitude }
+        : null
+
+      if (committeePoint) {
         const committeeIcon = leaflet.divIcon({
           className: 'committee-marker-icon',
           html: '<span>C</span>',
           iconSize: [34, 34],
           iconAnchor: [17, 17],
         })
-        leaflet.marker([committeeLatitude, committeeLongitude], { icon: committeeIcon, title: 'Comité / bateau coach' })
+        leaflet.marker([committeePoint.latitude, committeePoint.longitude], { icon: committeeIcon, title: 'Comité / bateau coach' })
           .bindTooltip(`Comité / bateau coach${committeeAccuracy ? ` · ±${committeeAccuracy} m` : ''}`, { permanent: false })
           .addTo(map)
       }
 
       const bounds = [startLine.left, startLine.right, finishLine.left, finishLine.right, ...points].map(latLng)
-      if (hasCommittee) bounds.push([committeeLatitude, committeeLongitude])
+      if (committeePoint) bounds.push([committeePoint.latitude, committeePoint.longitude])
       map.fitBounds(bounds, { padding: [32, 32] })
       mapRef.current = map
       window.requestAnimationFrame(() => map?.invalidateSize(false))
@@ -380,7 +384,7 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
           <strong>{courseType} · {activeVariantName}</strong>
           <span>{routeSequence(points, routeOrder)}</span>
           <small>Axe : {String(Math.round(bearing)).padStart(3, '0')}° · faites glisser les points pour ajuster le tracé</small>
-          {Number.isFinite(committeeLatitude) && Number.isFinite(committeeLongitude) && <small className="committee-course-summary">Repère C = Comité / bateau coach{committeeAccuracy ? ` · précision GPS ±${committeeAccuracy} m` : ''}</small>}
+          {typeof committeeLatitude === 'number' && Number.isFinite(committeeLatitude) && typeof committeeLongitude === 'number' && Number.isFinite(committeeLongitude) && <small className="committee-course-summary">Repère C = Comité / bateau coach{committeeAccuracy ? ` · précision GPS ±${committeeAccuracy} m` : ''}</small>}
         </div>
 
         <div className="course-variant-panel">
