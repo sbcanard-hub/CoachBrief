@@ -21,6 +21,17 @@ export type CourseSnapshot = {
   activeVariantName: string
 }
 
+export type RaceReality = {
+  recordedAt: string
+  windSpeed: string
+  windDirection: string
+  gust: string
+  waveHeight: string
+  currentSpeed: string
+  currentDirection: string
+  notes: string
+}
+
 export type SavedBriefing = {
   version: 1
   id: string
@@ -29,6 +40,7 @@ export type SavedBriefing = {
   request: BriefingRequest
   weather: LiveWeatherData | null
   course: CourseSnapshot | null
+  reality?: RaceReality | null
 }
 
 const STORAGE_KEY = 'coachbrief:saved-briefings:v1'
@@ -89,10 +101,20 @@ export function saveBriefing(request: BriefingRequest, weather: LiveWeatherData 
     request: clone(request),
     weather: weather ? clone(weather) : null,
     course: course ? clone(course) : null,
+    reality: null,
   }
   const next = [item, ...loadSavedBriefings()]
   persistSavedBriefings(next)
   return item
+}
+
+export function saveRaceReality(id: string, reality: Omit<RaceReality, 'recordedAt'>) {
+  const items = loadSavedBriefings()
+  const next = items.map((item) => item.id === id
+    ? { ...item, reality: { ...clone(reality), recordedAt: new Date().toISOString() } }
+    : item)
+  persistSavedBriefings(next)
+  return next.find((item) => item.id === id) ?? null
 }
 
 export function deleteSavedBriefing(id: string) {
