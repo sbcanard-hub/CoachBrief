@@ -1,0 +1,50 @@
+.local-effects-panel { width: min(1180px, calc(100% - 40px)); margin: 18px auto 0; padding: 20px; border: 1px solid #d8e3df; border-left: 4px solid #216e8c; background: #f8fbfc; box-sizing: border-box; }
+.local-effects-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
+.local-effects-heading h2 { margin: 3px 0 0; color: #173b3a; font: 600 22px/1.15 'Manrope', sans-serif; letter-spacing: -.45px; }
+.local-effects-confidence { display: grid; gap: 3px; min-width: 210px; padding: 9px 11px; border: 1px solid #d6a52c; background: #fffaf0; }
+.local-effects-confidence small { color: #77652d; font-size: 8px; text-transform: uppercase; letter-spacing: .45px; }
+.local-effects-confidence strong { color: #173b3a; font-size: 10px; }
+.local-effects-loading, .local-effects-error { display: flex; align-items: center; gap: 8px; min-height: 52px; color: #536c66; font-size: 9px; }
+.local-effects-error { color: #795a1f; }
+.local-effects-spin { animation: local-effects-spin 1s linear infinite; }
+@keyframes local-effects-spin { to { transform: rotate(360deg); } }
+.local-effects-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: 14px; }
+.local-effects-metrics article { display: flex; gap: 8px; min-width: 0; padding: 11px; border: 1px solid #dce6e2; background: #fff; }
+.local-effects-metrics svg { flex: 0 0 auto; color: #216e8c; }
+.local-effects-metrics div { min-width: 0; }
+.local-effects-metrics small { display: block; color: #71837d; font-size: 7px; text-transform: uppercase; letter-spacing: .35px; }
+.local-effects-metrics strong { display: block; margin-top: 3px; color: #173b3a; font-size: 9px; line-height: 1.35; }
+.local-effects-metrics span { display: block; margin-top: 4px; color: #71837d; font-size: 7.5px; line-height: 1.35; }
+.local-effects-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: 10px; }
+.local-effect-card { min-width: 0; padding: 11px; border: 1px solid #dde7e3; background: #fff; }
+.local-effect-card.level-fort { border-top: 3px solid #d6a52c; padding-top: 9px; }
+.local-effect-card.level-modéré { border-top: 3px solid #216e8c; padding-top: 9px; }
+.local-effect-card.level-faible { border-top: 3px solid #a8b9b3; padding-top: 9px; }
+.local-effect-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 7px; }
+.local-effect-card-heading strong { color: #173b3a; font-size: 10px; }
+.local-effect-card-heading span { flex: 0 0 auto; padding: 2px 5px; border: 1px solid #d7e2de; background: #f5f8f7; color: #60756f; font-size: 6.5px; font-weight: 800; text-transform: uppercase; }
+.local-effect-card p { margin: 8px 0 0; color: #5d736d; font-size: 8px; line-height: 1.5; }
+.local-effects-advice { display: flex; align-items: flex-start; gap: 8px; margin-top: 11px; padding: 10px 12px; border: 1px solid #dce6e2; background: #fff; color: #4f6761; }
+.local-effects-advice svg { flex: 0 0 auto; color: #216e8c; }
+.local-effects-advice p { margin: 0; font-size: 9px; line-height: 1.5; }
+.local-effects-advice strong { color: #173b3a; }
+.local-effects-note { margin: 9px 0 0; color: #71837d; font-size: 7.5px; line-height: 1.45; }
+
+@media (max-width: 1050px) {
+  .local-effects-metrics, .local-effects-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .local-effects-panel { width: min(100% - 20px, 1180px); margin-top: 12px; padding: 14px; }
+  .local-effects-heading { display: grid; align-items: start; }
+  .local-effects-confidence { min-width: 0; }
+  .local-effects-metrics, .local-effects-grid { grid-template-columns: 1fr; }
+}
+
+@media print {
+  .local-effects-panel { width: auto !important; margin: 0 0 5mm !important; padding: 4mm !important; border: 1px solid #d7e2dd !important; border-left: 3pt solid #216e8c !important; background: #fff !important; page-break-inside: avoid; }
+  .local-effects-heading h2 { font-size: 11pt !important; }
+  .local-effects-metrics, .local-effects-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 2mm !important; }
+  .local-effects-metrics article, .local-effect-card { padding: 2mm !important; page-break-inside: avoid; }
+  .local-effects-note, .local-effect-card p, .local-effects-advice p { font-size: 6.5pt !important; }
+}
