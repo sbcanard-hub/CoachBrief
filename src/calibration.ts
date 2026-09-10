@@ -23,6 +23,31 @@ export type PlanCalibration = {
   samples: CalibrationSample[]
 }
 
+export type CalibrationMatch = {
+  calibration: PlanCalibration
+  scope: 'situation' | 'plan'
+  situationLabel: string
+  situationSampleCount: number
+}
+
+export type SourceReliabilityMetric = {
+  key: 'model' | 'metar' | 'coach'
+  label: string
+  sampleCount: number
+  speedSampleCount: number
+  directionSampleCount: number
+  meanSpeedBias: number | null
+  meanAbsSpeedError: number | null
+  meanDirectionBias: number | null
+  meanAbsDirectionError: number | null
+}
+
+export type PlanSourceReliability = {
+  key: string
+  label: string
+  metrics: SourceReliabilityMetric[]
+}
+
 export function signedAngleDelta(from: number, to: number) {
   return ((to - from + 540) % 360) - 180
 }
@@ -57,6 +82,65 @@ function circularMeanDelta(values: number[]) {
   return Math.atan2(y, x) * 180 / Math.PI
 }
 
+function summarizeGroup(key: string, label: string, group: SavedBriefing[]): PlanCalibration {
+  const samples: CalibrationSample[] = group
+    .map((item) => {
+      const forecast = item.weather!.race
+      const reality = item.reality!
+      const actualSpeed = Number(reality.windSpeed)
+      const actualDirection = Number(reality.windDirection)
+      const speedGap = reality.windSpeed !== '' && Number.isFinite(actualSpeed) ? actualSpeed - forecast.speed : null
+      const directionGap = reality.windDirection !== '' && Number.isFinite(actualDirection) ? signedAngleDelta(forecast.direction, actualDirection) : null
+      return {
+        id: item.id,
+        date: item.request.date || item.savedAt.slice(0, 10),
+        name: item.name,
+        speedGap,
+        directionGap,
+      }
+    })
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  const speedValues = samples.flatMap((sample) => sample.speedGap == null ? [] : [sample.speedGap])
+  const directionValues = samples.flatMap((sample) => sample.directionGap == null ? [] : [sample.directionGap])
+
+  return {
+    key,
+    label,
+    sampleCount: samples.length,
+    speedSampleCount: speedValues.length,
+    directionSampleCount: directionValues.length,
+    meanSpeedBias: arithmeticMean(speedValues),
+    meanAbsSpeedError: arithmeticMean(speedValues.map(Math.abs)),
+    meanDirectionBias: circularMeanDelta(directionValues),
+    meanAbsDirectionError: arithmeticMean(directionValues.map(Math.abs)),
+    samples,
+  }
+}
+
+export function windSector(direction: number) {
+  const normalized = normalizeDirection(direction)
+  const sectors = [
+    { key: 'N', label: 'Nord' },
+    { key: 'NE', label: 'Nord-Est' },
+    { key: 'E', label: 'Est' },
+    { key: 'SE', label: 'Sud-Est' },
+    { key: 'S', label: 'Sud' },
+    { key: 'SO', label: 'Sud-Ouest' },
+    { key: 'O', label: 'Ouest' },
+    { key: 'NO', label: 'Nord-Ouest' },
+  ] as const
+  const index = Math.round(normalized / 45) % 8
+  return sectors[index]
+}
+
+export function windForceBand(speed: number) {
+  if (speed < 6) return { key: '0-5', label: '0–5 nd' }
+  if (speed < 11) return { key: '6-10', label: '6–10 nd' }
+  if (speed < 16) return { key: '11-15', label: '11–15 nd' }
+  return { key: '16+', label: '16 nd et +' }
+}
+
 export function buildPlanCalibrations(items: SavedBriefing[]): PlanCalibration[] {
   const groups = new Map<string, SavedBriefing[]>()
 
@@ -68,47 +152,46 @@ export function buildPlanCalibrations(items: SavedBriefing[]): PlanCalibration[]
     groups.set(key, current)
   }
 
-  return Array.from(groups.entries()).map(([key, group]) => {
-    const samples: CalibrationSample[] = group
-      .map((item) => {
-        const forecast = item.weather!.race
-        const reality = item.reality!
-        const actualSpeed = Number(reality.windSpeed)
-        const actualDirection = Number(reality.windDirection)
-        const speedGap = reality.windSpeed !== '' && Number.isFinite(actualSpeed) ? actualSpeed - forecast.speed : null
-        const directionGap = reality.windDirection !== '' && Number.isFinite(actualDirection) ? signedAngleDelta(forecast.direction, actualDirection) : null
-        return {
-          id: item.id,
-          date: item.request.date || item.savedAt.slice(0, 10),
-          name: item.name,
-          speedGap,
-          directionGap,
-        }
-      })
-      .sort((a, b) => a.date.localeCompare(b.date))
-
-    const speedValues = samples.flatMap((sample) => sample.speedGap == null ? [] : [sample.speedGap])
-    const directionValues = samples.flatMap((sample) => sample.directionGap == null ? [] : [sample.directionGap])
-
-    return {
-      key,
-      label: group[0].request.location || 'Plan d’eau',
-      sampleCount: samples.length,
-      speedSampleCount: speedValues.length,
-      directionSampleCount: directionValues.length,
-      meanSpeedBias: arithmeticMean(speedValues),
-      meanAbsSpeedError: arithmeticMean(speedValues.map(Math.abs)),
-      meanDirectionBias: circularMeanDelta(directionValues),
-      meanAbsDirectionError: arithmeticMean(directionValues.map(Math.abs)),
-      samples,
-    }
-  }).sort((a, b) => b.sampleCount - a.sampleCount || a.label.localeCompare(b.label))
+  return Array.from(groups.entries())
+    .map(([key, group]) => summarizeGroup(key, group[0].request.location || 'Plan d’eau', group))
+    .sort((a, b) => b.sampleCount - a.sampleCount || a.label.localeCompare(b.label))
 }
 
 export function calibrationForRequest(items: SavedBriefing[], request: BriefingRequest | null) {
   if (!request) return null
   const key = planKeyFromRequest(request)
   return buildPlanCalibrations(items).find((calibration) => calibration.key === key) ?? null
+}
+
+export function calibrationForSituation(items: SavedBriefing[], request: BriefingRequest | null, weather: LiveWeatherData | null): CalibrationMatch | null {
+  if (!request || !weather) return null
+  const planKeyValue = planKeyFromRequest(request)
+  const sector = windSector(weather.race.direction)
+  const force = windForceBand(weather.race.speed)
+  const situationLabel = `${sector.label} · ${force.label}`
+  const eligible = items.filter((item) => item.weather?.race && item.reality && planKey(item) === planKeyValue)
+  const matching = eligible.filter((item) => {
+    const race = item.weather!.race
+    return windSector(race.direction).key === sector.key && windForceBand(race.speed).key === force.key
+  })
+
+  if (matching.length >= 2) {
+    return {
+      calibration: summarizeGroup(`${planKeyValue}:${sector.key}:${force.key}`, request.location || 'Plan d’eau', matching),
+      scope: 'situation',
+      situationLabel,
+      situationSampleCount: matching.length,
+    }
+  }
+
+  const fallback = calibrationForRequest(items, request)
+  if (!fallback) return null
+  return {
+    calibration: fallback,
+    scope: 'plan',
+    situationLabel,
+    situationSampleCount: matching.length,
+  }
 }
 
 export function applyCalibrationToWeather(weather: LiveWeatherData, calibration: PlanCalibration): LiveWeatherData {
@@ -139,6 +222,69 @@ export function applyCalibrationToWeather(weather: LiveWeatherData, calibration:
       maxWindSpeed: correctedSpeed(weather.scenario.maxWindSpeed),
     },
   }
+}
+
+function numeric(value: string | number | null | undefined) {
+  if (value === '' || value == null) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function sourceMetric(group: SavedBriefing[], key: SourceReliabilityMetric['key']): SourceReliabilityMetric {
+  const speedErrors: number[] = []
+  const directionErrors: number[] = []
+
+  for (const item of group) {
+    if (!item.reality) continue
+    const actualSpeed = numeric(item.reality.windSpeed)
+    const actualDirection = numeric(item.reality.windDirection)
+    let sourceSpeed: number | null = null
+    let sourceDirection: number | null = null
+
+    if (key === 'model') {
+      sourceSpeed = item.weather?.race.speed ?? null
+      sourceDirection = item.weather?.race.direction ?? null
+    } else if (key === 'coach') {
+      sourceSpeed = numeric(item.request.observedWindSpeed)
+      sourceDirection = numeric(item.request.observedWindDirection)
+    } else {
+      sourceSpeed = item.metar?.windSpeed ?? null
+      sourceDirection = item.metar?.windDirection ?? null
+    }
+
+    if (actualSpeed != null && sourceSpeed != null) speedErrors.push(actualSpeed - sourceSpeed)
+    if (actualDirection != null && sourceDirection != null) directionErrors.push(signedAngleDelta(sourceDirection, actualDirection))
+  }
+
+  const labels = { model: 'Open-Meteo', metar: 'METAR proche', coach: 'Relevé coach' } as const
+  return {
+    key,
+    label: labels[key],
+    sampleCount: Math.max(speedErrors.length, directionErrors.length),
+    speedSampleCount: speedErrors.length,
+    directionSampleCount: directionErrors.length,
+    meanSpeedBias: arithmeticMean(speedErrors),
+    meanAbsSpeedError: arithmeticMean(speedErrors.map(Math.abs)),
+    meanDirectionBias: circularMeanDelta(directionErrors),
+    meanAbsDirectionError: arithmeticMean(directionErrors.map(Math.abs)),
+  }
+}
+
+export function buildSourceReliabilities(items: SavedBriefing[]): PlanSourceReliability[] {
+  const groups = new Map<string, SavedBriefing[]>()
+  for (const item of items) {
+    if (!item.reality) continue
+    const key = planKey(item)
+    const current = groups.get(key) ?? []
+    current.push(item)
+    groups.set(key, current)
+  }
+
+  return Array.from(groups.entries()).map(([key, group]) => ({
+    key,
+    label: group[0].request.location || 'Plan d’eau',
+    metrics: [sourceMetric(group, 'model'), sourceMetric(group, 'metar'), sourceMetric(group, 'coach')],
+  })).filter((entry) => entry.metrics.some((metric) => metric.sampleCount > 0))
 }
 
 export function calibrationConfidence(sampleCount: number) {
