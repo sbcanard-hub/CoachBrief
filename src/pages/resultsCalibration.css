@@ -5,6 +5,7 @@
 .local-calibration-heading h2 { margin: 0; color: #173b3a; font: 600 18px/1.15 'Manrope', sans-serif; letter-spacing: -.45px; }
 .local-calibration-heading span { padding: 4px 7px; border: 1px solid #d7e2dd; color: #536c66; background: #fff; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .45px; }
 .local-calibration-copy p { margin: 0; color: #536b65; font-size: 10px; line-height: 1.55; }
+.local-calibration-copy p > strong { color: #173b3a; }
 .local-calibration-metrics { display: flex; flex-wrap: wrap; gap: 7px 14px; margin-top: 9px; }
 .local-calibration-metrics span { color: #758782; font-size: 9px; }
 .local-calibration-metrics strong { color: #173b3a; }
