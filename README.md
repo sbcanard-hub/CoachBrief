@@ -34,6 +34,7 @@ La branche de travail ajoute désormais :
 - conservation des paramètres, observations terrain, instantané météo et tracé/variante actif ;
 - restauration du parcours exact lors de la réouverture ;
 - import et export JSON d’un briefing complet pour le transférer entre appareils ;
+- impression A4 dédiée et export PDF via la fonction native du navigateur ;
 - stockage local des variantes et briefings, sans serveur supplémentaire ;
 - vérification automatique du build avec GitHub Actions.
 
@@ -67,9 +68,15 @@ Un briefing complet peut être exporté en JSON CoachBrief puis importé sur un 
 
 Le stockage reste volontairement local pour ce prototype. Il n’y a pas encore de synchronisation automatique entre téléphone et ordinateur, mais l’export/import JSON permet déjà un transfert manuel complet.
 
+## Impression et PDF
+
+Sur l’écran de briefing, le bouton `Imprimer / PDF` déclenche l’impression native du navigateur. Une feuille de style A4 dédiée masque automatiquement la navigation, les commandes GPX et les contrôles interactifs pour ne garder que la fiche utile au coach.
+
+La mise en page d’impression conserve l’en-tête de régate, les paramètres tactiques, les observations terrain, les METAR disponibles, la météo à la manche, le calcul du parcours, la carte, l’évolution horaire, les 7 piles de Bernot et la synthèse tactique. Les explications `Pourquoi` des recommandations sont développées à l’impression. Le navigateur peut ensuite imprimer sur papier ou enregistrer directement le document en PDF.
+
 ## Suite du prototype
 
-Les prochaines étapes naturelles sont l’export d’une fiche de briefing lisible/imprimable et la possibilité de dupliquer rapidement un briefing pour une nouvelle manche ou une nouvelle journée de régate.
+La prochaine étape naturelle est la duplication rapide d’un briefing pour une nouvelle manche ou une nouvelle journée de régate, puis l’ajout d’un historique permettant de comparer les prévisions, les observations et ce qui s’est réellement passé sur l’eau.
 
 ## Développement
 
