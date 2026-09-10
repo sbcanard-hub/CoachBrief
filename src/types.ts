@@ -17,4 +17,14 @@ export type BriefingRequest = {
   startLineBias: StartLineBias
   windwardOffset: string
   finishOrientation: FinishOrientation
+  observationTime: string
+  observedWindSpeed: string
+  observedWindDirection: string
+  observedGust: string
+  observedWaveHeight: string
+  observedCurrentSpeed: string
+  observedCurrentDirection: string
+  observedCloudCover: string
+  observedPressure: string
+  observationNotes: string
 }
