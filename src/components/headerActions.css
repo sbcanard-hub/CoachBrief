@@ -28,6 +28,18 @@
 .help-heading { display: flex; align-items: flex-start; gap: 12px; padding-right: 44px; }
 .help-heading h2 { margin: 2px 0 0; font-size: clamp(22px, 4vw, 30px); line-height: 1.1; }
 .help-kicker { margin: 0; color: #d9663f; font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.help-introduction { display: grid; gap: 10px; margin-top: 22px; }
+.help-introduction > h3 { margin: 0; color: #173b3a; font-size: 19px; line-height: 1.3; }
+.help-introduction > p { margin: 0; color: #526b67; font-size: 14px; line-height: 1.65; }
+.help-introduction > p strong { color: #173b3a; }
+.help-steps { margin-top: 6px; padding: 18px; border: 1px solid #cbdad4; border-left: 4px solid #216e8c; border-radius: 10px; background: #fff; }
+.help-steps h3 { margin: 0 0 14px; color: #216e8c; font-size: 16px; line-height: 1.3; }
+.help-steps ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; margin: 0; padding: 0; list-style: none; counter-reset: help-step; }
+.help-steps li { position: relative; min-width: 0; padding-left: 36px; counter-increment: help-step; }
+.help-steps li::before { content: counter(help-step); position: absolute; top: 0; left: 0; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 999px; color: #fff; background: #d9663f; font-size: 12px; font-weight: 800; }
+.help-steps li strong, .help-steps li span { display: block; }
+.help-steps li strong { margin-bottom: 3px; color: #173b3a; font-size: 13px; line-height: 1.35; }
+.help-steps li span { color: #526b67; font-size: 12px; line-height: 1.5; }
 .help-search { display: flex; align-items: center; gap: 9px; margin-top: 22px; padding: 0 12px; border: 1px solid #bfcfc9; border-radius: 9px; background: #fff; color: #526b67; }
 .help-search:focus-within { border-color: #216e8c; box-shadow: 0 0 0 2px rgb(33 110 140 / 12%); }
 .help-search input { flex: 1; min-width: 0; min-height: 48px; padding: 0; border: 0; outline: 0; color: #173b3a; background: transparent; font: inherit; font-size: 14px; }
@@ -83,6 +95,11 @@
   .help-dialog { width: 100%; max-height: calc(100dvh - 16px); padding: 20px 14px; border-radius: 12px; }
   .help-heading { gap: 9px; }
   .help-heading h2 { font-size: 22px; }
+  .help-introduction { margin-top: 18px; }
+  .help-introduction > h3 { font-size: 18px; }
+  .help-introduction > p { font-size: 13px; line-height: 1.6; }
+  .help-steps { padding: 15px 13px; }
+  .help-steps ol { grid-template-columns: 1fr; gap: 14px; }
   .help-search { margin-top: 18px; }
   .help-search input { min-height: 46px; font-size: 13px; }
   .help-faq { gap: 18px; }

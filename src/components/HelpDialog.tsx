@@ -172,6 +172,38 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
         </div>
       </div>
 
+      <section className="help-introduction" aria-labelledby="coachbrief-purpose-title">
+        <h3 id="coachbrief-purpose-title">À quoi sert CoachBrief&nbsp;?</h3>
+        <p>
+          <strong>CoachBrief est un outil d’aide à la préparation des briefings météo et tactiques avant une régate.</strong>{' '}
+          Il permet de regrouper au même endroit les informations utiles sur le vent, la météo, le plan d’eau,
+          le parcours et les éléments tactiques afin de préparer un briefing simple, structuré et exploitable par
+          un entraîneur ou un régatier.
+        </p>
+
+        <div className="help-steps" aria-labelledby="coachbrief-steps-title">
+          <h3 id="coachbrief-steps-title">Comment utiliser CoachBrief&nbsp;?</h3>
+          <ol>
+            <li>
+              <strong>Préparer la régate</strong>
+              <span>Renseigner le lieu, la date, la classe de bateau et l’heure de la manche.</span>
+            </li>
+            <li>
+              <strong>Analyser les conditions</strong>
+              <span>Compléter les informations météo, vent, pression, nuages, température, courant et effets de côte.</span>
+            </li>
+            <li>
+              <strong>Construire l’analyse tactique</strong>
+              <span>Utiliser la carte, le parcours et les 7 piles de Bernot pour hiérarchiser les éléments importants du jour.</span>
+            </li>
+            <li>
+              <strong>Créer le briefing</strong>
+              <span>Générer une synthèse claire des conditions et des recommandations à transmettre aux coureurs.</span>
+            </li>
+          </ol>
+        </div>
+      </section>
+
       <label className="help-search">
         <Search size={18} aria-hidden="true" />
         <input
