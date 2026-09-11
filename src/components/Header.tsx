@@ -96,21 +96,16 @@ export function Header() {
         className="mobile-menu-button"
         type="button"
         aria-expanded={menuOpen}
-        aria-controls="main-navigation"
-        aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+        aria-controls="secondary-navigation"
+        aria-label={menuOpen ? 'Fermer le menu Plus' : 'Ouvrir le menu Plus'}
         onClick={() => setMenuOpen((open) => !open)}
       >
         {menuOpen ? <X size={22} /> : <Menu size={22} />}
-        <span>Menu</span>
+        <span>Plus</span>
       </button>
 
-      <nav id="main-navigation" className={`header-actions${menuOpen ? ' is-open' : ''}`} aria-label="Navigation principale">
+      <nav id="main-navigation" className="header-actions" aria-label="Navigation principale">
         <Link to="/briefings"><FolderOpen size={15} /> <span>Mes briefings</span></Link>
-        <button type="button" onClick={() => { setHelpOpen(true); setMenuOpen(false) }}>
-          <CircleHelp size={15} /> <span>Aide</span>
-        </button>
-        <DataBackupActions />
-        <AuthControl />
         {request && <button type="button" onClick={printCurrentBriefing} title="Imprimer la fiche ou l’enregistrer en PDF" aria-label="Imprimer le briefing ou l’enregistrer en PDF">
           <Printer size={15} /> <span>Imprimer / PDF</span>
         </button>}
@@ -120,6 +115,13 @@ export function Header() {
         </button>}
         {!request && <span className="header-label">Météo de régate</span>}
       </nav>
+      <div id="secondary-navigation" className={`header-secondary${menuOpen ? ' is-open' : ''}`}>
+        <button type="button" onClick={() => { setHelpOpen(true); setMenuOpen(false) }}>
+          <CircleHelp size={15} /> <span>Aide</span>
+        </button>
+        <DataBackupActions />
+        <AuthControl />
+      </div>
     </header>
     <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     {request && <>
