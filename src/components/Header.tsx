@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookmarkPlus, Check, FolderOpen, LoaderCircle, Menu, Printer, Sailboat, X } from 'lucide-react'
+import { BookmarkPlus, Check, CircleHelp, FolderOpen, LoaderCircle, Menu, Printer, Sailboat, X } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { sourceReliabilityForRequest } from '../calibration'
 import { nearbyMetarSources } from '../localSources'
@@ -10,6 +10,7 @@ import type { SavedMetarSnapshot } from '../savedBriefings'
 import type { BriefingRequest } from '../types'
 import { DataBackupActions } from './DataBackupActions'
 import { AuthControl } from './AuthControl'
+import { HelpDialog } from './HelpDialog'
 import { LocalEffectsPanel } from './LocalEffectsPanel'
 import { SourceConfidencePanel } from './SourceConfidencePanel'
 import './headerActions.css'
@@ -20,12 +21,14 @@ export function Header() {
   const request = location.pathname === '/resultats' ? location.state as BriefingRequest | null : null
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const sourceReliability = sourceReliabilityForRequest(loadSavedBriefings(), request)
 
   useEffect(() => {
     const reset = window.setTimeout(() => {
       setSaveState('idle')
       setMenuOpen(false)
+      setHelpOpen(false)
     }, 0)
     return () => window.clearTimeout(reset)
   }, [location.key, location.pathname])
@@ -103,6 +106,9 @@ export function Header() {
 
       <nav id="main-navigation" className={`header-actions${menuOpen ? ' is-open' : ''}`} aria-label="Navigation principale">
         <Link to="/briefings"><FolderOpen size={15} /> <span>Mes briefings</span></Link>
+        <button type="button" onClick={() => { setHelpOpen(true); setMenuOpen(false) }}>
+          <CircleHelp size={15} /> <span>Aide</span>
+        </button>
         <DataBackupActions />
         <AuthControl />
         {request && <button type="button" onClick={printCurrentBriefing} title="Imprimer la fiche ou l’enregistrer en PDF" aria-label="Imprimer le briefing ou l’enregistrer en PDF">
@@ -115,6 +121,7 @@ export function Header() {
         {!request && <span className="header-label">Météo de régate</span>}
       </nav>
     </header>
+    <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     {request && <>
       <div className="header-confidence-wrap"><SourceConfidencePanel reliability={sourceReliability} /></div>
       <LocalEffectsPanel request={request} />
