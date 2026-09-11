@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import {
   ArrowDownRight, ArrowUpRight, CalendarDays, ChevronDown, Clock3, CloudSun, Compass,
   Droplets, ExternalLink, Flag, Gauge, HelpCircle, Navigation, Radio, Sailboat, Thermometer, Waves, Wind,
@@ -111,6 +111,10 @@ export function ResultsPage() {
   const [metarState, setMetarState] = useState<'loading' | 'ready' | 'unavailable'>('loading')
   const [savedBriefings] = useState(() => loadSavedBriefings())
   const [useLocalCalibration, setUseLocalCalibration] = useState(false)
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
 
   useEffect(() => {
     if (!request?.location || !request.date) return

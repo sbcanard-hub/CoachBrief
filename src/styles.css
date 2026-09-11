@@ -50,8 +50,8 @@ button:hover { background: #25524e; transform: translateY(-1px); }
 
 .results-page { padding: 54px 0 80px; }
 .back-link { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; text-decoration: none; color: #617570; margin-bottom: 52px; }
-.results-edit-button { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 34px; padding: 10px 14px; border: 1px solid rgba(23, 59, 58, .22); background: #fff; color: #173b3a; font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color .2s, background .2s, transform .2s; }
-.results-edit-button:hover { border-color: #47716b; background: #edf3f0; transform: translateY(-1px); }
+.results-edit-button { position: relative; z-index: 1; display: flex; width: fit-content; min-height: 44px; align-items: center; margin: 0 0 34px; padding: 10px 14px; border: 1px solid #173b3a; background: #173b3a; color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; transition: border-color .2s, background .2s, transform .2s; }
+.results-edit-button:hover { border-color: #25524e; background: #25524e; transform: translateY(-1px); }
 .results-edit-button:focus-visible { outline: 3px solid rgba(33, 110, 140, .3); outline-offset: 3px; }
 .results-heading { text-align: center; }
 .results-heading h1 { font-size: clamp(42px, 6vw, 68px); }
@@ -177,6 +177,7 @@ footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; padding: 24
   .field input, .field select, .field textarea { min-height: 48px; font-size: 16px; }
   button { min-height: 48px; }
   .results-page { padding: 30px 0 56px; }
+  .results-edit-button { margin-bottom: 28px; }
   .back-link { min-height: 44px; margin-bottom: 28px; }
   .briefing-hero h1 { font-size: 38px; letter-spacing: -2px; overflow-wrap: anywhere; }
   .weather-overview, .dynamics-grid, .brief-section { margin-bottom: 42px; }
