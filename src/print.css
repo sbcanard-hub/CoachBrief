@@ -399,3 +399,16 @@
     text-decoration: none !important;
   }
 }
+
+@media print {
+  /* Keep this final page-2 block together in screen print/PDF output. */
+  .trajectory-section { margin: 5mm 0 0 !important; padding: 4mm !important; border: 1px solid #d7e0dc !important; background: #fff !important; box-shadow: none !important; break-inside: avoid; page-break-inside: avoid; }
+  .trajectory-layout { grid-template-columns: 1.45fr .75fr !important; gap: 4mm !important; }
+  .trajectory-figure svg { height: 86mm !important; max-height: 86mm !important; }
+  .trajectory-notes { padding: 3mm !important; background: #f5f7f3 !important; border-left: 2pt solid #185f86 !important; }
+  .trajectory-notes > strong { font-size: 11pt !important; }
+  .trajectory-notes ul { margin: 2mm 0 !important; padding-left: 4mm !important; font-size: 7pt !important; line-height: 1.5 !important; }
+  .trajectory-notes p, .trajectory-disclaimer { font-size: 6.5pt !important; line-height: 1.35 !important; }
+  .trajectory-disclaimer { margin-top: 2mm !important; padding-top: 2mm !important; }
+  .trajectory-status { font-size: 6pt !important; padding: 1.5mm 2mm !important; }
+}
