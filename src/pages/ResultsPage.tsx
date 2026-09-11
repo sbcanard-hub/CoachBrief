@@ -7,6 +7,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
 import { applyCalibrationToWeather, calibrationConfidence, calibrationForSituation } from '../calibration'
 import { CourseSizingPanel } from '../components/CourseSizingPanel'
+import { RecommendedTrajectory } from '../components/RecommendedTrajectory'
 import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
 import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
 import type { MetarCache, MetarObservation } from '../metar'
@@ -145,6 +146,10 @@ export function ResultsPage() {
   const effectiveWeather = useLocalCalibration && correctedPreview ? correctedPreview : liveWeather
   const coachObservation = buildCoachObservationSignal(request, effectiveWeather)
   const bernotRows = buildBernotRows(request, effectiveWeather?.scenario, coachObservation)
+  const tacticalWeather = effectiveWeather?.scenario ?? {
+    windStart: 80, windEnd: 110, oscillation: 8, raceWindSpeed: 11,
+    maxWindSpeed: 14, cloudCover: 25, waveHeight: 0.6,
+  }
   const recommendations = buildCoachRecommendations(request, effectiveWeather?.scenario, coachObservation)
   const forecast = effectiveWeather?.hourly.length ? effectiveWeather.hourly : mockHourlyForecast
   const raceWeather = effectiveWeather?.race ?? { speed: 11, gust: 15, direction: 80, temperature: 20, humidity: 62, dewPoint: 14, pressure: 1018, cloudCover: 25 }
@@ -280,6 +285,8 @@ export function ResultsPage() {
       <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div><span className="bernot-help">Calcul dynamique · 1 = facteur prioritaire</span></div><div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot"><div className="bernot-board"><div className="bernot-head factor-head">Facteur</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}{bernotRows.map((row) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>{row.zone === column ? <><span className="zone-marker">●</span><small>tendance</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">La hiérarchie combine les paramètres de course, les modèles et, lorsqu’il est renseigné, le relevé terrain du coach.{useLocalCalibration ? ' La correction locale historique est actuellement appliquée.' : ''}</p></section>
 
       <section className="coach-section" aria-labelledby="coach-title"><div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div><div className="recommendations">{recommendations.map((recommendation, index) => { const isOpen = openWhy === index; return <article className="recommendation" key={recommendation.title}><span className="recommendation-number">0{index + 1}</span><div className="recommendation-content"><h3>{recommendation.title}</h3><p>{recommendation.text}</p><button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}><HelpCircle size={15} /> Pourquoi <ChevronDown className={isOpen ? 'rotated' : ''} size={15} /></button><div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div></div></article> })}</div></section>
+
+      <RecommendedTrajectory request={request} rows={bernotRows} weather={tacticalWeather} />
 
       <p className="data-note">Source modèle : Open-Meteo · Observations externes : METAR AviationWeather · Relevé terrain : saisie du coach · {useLocalCalibration ? 'Correction locale historique appliquée sur cette vue · ' : ''}Les recommandations restent une aide au briefing à confronter aux conditions réelles.</p>
     </main>
