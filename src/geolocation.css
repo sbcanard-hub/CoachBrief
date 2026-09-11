@@ -71,3 +71,7 @@
     justify-items: start;
   }
 }
+
+@media (max-width: 760px) {
+  .map-picker-actions button { min-height: 48px; }
+}

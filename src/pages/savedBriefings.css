@@ -121,3 +121,10 @@
   .saved-briefing-actions button, .reality-form-actions button { width: 100%; }
   .reality-form-title { align-items: flex-start; flex-direction: column; }
 }
+
+@media (max-width: 520px) {
+  .saved-briefing-actions button, .reality-form-actions button, .saved-briefings-import button { min-height: 48px; font-size: 12px; }
+  .saved-briefing-card { padding: 16px; }
+  .saved-briefing-heading { flex-direction: column; }
+  .reality-fields input, .reality-notes textarea { min-height: 46px; font-size: 16px; }
+}

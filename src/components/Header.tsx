@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookmarkPlus, Check, FolderOpen, LoaderCircle, Printer, Sailboat } from 'lucide-react'
+import { BookmarkPlus, Check, FolderOpen, LoaderCircle, Menu, Printer, Sailboat, X } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { sourceReliabilityForRequest } from '../calibration'
 import { nearbyMetarSources } from '../localSources'
@@ -19,10 +19,15 @@ export function Header() {
   const location = useLocation()
   const request = location.pathname === '/resultats' ? location.state as BriefingRequest | null : null
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [menuOpen, setMenuOpen] = useState(false)
   const sourceReliability = sourceReliabilityForRequest(loadSavedBriefings(), request)
 
   useEffect(() => {
-    setSaveState('idle')
+    const reset = window.setTimeout(() => {
+      setSaveState('idle')
+      setMenuOpen(false)
+    }, 0)
+    return () => window.clearTimeout(reset)
   }, [location.key, location.pathname])
 
   async function captureNearestMetar(latitude: number, longitude: number): Promise<SavedMetarSnapshot | null> {
@@ -84,7 +89,19 @@ export function Header() {
         <span>CoachBrief</span>
       </Link>
 
-      <nav className="header-actions" aria-label="Navigation principale">
+      <button
+        className="mobile-menu-button"
+        type="button"
+        aria-expanded={menuOpen}
+        aria-controls="main-navigation"
+        aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        {menuOpen ? <X size={22} /> : <Menu size={22} />}
+        <span>Menu</span>
+      </button>
+
+      <nav id="main-navigation" className={`header-actions${menuOpen ? ' is-open' : ''}`} aria-label="Navigation principale">
         <Link to="/briefings"><FolderOpen size={15} /> <span>Mes briefings</span></Link>
         <DataBackupActions />
         <AuthControl />
