@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { CalendarDays, Copy, Download, FileUp, FolderOpen, Gauge, MapPin, Navigation, Radio, Sailboat, Save, Trash2, Waves, Wind } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CalendarDays, Cloud, Copy, Download, FileUp, FolderOpen, Gauge, HardDrive, MapPin, Navigation, Radio, Sailboat, Save, Trash2, Waves, Wind } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { buildPlanCalibrations, buildSourceReliabilities, calibrationConfidence, signedAngleDelta } from '../calibration'
 import {
@@ -7,10 +7,15 @@ import {
   deleteSavedBriefing,
   importSavedBriefing,
   loadSavedBriefings,
+  mergeSavedBriefings,
   prepareBriefingRestore,
+  saveExistingBriefing,
   saveRaceReality,
 } from '../savedBriefings'
 import type { RaceReality, SavedBriefing } from '../savedBriefings'
+import { firebaseCloudAdapter } from '../cloudSync'
+import { onFirebaseAuthStateChanged, type FirebaseAccount } from '../firebase'
+import { exportPortableCoachBriefData } from '../portableData'
 import './savedBriefings.css'
 
 const emptyReality: Omit<RaceReality, 'recordedAt'> = {
@@ -102,12 +107,58 @@ function MiniGapChart({ values, unit, ariaLabel }: { values: number[]; unit: str
 export function SavedBriefingsPage() {
   const navigate = useNavigate()
   const importRef = useRef<HTMLInputElement | null>(null)
+  const cloudRequestRef = useRef(0)
   const [items, setItems] = useState(() => loadSavedBriefings())
+  const [account, setAccount] = useState<FirebaseAccount | null>(null)
+  const [cloudIds, setCloudIds] = useState<Set<string>>(() => new Set())
+  const [localIds, setLocalIds] = useState<Set<string>>(() => new Set(loadSavedBriefings().map((item) => item.id)))
+  const [cloudLoading, setCloudLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [editingRealityId, setEditingRealityId] = useState<string | null>(null)
   const [realityDraft, setRealityDraft] = useState<Omit<RaceReality, 'recordedAt'>>(emptyReality)
   const calibrations = useMemo(() => buildPlanCalibrations(items), [items])
   const sourceReliabilities = useMemo(() => buildSourceReliabilities(items), [items])
+
+  useEffect(() => onFirebaseAuthStateChanged((nextAccount) => {
+    const requestId = ++cloudRequestRef.current
+    setAccount(nextAccount)
+    if (!nextAccount) {
+      setCloudLoading(false)
+      setCloudIds(new Set())
+      setItems(loadSavedBriefings())
+      return
+    }
+
+    setCloudLoading(true)
+    void firebaseCloudAdapter.pull().then((snapshot) => {
+      if (requestId !== cloudRequestRef.current) return
+      const local = loadSavedBriefings()
+      const cloud = snapshot?.bundle.data.briefings ?? []
+      setLocalIds(new Set(local.map((item) => item.id)))
+      setCloudIds(new Set(cloud.map((item) => item.id)))
+      setItems(mergeSavedBriefings(local, cloud))
+      setStatus(snapshot ? 'Briefings locaux et cloud réunis' : 'Aucun briefing cloud pour ce compte')
+    }).catch((error) => {
+      if (requestId !== cloudRequestRef.current) return
+      setItems(loadSavedBriefings())
+      setStatus(error instanceof Error ? `Cloud indisponible : ${error.message} Vos briefings locaux restent accessibles.` : 'Cloud indisponible. Vos briefings locaux restent accessibles.')
+    }).finally(() => {
+      if (requestId === cloudRequestRef.current) setCloudLoading(false)
+    })
+  }), [])
+
+  function refreshLocalItems() {
+    const local = loadSavedBriefings()
+    setLocalIds(new Set(local.map((item) => item.id)))
+    setItems((current) => mergeSavedBriefings(local, current.filter((item) => cloudIds.has(item.id))))
+  }
+
+  function storageLabel(id: string) {
+    const local = localIds.has(id)
+    const cloud = cloudIds.has(id)
+    if (local && cloud) return 'Local + Cloud'
+    return cloud ? 'Cloud' : 'Local'
+  }
 
   function openBriefing(item: SavedBriefing) {
     prepareBriefingRestore(item)
@@ -119,11 +170,28 @@ export function SavedBriefingsPage() {
     navigate('/', { state: { prefill: item.request, duplicate: true } })
   }
 
-  function removeBriefing(item: SavedBriefing) {
+  async function removeBriefing(item: SavedBriefing) {
     if (!window.confirm(`Supprimer « ${item.name} » ?`)) return
+    const remaining = items.filter((candidate) => candidate.id !== item.id)
     deleteSavedBriefing(item.id)
-    setItems(loadSavedBriefings())
+    setItems(remaining)
+    setLocalIds((current) => { const next = new Set(current); next.delete(item.id); return next })
+    setCloudIds((current) => { const next = new Set(current); next.delete(item.id); return next })
     setStatus('Briefing supprimé')
+
+    if (account && cloudIds.has(item.id)) {
+      try {
+        const bundle = exportPortableCoachBriefData()
+        bundle.data.briefings = remaining
+        const updatedAt = new Date().toISOString()
+        await firebaseCloudAdapter.push({ revision: crypto.randomUUID(), updatedAt, bundle })
+        setStatus('Briefing supprimé localement et dans le cloud')
+      } catch (error) {
+        setStatus(error instanceof Error
+          ? `Briefing supprimé localement, mais pas dans le cloud : ${error.message}`
+          : 'Briefing supprimé localement, mais la suppression cloud a échoué.')
+      }
+    }
   }
 
   function editReality(item: SavedBriefing) {
@@ -144,8 +212,10 @@ export function SavedBriefingsPage() {
   }
 
   function persistReality(item: SavedBriefing) {
+    // Une copie uniquement cloud devient locale avant d'être modifiée.
+    saveExistingBriefing(item)
     saveRaceReality(item.id, realityDraft)
-    setItems(loadSavedBriefings())
+    refreshLocalItems()
     setEditingRealityId(null)
     setRealityDraft(emptyReality)
     setStatus(`Réalité enregistrée pour « ${item.name} »`)
@@ -155,7 +225,7 @@ export function SavedBriefingsPage() {
     if (!file) return
     try {
       const imported = importSavedBriefing(await file.text())
-      setItems(loadSavedBriefings())
+      refreshLocalItems()
       setStatus(`« ${imported.name} » importé`)
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Import impossible')
@@ -168,9 +238,9 @@ export function SavedBriefingsPage() {
     <main className="saved-briefings-page">
       <section className="saved-briefings-hero">
         <div>
-          <span className="step-label">Bibliothèque locale</span>
+          <span className="step-label">Bibliothèque locale et cloud</span>
           <h1>Mes briefings</h1>
-          <p>Retrouvez vos régates, dupliquez une préparation pour la manche suivante et comparez ensuite les différentes sources à ce qui s’est réellement passé sur l’eau.</p>
+          <p>Retrouvez vos régates sauvegardées sur cet appareil et, lorsque vous êtes connecté, dans votre espace Firebase privé.</p>
         </div>
         <div className="saved-briefings-import">
           <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={(event) => void importFile(event.target.files?.[0])} />
@@ -179,6 +249,7 @@ export function SavedBriefingsPage() {
       </section>
 
       {status && <p className="saved-briefings-status" role="status">{status}</p>}
+      {account && cloudLoading && <p className="saved-briefings-cloud-loading" role="status">Chargement des briefings cloud…</p>}
 
       {calibrations.length > 0 && <section className="calibration-section" aria-labelledby="calibration-title">
         <div className="calibration-heading">
@@ -237,7 +308,7 @@ export function SavedBriefingsPage() {
             const editingReality = editingRealityId === item.id
             return <article className="saved-briefing-card" key={item.id}>
               <div className="saved-briefing-heading">
-                <div><span className="step-label">Sauvegardé {formatSavedAt(item.savedAt)}</span><h2>{item.name}</h2></div>
+                <div><span className="step-label">Sauvegardé {formatSavedAt(item.savedAt)}</span><h2>{item.name}</h2><span className={`saved-storage-badge storage-${storageLabel(item.id).toLowerCase().replaceAll(' ', '-').replace('+', 'and')}`}>{storageLabel(item.id) === 'Cloud' ? <Cloud size={11} /> : <HardDrive size={11} />}{storageLabel(item.id)}</span></div>
                 <span className="saved-course-badge">{item.request.courseType}</span>
               </div>
 
@@ -285,7 +356,7 @@ export function SavedBriefingsPage() {
                 <button type="button" onClick={() => duplicateBriefing(item)}><Copy size={15} /> Dupliquer</button>
                 <button type="button" onClick={() => editReality(item)}><Gauge size={15} /> {item.reality ? 'Modifier réalité' : 'Ajouter réalité'}</button>
                 <button type="button" onClick={() => downloadBriefing(item)}><Download size={15} /> Exporter</button>
-                <button type="button" onClick={() => removeBriefing(item)}><Trash2 size={15} /> Supprimer</button>
+                <button type="button" onClick={() => void removeBriefing(item)}><Trash2 size={15} /> Supprimer</button>
               </div>
             </article>
           })}
