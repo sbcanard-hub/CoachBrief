@@ -110,7 +110,10 @@ export function Header() {
         <span>{t('more')}</span>
       </button>
 
-      <nav id="main-navigation" className="header-actions" aria-label="Navigation principale">
+      <nav id="main-navigation" className={`header-actions${request ? ' has-briefing-actions' : ''}`} aria-label="Navigation principale">
+        {request && <Link className="results-edit-button" to="/" state={{ prefill: request, editing: true }}>
+          ← Modifier le briefing
+        </Link>}
         <Link to="/briefings"><FolderOpen size={15} /> <span>{t('briefings')}</span></Link>
         {request && <button type="button" onClick={printCurrentBriefing} title="Imprimer la fiche ou l’enregistrer en PDF" aria-label="Imprimer le briefing ou l’enregistrer en PDF">
           <Printer size={15} /> <span>Imprimer / PDF</span>
