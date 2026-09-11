@@ -3,7 +3,7 @@ import {
   ArrowDownRight, ArrowUpRight, CalendarDays, ChevronDown, Clock3, CloudSun, Compass,
   Droplets, ExternalLink, Flag, Gauge, HelpCircle, Navigation, Radio, Sailboat, Thermometer, Waves, Wind,
 } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
 import { applyCalibrationToWeather, calibrationConfidence, calibrationForSituation } from '../calibration'
 import { CourseSizingPanel } from '../components/CourseSizingPanel'
@@ -171,6 +171,10 @@ export function ResultsPage() {
 
   return (
     <main className="results-page briefing-page">
+      {request && <Link className="results-edit-button" to="/" state={{ prefill: request, editing: true }}>
+        ← Modifier le briefing
+      </Link>}
+
       <section className="briefing-hero" aria-labelledby="briefing-title">
         <div>
           <span className="step-label">Briefing météo & tactique · {weatherLabel}</span>
