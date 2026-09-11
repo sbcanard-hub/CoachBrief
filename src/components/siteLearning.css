@@ -5,6 +5,13 @@
 .site-learning-confidence { display: grid; gap: 3px; min-width: 210px; padding: 9px 11px; border: 1px solid #d6a52c; background: #fffaf0; }
 .site-learning-confidence small { color: #77652d; font-size: 8px; text-transform: uppercase; letter-spacing: .45px; }
 .site-learning-confidence strong { color: #173b3a; font-size: 10px; }
+.knowledge-mode-switch { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+.knowledge-mode-switch button { padding: 8px 11px; border: 1px solid #cbd8d3; background: #fff; color: #536c66; font: 700 8px/1 'Manrope', sans-serif; cursor: pointer; }
+.knowledge-mode-switch button.is-active { border-color: #216e8c; background: #eef7fb; color: #164e67; box-shadow: inset 0 0 0 1px #216e8c; }
+.knowledge-score-detail { display: flex; align-items: baseline; gap: 8px; margin-top: 9px; padding: 8px 10px; border: 1px solid #dce6e2; background: #f8fbfa; }
+.knowledge-score-detail strong { color: #173b3a; font-size: 8px; white-space: nowrap; }
+.knowledge-score-detail span { color: #647a73; font-size: 7.5px; line-height: 1.4; }
+.knowledge-score-detail.is-community { border-color: #e3d7ad; background: #fffaf0; }
 .site-learning-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: 14px; }
 .site-learning-metrics article { display: flex; gap: 8px; min-width: 0; padding: 11px; border: 1px solid #e2e6df; background: #fff; }
 .site-learning-metrics svg { flex: 0 0 auto; color: #216e8c; }
@@ -29,13 +36,21 @@
 .site-learning-notes small { color: #7b8b86; font-size: 7px; }
 .site-learning-notes p { margin: 3px 0 0; color: #536c66; font-size: 8px; line-height: 1.45; }
 .site-learning-empty { margin: 9px 0 0; color: #71837d; font-size: 8px; }
+.community-knowledge-block { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap: 12px; margin-top: 12px; padding: 13px; border: 1px solid #e3d7ad; background: #fffaf0; }
+.community-knowledge-block h3 { margin: 0 0 6px; color: #173b3a; font-size: 11px; }
+.community-knowledge-block p { margin: 0; color: #665f48; font-size: 8px; line-height: 1.5; }
+.community-contribution-toggle { display: flex; gap: 9px; align-items: flex-start; padding: 9px; border: 1px solid #e4d9b8; background: #fff; cursor: pointer; }
+.community-contribution-toggle input { margin-top: 2px; accent-color: #216e8c; }
+.community-contribution-toggle span { display: grid; gap: 3px; }
+.community-contribution-toggle strong { color: #173b3a; font-size: 8px; }
+.community-contribution-toggle small { color: #71837d; font-size: 7px; line-height: 1.4; }
 .site-learning-note { margin: 10px 0 0; color: #71837d; font-size: 7.5px; line-height: 1.45; }
 .site-learning-spin { animation: site-learning-spin 1s linear infinite; }
 @keyframes site-learning-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 950px) {
   .site-learning-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .site-learning-body { grid-template-columns: 1fr; }
+  .site-learning-body, .community-knowledge-block { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
@@ -43,13 +58,16 @@
   .site-learning-heading { display: grid; align-items: start; }
   .site-learning-confidence { min-width: 0; }
   .site-learning-metrics { grid-template-columns: 1fr; }
+  .knowledge-mode-switch { display: grid; grid-template-columns: 1fr; }
+  .knowledge-score-detail { display: grid; }
 }
 
 @media print {
   .site-learning-panel { width: auto !important; margin: 0 0 5mm !important; padding: 4mm !important; border: 1px solid #d7e2dd !important; border-left: 3pt solid #d6a52c !important; background: #fff !important; page-break-inside: avoid; }
   .site-learning-heading h2 { font-size: 11pt !important; }
+  .knowledge-mode-switch, .community-contribution-toggle { display: none !important; }
   .site-learning-metrics { grid-template-columns: repeat(4, 1fr) !important; gap: 2mm !important; }
-  .site-learning-body { grid-template-columns: 1.5fr 1fr !important; gap: 2mm !important; }
+  .site-learning-body, .community-knowledge-block { grid-template-columns: 1.5fr 1fr !important; gap: 2mm !important; }
   .site-learning-metrics article, .site-learning-lessons, .site-learning-notes { padding: 2mm !important; page-break-inside: avoid; }
   .site-learning-note, .site-learning-lessons li, .site-learning-notes p { font-size: 6.5pt !important; }
 }
