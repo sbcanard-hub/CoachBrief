@@ -27,14 +27,14 @@ function readStoredAccount(): FirebaseAccount | null {
   try {
     const value = localStorage.getItem(AUTH_STORAGE_KEY)
     if (!value) return null
-    const account = JSON.parse(value) as FirebaseAccount
-    return account.expiresAt > Date.now() ? account : null
+    return JSON.parse(value) as FirebaseAccount
   } catch {
     return null
   }
 }
 
 let currentAccount = readStoredAccount()
+let refreshPromise: Promise<FirebaseAccount> | null = null
 
 function publish(account: FirebaseAccount | null) {
   currentAccount = account
@@ -92,6 +92,50 @@ export async function signInWithEmailAndPassword(email: string, password: string
   }
   publish(account)
   return account
+}
+
+async function refreshFirebaseAccount(account: FirebaseAccount): Promise<FirebaseAccount> {
+  let response: Response
+  try {
+    response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(firebaseConfig.apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: account.refreshToken }),
+    })
+  } catch {
+    throw new Error('Connexion à Firebase impossible. Vérifiez votre accès Internet.')
+  }
+
+  const result = await response.json() as {
+    user_id?: string
+    id_token?: string
+    refresh_token?: string
+    expires_in?: string
+  }
+  if (!response.ok || !result.user_id || !result.id_token || !result.refresh_token) {
+    publish(null)
+    throw new Error('Votre session Firebase a expiré. Reconnectez-vous.')
+  }
+
+  const refreshed = {
+    id: result.user_id,
+    email: account.email,
+    idToken: result.id_token,
+    refreshToken: result.refresh_token,
+    expiresAt: Date.now() + Number(result.expires_in ?? 3600) * 1000,
+  }
+  publish(refreshed)
+  return refreshed
+}
+
+export async function getAuthenticatedFirebaseAccount(): Promise<FirebaseAccount | null> {
+  if (!currentAccount) return null
+  if (currentAccount.expiresAt > Date.now() + 60_000) return currentAccount
+
+  refreshPromise ??= refreshFirebaseAccount(currentAccount).finally(() => {
+    refreshPromise = null
+  })
+  return refreshPromise
 }
 
 export function signOutFromFirebase() {
