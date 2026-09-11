@@ -3,6 +3,7 @@ import { ArrowRight, CalendarDays, Clock3, CloudSun, Compass, Copy, Flag, Gauge,
 import { useLocation, useNavigate } from 'react-router-dom'
 import { MapPicker } from '../components/MapPicker'
 import type { BriefingRequest } from '../types'
+import { usePreferences } from '../preferences'
 
 const initialForm: BriefingRequest = {
   location: '',
@@ -58,6 +59,7 @@ function duplicatedForm(request: BriefingRequest) {
 }
 
 export function HomePage() {
+  const { units, pressureUnit, lengthUnit } = usePreferences()
   const navigate = useNavigate()
   const navigation = useLocation().state as HomeNavigationState | null
   const [form, setForm] = useState<BriefingRequest>(() => {
@@ -67,6 +69,18 @@ export function HomePage() {
 
   function updateField(field: keyof BriefingRequest, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  // The form always keeps its reference values (metres and hPa); only the control's presentation changes.
+  function displayedReference(value: string | undefined, kind: 'length' | 'pressure') {
+    if (!value || units === 'metric') return value || ''
+    const converted = kind === 'length' ? Number(value) * 3.28084 : Number(value) * 0.0295299831
+    return Number.isFinite(converted) ? String(Number(converted.toFixed(kind === 'length' ? 2 : 3))) : value
+  }
+  function updateReference(field: keyof BriefingRequest, shown: string, kind: 'length' | 'pressure') {
+    if (!shown || units === 'metric') return updateField(field, shown)
+    const reference = kind === 'length' ? Number(shown) / 3.28084 : Number(shown) / 0.0295299831
+    updateField(field, Number.isFinite(reference) ? String(reference) : shown)
   }
 
   function updateMapPoint(latitude: string, longitude: string) {
@@ -221,7 +235,7 @@ export function HomePage() {
             </label>
             <label className="field">
               <span><Waves size={16} /> Vagues</span>
-              <div className="input-with-unit"><input type="number" min="0" max="10" step="0.1" name="observedWaveHeight" value={form.observedWaveHeight} onChange={(e) => updateField('observedWaveHeight', e.target.value)} /><span>m</span></div>
+              <div className="input-with-unit"><input type="number" min="0" max={units === 'imperial' ? 33 : 10} step="0.1" name="observedWaveHeight" value={displayedReference(form.observedWaveHeight, 'length')} onChange={(e) => updateReference('observedWaveHeight', e.target.value, 'length')} /><span>{lengthUnit}</span></div>
             </label>
             <label className="field">
               <span><CloudSun size={16} /> Nébulosité</span>
@@ -240,7 +254,7 @@ export function HomePage() {
             </label>
             <label className="field">
               <span><Gauge size={16} /> Pression observée</span>
-              <div className="input-with-unit"><input type="number" min="950" max="1050" step="0.1" name="observedPressure" value={form.observedPressure} onChange={(e) => updateField('observedPressure', e.target.value)} /><span>hPa</span></div>
+              <div className="input-with-unit"><input type="number" min={units === 'imperial' ? 28 : 950} max={units === 'imperial' ? 31 : 1050} step={units === 'imperial' ? 0.01 : 0.1} name="observedPressure" value={displayedReference(form.observedPressure, 'pressure')} onChange={(e) => updateReference('observedPressure', e.target.value, 'pressure')} /><span>{pressureUnit}</span></div>
             </label>
           </div>
 
