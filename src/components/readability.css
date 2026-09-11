@@ -130,6 +130,81 @@ body {
   }
 }
 
+/* On laptop/tablet widths, use the full header width as two clean rows
+   instead of squeezing everything into one line. */
+@media (min-width: 761px) and (max-width: 1500px) {
+  .site-header {
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 12px;
+    padding-block: 18px;
+  }
+
+  .brand {
+    margin-right: auto;
+  }
+
+  .mobile-menu-button {
+    display: none;
+  }
+
+  .header-actions {
+    margin-left: auto;
+  }
+
+  .header-secondary,
+  .header-secondary.is-open {
+    position: static;
+    order: 3;
+    width: 100%;
+    max-height: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    overflow: visible;
+    margin: 0;
+    padding: 10px 0 0;
+    border: 0;
+    border-top: 1px solid rgba(23, 59, 58, .12);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .header-secondary > button,
+  .header-secondary .data-backup-actions > button {
+    width: auto;
+    min-height: 40px;
+    justify-content: center;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .header-secondary .data-backup-actions {
+    width: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-secondary .data-backup-actions .automatic-cloud-sync {
+    grid-column: auto;
+    width: auto;
+    min-height: 40px;
+    padding: 7px 10px;
+  }
+
+  .header-secondary .data-backup-status,
+  .header-secondary .last-cloud-sync {
+    position: static;
+    width: auto;
+    min-width: 0;
+    white-space: normal;
+  }
+}
+
 /* The local-effects block was especially dense on the results screen. */
 .local-effects-confidence small { font-size: 10px; }
 .local-effects-confidence strong { font-size: 12px; }
