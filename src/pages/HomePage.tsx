@@ -40,6 +40,12 @@ type HomeNavigationState = {
   editing?: boolean
 }
 
+function initialFormFromNavigation(navigation: HomeNavigationState | null): BriefingRequest {
+  if (!navigation?.prefill) return { ...initialForm }
+  if (navigation.duplicate) return duplicatedForm(navigation.prefill)
+  return { ...initialForm, ...navigation.prefill }
+}
+
 function duplicatedForm(request: BriefingRequest) {
   return {
     ...request,
@@ -63,10 +69,7 @@ export function HomePage() {
   const { units, pressureUnit, lengthUnit, t } = usePreferences()
   const navigate = useNavigate()
   const navigation = useLocation().state as HomeNavigationState | null
-  const [form, setForm] = useState<BriefingRequest>(() => {
-    if (!navigation?.prefill) return initialForm
-    return navigation.duplicate ? duplicatedForm(navigation.prefill) : navigation.prefill
-  })
+  const [form, setForm] = useState<BriefingRequest>(() => initialFormFromNavigation(navigation))
 
   function updateField(field: keyof BriefingRequest, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
