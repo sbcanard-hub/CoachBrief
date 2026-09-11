@@ -1,6 +1,6 @@
 import { Check, Download, FileUp } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { coachBriefDataToJson, importCoachBriefData } from '../savedBriefings'
+import { importPortableCoachBriefData, portableCoachBriefDataToJson } from '../portableData'
 import './dataBackupActions.css'
 
 function todayFileStamp() {
@@ -16,25 +16,25 @@ export function DataBackupActions() {
   const [status, setStatus] = useState('')
 
   function downloadAllData() {
-    const blob = new Blob([coachBriefDataToJson()], { type: 'application/json;charset=utf-8' })
+    const blob = new Blob([portableCoachBriefDataToJson()], { type: 'application/json;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.download = `coachbrief-sauvegarde-${todayFileStamp()}.json`
     link.click()
     URL.revokeObjectURL(url)
-    setStatus('Sauvegarde créée')
+    setStatus('Sauvegarde complète créée')
   }
 
   async function restoreAllData(file: File | undefined) {
     if (!file) return
     try {
-      const result = importCoachBriefData(await file.text(), 'merge')
+      const result = importPortableCoachBriefData(await file.text(), 'merge')
       const changes = result.importedCount + result.replacedCount
       setStatus(changes
         ? `${result.importedCount} ajout${result.importedCount > 1 ? 's' : ''} · ${result.replacedCount} mise${result.replacedCount > 1 ? 's' : ''} à jour`
-        : 'Données déjà à jour')
-      if (changes) window.setTimeout(() => window.location.reload(), 900)
+        : 'Données et préférences déjà à jour')
+      window.setTimeout(() => window.location.reload(), 900)
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Restauration impossible')
     } finally {
@@ -50,7 +50,7 @@ export function DataBackupActions() {
       hidden
       onChange={(event) => void restoreAllData(event.target.files?.[0])}
     />
-    <button type="button" onClick={downloadAllData} title="Sauvegarder tous les briefings et la mémoire locale">
+    <button type="button" onClick={downloadAllData} title="Sauvegarder tous les briefings, la mémoire locale et les préférences">
       <Download size={15} /> <span>Sauvegarder les données</span>
     </button>
     <button type="button" onClick={() => importRef.current?.click()} title="Restaurer ou fusionner une sauvegarde CoachBrief">
