@@ -1,0 +1,55 @@
+.site-learning-panel { width: min(1180px, calc(100% - 40px)); margin: 18px auto 0; padding: 20px; border: 1px solid #d8e3df; border-left: 4px solid #d6a52c; background: #fffdf7; box-sizing: border-box; }
+.site-learning-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
+.site-learning-heading h2 { display: flex; align-items: center; gap: 8px; margin: 3px 0 0; color: #173b3a; font: 600 22px/1.15 'Manrope', sans-serif; letter-spacing: -.45px; }
+.site-learning-heading h2 svg { color: #216e8c; }
+.site-learning-confidence { display: grid; gap: 3px; min-width: 210px; padding: 9px 11px; border: 1px solid #d6a52c; background: #fffaf0; }
+.site-learning-confidence small { color: #77652d; font-size: 8px; text-transform: uppercase; letter-spacing: .45px; }
+.site-learning-confidence strong { color: #173b3a; font-size: 10px; }
+.site-learning-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: 14px; }
+.site-learning-metrics article { display: flex; gap: 8px; min-width: 0; padding: 11px; border: 1px solid #e2e6df; background: #fff; }
+.site-learning-metrics svg { flex: 0 0 auto; color: #216e8c; }
+.site-learning-metrics div { min-width: 0; }
+.site-learning-metrics small { display: block; color: #71837d; font-size: 7px; text-transform: uppercase; letter-spacing: .35px; }
+.site-learning-metrics strong { display: block; margin-top: 3px; color: #173b3a; font-size: 14px; line-height: 1.2; }
+.site-learning-metrics span { display: block; margin-top: 4px; color: #71837d; font-size: 7.5px; line-height: 1.35; }
+.site-learning-body { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(260px, .85fr); gap: 12px; margin-top: 12px; }
+.site-learning-lessons, .site-learning-notes { min-width: 0; padding: 13px; border: 1px solid #dde6e2; background: #fff; }
+.site-learning-subheading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.site-learning-subheading h3, .site-learning-notes h3 { margin: 0; color: #173b3a; font-size: 11px; }
+.site-learning-subheading > span { display: flex; align-items: center; gap: 5px; color: #71837d; font-size: 7px; }
+.site-learning-lessons ul { margin: 10px 0 0; padding-left: 18px; color: #536c66; }
+.site-learning-lessons li { margin: 5px 0; font-size: 8.5px; line-height: 1.5; }
+.site-learning-biases { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.site-learning-biases span { padding: 6px 8px; border: 1px solid #dbe5e1; background: #f7faf9; color: #61766f; font-size: 7.5px; }
+.site-learning-biases strong { color: #173b3a; }
+.site-learning-signals { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.site-learning-signals span { padding: 4px 7px; border: 1px solid #d6a52c; background: #fffaf0; color: #66551f; font-size: 7px; font-weight: 700; }
+.site-learning-notes article { padding: 8px 0; border-top: 1px solid #edf1ef; }
+.site-learning-notes article:first-of-type { margin-top: 7px; }
+.site-learning-notes small { color: #7b8b86; font-size: 7px; }
+.site-learning-notes p { margin: 3px 0 0; color: #536c66; font-size: 8px; line-height: 1.45; }
+.site-learning-empty { margin: 9px 0 0; color: #71837d; font-size: 8px; }
+.site-learning-note { margin: 10px 0 0; color: #71837d; font-size: 7.5px; line-height: 1.45; }
+.site-learning-spin { animation: site-learning-spin 1s linear infinite; }
+@keyframes site-learning-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 950px) {
+  .site-learning-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .site-learning-body { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+  .site-learning-panel { width: min(100% - 20px, 1180px); margin-top: 12px; padding: 14px; }
+  .site-learning-heading { display: grid; align-items: start; }
+  .site-learning-confidence { min-width: 0; }
+  .site-learning-metrics { grid-template-columns: 1fr; }
+}
+
+@media print {
+  .site-learning-panel { width: auto !important; margin: 0 0 5mm !important; padding: 4mm !important; border: 1px solid #d7e2dd !important; border-left: 3pt solid #d6a52c !important; background: #fff !important; page-break-inside: avoid; }
+  .site-learning-heading h2 { font-size: 11pt !important; }
+  .site-learning-metrics { grid-template-columns: repeat(4, 1fr) !important; gap: 2mm !important; }
+  .site-learning-body { grid-template-columns: 1.5fr 1fr !important; gap: 2mm !important; }
+  .site-learning-metrics article, .site-learning-lessons, .site-learning-notes { padding: 2mm !important; page-break-inside: avoid; }
+  .site-learning-note, .site-learning-lessons li, .site-learning-notes p { font-size: 6.5pt !important; }
+}
