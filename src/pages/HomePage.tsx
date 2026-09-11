@@ -37,6 +37,7 @@ const initialForm: BriefingRequest = {
 type HomeNavigationState = {
   prefill?: BriefingRequest
   duplicate?: boolean
+  editing?: boolean
 }
 
 function duplicatedForm(request: BriefingRequest) {
@@ -107,8 +108,8 @@ export function HomePage() {
       <section className="brief-card" aria-labelledby="brief-title">
         <div className="card-heading">
           <div>
-            <span className="step-label">{navigation?.duplicate ? t('quickDuplicate') : t('newBriefing')}</span>
-            <h2 id="brief-title">{navigation?.duplicate ? t('prepareNext') : t('nextRace')}</h2>
+            <span className="step-label">{navigation?.duplicate ? t('quickDuplicate') : navigation?.editing ? t('editingBriefing') : t('newBriefing')}</span>
+            <h2 id="brief-title">{navigation?.duplicate ? t('prepareNext') : navigation?.editing ? t('editBriefing') : t('nextRace')}</h2>
             {navigation?.duplicate && <p className="observation-intro"><Copy size={13} /> {t('duplicateInfo')}</p>}
           </div>
           <span className="step-number">01</span>

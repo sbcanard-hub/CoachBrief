@@ -5,7 +5,7 @@ export const fr = {
   briefings: 'Mes briefings', help: 'Aide', more: 'Plus', weather: 'Météo de régate', footer: "Conçu pour ceux qui regardent l'horizon.",
   heroEyebrow: 'Le bon plan, avant le départ', heroTitle: 'La météo claire.', heroEmphasis: 'La course en tête.',
   heroCopy: "Préparez votre briefing météo et tactique de régate en quelques instants. Renseignez le plan d'eau, la course et le parcours : CoachBrief rassemble ensuite les éléments utiles au coach.",
-  newBriefing: 'Nouveau briefing', nextRace: 'Votre prochaine régate', quickDuplicate: 'Duplication rapide', prepareNext: 'Préparer la manche suivante',
+  newBriefing: 'Nouveau briefing', nextRace: 'Votre prochaine régate', quickDuplicate: 'Duplication rapide', prepareNext: 'Préparer la manche suivante', editingBriefing: 'Modification du briefing', editBriefing: 'Modifier le briefing',
   duplicateInfo: 'Parcours et paramètres repris. Les observations terrain et la position GPS du comité ont été effacées.',
   raceWeather: 'Course & météo', venue: 'Lieu de la régate', venuePlaceholder: "ex. Baie d'Antibes", date: 'Date', weatherStart: 'Début météo', weatherEnd: 'Fin météo',
   boatClass: 'Classe', course: 'Parcours', tacticalSettings: 'Paramètres tactiques', raceTime: 'Heure de manche', courseAxis: 'Axe du parcours', favouredLine: 'Ligne favorable',
