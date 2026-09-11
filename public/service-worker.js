@@ -1,5 +1,14 @@
 const CACHE_NAME = 'coachbrief-v1'
-const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg']
+const APP_SHELL = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icons/icon.svg',
+  './icons/favicon-32x32.png',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192x192.png',
+  './icons/icon-512x512.png',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)))
