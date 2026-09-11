@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">CoachBrief</title>
+  <desc id="description">Voilier blanc et orange sur fond vert sombre</desc>
+  <rect width="512" height="512" rx="96" fill="#173b3a"/>
+  <path d="M256 92v246H138L256 92Z" fill="#f4f5ef"/>
+  <path d="M276 148v190h98L276 148Z" fill="#db6b45"/>
+  <path d="M122 342h268c-12 47-61 82-134 82s-122-35-134-82Z" fill="#f4f5ef"/>
+  <path d="M168 426c28 18 58 27 88 27s60-9 88-27" fill="none" stroke="#8dbdb5" stroke-width="18" stroke-linecap="round"/>
+</svg>

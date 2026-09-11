@@ -4,6 +4,9 @@ import { HashRouter } from 'react-router-dom'
 import App from './App'
 import './styles.css'
 import './tactics.css'
+import { registerServiceWorker } from './pwa'
+
+registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

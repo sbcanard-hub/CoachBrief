@@ -144,3 +144,8 @@
   .course-preview-map { height: 250px; }
   .local-sources-heading > small { text-align: left; }
 }
+
+@media (max-width: 560px) {
+  .course-map { height: min(58vh, 360px); min-height: 280px; }
+  .map-picker { padding: 10px; }
+}
