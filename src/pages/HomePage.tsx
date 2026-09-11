@@ -59,7 +59,7 @@ function duplicatedForm(request: BriefingRequest) {
 }
 
 export function HomePage() {
-  const { units, pressureUnit, lengthUnit } = usePreferences()
+  const { units, pressureUnit, lengthUnit, t } = usePreferences()
   const navigate = useNavigate()
   const navigation = useLocation().state as HomeNavigationState | null
   const [form, setForm] = useState<BriefingRequest>(() => {
@@ -99,27 +99,27 @@ export function HomePage() {
   return (
     <main className="home-page">
       <section className="hero">
-        <div className="eyebrow"><Wind size={15} /> Le bon plan, avant le départ</div>
-        <h1>La météo claire.<br /><em>La course en tête.</em></h1>
-        <p className="hero-copy">Préparez votre briefing météo et tactique de régate en quelques instants. Renseignez le plan d'eau, la course et le parcours : CoachBrief rassemble ensuite les éléments utiles au coach.</p>
+        <div className="eyebrow"><Wind size={15} /> {t('heroEyebrow')}</div>
+        <h1>{t('heroTitle')}<br /><em>{t('heroEmphasis')}</em></h1>
+        <p className="hero-copy">{t('heroCopy')}</p>
       </section>
 
       <section className="brief-card" aria-labelledby="brief-title">
         <div className="card-heading">
           <div>
-            <span className="step-label">{navigation?.duplicate ? 'Duplication rapide' : 'Nouveau briefing'}</span>
-            <h2 id="brief-title">{navigation?.duplicate ? 'Préparer la manche suivante' : 'Votre prochaine régate'}</h2>
-            {navigation?.duplicate && <p className="observation-intro"><Copy size={13} /> Parcours et paramètres repris. Les observations terrain et la position GPS du comité ont été effacées.</p>}
+            <span className="step-label">{navigation?.duplicate ? t('quickDuplicate') : t('newBriefing')}</span>
+            <h2 id="brief-title">{navigation?.duplicate ? t('prepareNext') : t('nextRace')}</h2>
+            {navigation?.duplicate && <p className="observation-intro"><Copy size={13} /> {t('duplicateInfo')}</p>}
           </div>
           <span className="step-number">01</span>
         </div>
 
         <form onSubmit={submit}>
-          <div className="form-section-title"><span>01</span> Course & météo</div>
+          <div className="form-section-title"><span>01</span> {t('raceWeather')}</div>
 
           <label className="field field-wide">
-            <span><MapPin size={16} /> Lieu de la régate</span>
-            <input required name="location" placeholder="ex. Baie d'Antibes" value={form.location} onChange={(e) => updateField('location', e.target.value)} />
+            <span><MapPin size={16} /> {t('venue')}</span>
+            <input required name="location" placeholder={t('venuePlaceholder')} value={form.location} onChange={(e) => updateField('location', e.target.value)} />
           </label>
 
           <MapPicker
@@ -135,22 +135,22 @@ export function HomePage() {
 
           <div className="form-row">
             <label className="field">
-              <span><CalendarDays size={16} /> Date</span>
+              <span><CalendarDays size={16} /> {t('date')}</span>
               <input required type="date" name="date" value={form.date} onChange={(e) => updateField('date', e.target.value)} />
             </label>
             <label className="field">
-              <span><Clock3 size={16} /> Début météo</span>
+              <span><Clock3 size={16} /> {t('weatherStart')}</span>
               <input required type="time" name="startTime" value={form.startTime} onChange={(e) => updateField('startTime', e.target.value)} />
             </label>
             <label className="field">
-              <span><Clock3 size={16} /> Fin météo</span>
+              <span><Clock3 size={16} /> {t('weatherEnd')}</span>
               <input required type="time" name="endTime" value={form.endTime} onChange={(e) => updateField('endTime', e.target.value)} />
             </label>
           </div>
 
           <div className="form-row form-row-two">
             <label className="field">
-              <span><Sailboat size={16} /> Classe</span>
+              <span><Sailboat size={16} /> {t('boatClass')}</span>
               <select name="boatClass" value={form.boatClass} onChange={(e) => updateField('boatClass', e.target.value)}>
                 <option value="Optimist">Optimist</option>
                 <option value="420">420</option>
@@ -158,7 +158,7 @@ export function HomePage() {
               </select>
             </label>
             <label className="field">
-              <span><Flag size={16} /> Parcours</span>
+              <span><Flag size={16} /> {t('course')}</span>
               <select name="courseType" value={form.courseType} onChange={(e) => updateField('courseType', e.target.value)}>
                 <option value="Banane">Banane</option>
                 <option value="Trapèze">Trapèze</option>
@@ -167,25 +167,25 @@ export function HomePage() {
             </label>
           </div>
 
-          <div className="form-section-title"><span>02</span> Paramètres tactiques</div>
+          <div className="form-section-title"><span>02</span> {t('tacticalSettings')}</div>
 
           <div className="form-row tactical-form-row">
             <label className="field">
-              <span><Clock3 size={16} /> Heure de manche</span>
+              <span><Clock3 size={16} /> {t('raceTime')}</span>
               <input required type="time" name="raceTime" value={form.raceTime} onChange={(e) => updateField('raceTime', e.target.value)} />
             </label>
             <label className="field">
-              <span><Compass size={16} /> Axe du parcours</span>
+              <span><Compass size={16} /> {t('courseAxis')}</span>
               <div className="input-with-unit">
                 <input required type="number" min="0" max="359" step="1" name="courseAxis" value={form.courseAxis} onChange={(e) => updateField('courseAxis', e.target.value)} />
                 <span>°</span>
               </div>
             </label>
             <label className="field">
-              <span><Navigation size={16} /> Ligne favorable</span>
+              <span><Navigation size={16} /> {t('favouredLine')}</span>
               <select name="startLineBias" value={form.startLineBias} onChange={(e) => updateField('startLineBias', e.target.value)}>
-                <option value="Comité">Comité</option>
-                <option value="Neutre">Neutre</option>
+                <option value="Comité">{t('committee')}</option>
+                <option value="Neutre">{t('neutral')}</option>
                 <option value="Pin">Pin</option>
               </select>
             </label>
@@ -193,84 +193,84 @@ export function HomePage() {
 
           <div className="form-row form-row-two">
             <label className="field">
-              <span><Compass size={16} /> Désaxage bouée au vent</span>
+              <span><Compass size={16} /> {t('windwardOffset')}</span>
               <div className="input-with-unit">
                 <input required type="number" min="-30" max="30" step="1" name="windwardOffset" value={form.windwardOffset} onChange={(e) => updateField('windwardOffset', e.target.value)} />
                 <span>°</span>
               </div>
-              <small className="field-help">Négatif = gauche · positif = droite</small>
+              <small className="field-help">{t('offsetHelp')}</small>
             </label>
             <label className="field">
-              <span><Flag size={16} /> Orientation arrivée</span>
+              <span><Flag size={16} /> {t('finishOrientation')}</span>
               <select name="finishOrientation" value={form.finishOrientation} onChange={(e) => updateField('finishOrientation', e.target.value)}>
-                <option value="Sous le vent">Sous le vent</option>
-                <option value="Travers">Travers</option>
-                <option value="Au vent">Au vent</option>
+                <option value="Sous le vent">{t('leeward')}</option>
+                <option value="Travers">{t('beamReach')}</option>
+                <option value="Au vent">{t('windward')}</option>
               </select>
             </label>
           </div>
 
-          <div className="form-section-title observation-title"><span>03</span> Observations terrain <small>facultatif</small></div>
-          <p className="observation-intro">À remplir si vous avez déjà un relevé sur le plan d’eau. Ces valeurs servent à confronter le modèle à ce que vous observez réellement.</p>
+          <div className="form-section-title observation-title"><span>03</span> {t('fieldObservations')} <small>{t('optional')}</small></div>
+          <p className="observation-intro">{t('observationIntro')}</p>
 
           <div className="form-row tactical-form-row">
             <label className="field">
-              <span><Clock3 size={16} /> Heure du relevé</span>
+              <span><Clock3 size={16} /> {t('observationTime')}</span>
               <input type="time" name="observationTime" value={form.observationTime} onChange={(e) => updateField('observationTime', e.target.value)} />
             </label>
             <label className="field">
-              <span><Wind size={16} /> Vent observé</span>
+              <span><Wind size={16} /> {t('observedWind')}</span>
               <div className="input-with-unit"><input type="number" min="0" max="80" step="0.1" name="observedWindSpeed" value={form.observedWindSpeed} onChange={(e) => updateField('observedWindSpeed', e.target.value)} /><span>nd</span></div>
             </label>
             <label className="field">
-              <span><Compass size={16} /> Direction observée</span>
+              <span><Compass size={16} /> {t('observedDirection')}</span>
               <div className="input-with-unit"><input type="number" min="0" max="359" step="1" name="observedWindDirection" value={form.observedWindDirection} onChange={(e) => updateField('observedWindDirection', e.target.value)} /><span>°</span></div>
             </label>
           </div>
 
           <div className="form-row tactical-form-row">
             <label className="field">
-              <span><Wind size={16} /> Rafale observée</span>
+              <span><Wind size={16} /> {t('observedGust')}</span>
               <div className="input-with-unit"><input type="number" min="0" max="100" step="0.1" name="observedGust" value={form.observedGust} onChange={(e) => updateField('observedGust', e.target.value)} /><span>nd</span></div>
             </label>
             <label className="field">
-              <span><Waves size={16} /> Vagues</span>
+              <span><Waves size={16} /> {t('waves')}</span>
               <div className="input-with-unit"><input type="number" min="0" max={units === 'imperial' ? 33 : 10} step="0.1" name="observedWaveHeight" value={displayedReference(form.observedWaveHeight, 'length')} onChange={(e) => updateReference('observedWaveHeight', e.target.value, 'length')} /><span>{lengthUnit}</span></div>
             </label>
             <label className="field">
-              <span><CloudSun size={16} /> Nébulosité</span>
+              <span><CloudSun size={16} /> {t('cloudCover')}</span>
               <div className="input-with-unit"><input type="number" min="0" max="100" step="5" name="observedCloudCover" value={form.observedCloudCover} onChange={(e) => updateField('observedCloudCover', e.target.value)} /><span>%</span></div>
             </label>
           </div>
 
           <div className="form-row tactical-form-row">
             <label className="field">
-              <span><Navigation size={16} /> Courant observé</span>
+              <span><Navigation size={16} /> {t('observedCurrent')}</span>
               <div className="input-with-unit"><input type="number" min="0" max="8" step="0.1" name="observedCurrentSpeed" value={form.observedCurrentSpeed} onChange={(e) => updateField('observedCurrentSpeed', e.target.value)} /><span>nd</span></div>
             </label>
             <label className="field">
-              <span><Compass size={16} /> Direction courant</span>
+              <span><Compass size={16} /> {t('currentDirection')}</span>
               <div className="input-with-unit"><input type="number" min="0" max="359" step="1" name="observedCurrentDirection" value={form.observedCurrentDirection} onChange={(e) => updateField('observedCurrentDirection', e.target.value)} /><span>°</span></div>
             </label>
             <label className="field">
-              <span><Gauge size={16} /> Pression observée</span>
+              <span><Gauge size={16} /> {t('observedPressure')}</span>
               <div className="input-with-unit"><input type="number" min={units === 'imperial' ? 28 : 950} max={units === 'imperial' ? 31 : 1050} step={units === 'imperial' ? 0.01 : 0.1} name="observedPressure" value={displayedReference(form.observedPressure, 'pressure')} onChange={(e) => updateReference('observedPressure', e.target.value, 'pressure')} /><span>{pressureUnit}</span></div>
             </label>
           </div>
 
           <label className="field field-wide">
-            <span><Flag size={16} /> Note du coach</span>
-            <textarea name="observationNotes" rows={3} placeholder="ex. davantage de pression à droite, risées sous nuage, mer plus courte près de la côte…" value={form.observationNotes} onChange={(e) => updateField('observationNotes', e.target.value)} />
+            <span><Flag size={16} /> {t('coachNote')}</span>
+            <textarea name="observationNotes" rows={3} placeholder={t('notePlaceholder')} value={form.observationNotes} onChange={(e) => updateField('observationNotes', e.target.value)} />
           </label>
 
-          <button type="submit">Préparer mon briefing <ArrowRight size={19} /></button>
+          <button type="submit">{t('prepare')} <ArrowRight size={19} /></button>
         </form>
       </section>
 
-      <section className="benefits" aria-label="Avantages">
-        <p><strong>01</strong><span>Une lecture<br />simple et rapide</span></p>
-        <p><strong>02</strong><span>Les données utiles<br />au bon moment</span></p>
-        <p><strong>03</strong><span>Plus de sérénité<br />sur l'eau</span></p>
+      <section className="benefits" aria-label={t('benefits')}>
+        <p><strong>01</strong><span>{t('benefitSimple').split('\n').map((line, index) => <span key={line}>{index > 0 && <br />}{line}</span>)}</span></p>
+        <p><strong>02</strong><span>{t('benefitUseful').split('\n').map((line, index) => <span key={line}>{index > 0 && <br />}{line}</span>)}</span></p>
+        <p><strong>03</strong><span>{t('benefitCalm').split('\n').map((line, index) => <span key={line}>{index > 0 && <br />}{line}</span>)}</span></p>
       </section>
     </main>
   )
