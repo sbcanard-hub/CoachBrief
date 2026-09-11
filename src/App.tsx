@@ -6,11 +6,13 @@ import { HomePage } from './pages/HomePage'
 import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
 import { usePreferences } from './preferences'
+import { LocalizedDocument } from './components/LocalizedDocument'
 
 export default function App() {
   const { t } = usePreferences()
   return (
     <div className="app-shell">
+      <LocalizedDocument />
       <Header />
       <Routes>
         <Route path="/" element={<HomePage />} />
