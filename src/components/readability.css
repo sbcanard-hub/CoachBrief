@@ -36,15 +36,15 @@ body {
   font-size: 12px;
 }
 
-/* Header: keep actions readable on large screens and switch to the menu
-   before a 13-inch laptop runs out of horizontal room. */
+/* Header: keep the primary actions visible, but move the secondary actions
+   into the Plus menu early enough for 13-inch laptop screens. */
 .header-actions a,
 .header-actions button {
-  font-size: 11px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
-@media (max-width: 1320px) {
+@media (max-width: 1500px) {
   .site-header {
     position: relative;
     z-index: 100;
@@ -66,6 +66,15 @@ body {
   }
 
   .header-actions {
+    gap: 6px;
+  }
+
+  .header-actions a,
+  .header-actions button {
+    padding-inline: 10px;
+  }
+
+  .header-secondary {
     position: absolute;
     top: calc(100% - 8px);
     right: 0;
@@ -80,27 +89,17 @@ body {
     box-shadow: 0 16px 35px rgba(23,59,58,.18);
   }
 
-  .header-actions.is-open {
+  .header-secondary.is-open {
     display: grid;
     gap: 8px;
   }
 
-  .header-actions a,
-  .header-actions button {
+  .header-secondary > button {
     width: 100%;
     min-height: 46px;
     justify-content: flex-start;
     padding: 11px 13px;
-    font-size: 13px;
-  }
-
-  .header-actions a span,
-  .header-actions button span {
-    display: inline;
-  }
-
-  .header-actions .header-label {
-    display: none;
+    font-size: 14px;
   }
 
   .data-backup-actions {
