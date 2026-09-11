@@ -1,4 +1,5 @@
-import { Route, Routes } from 'react-router-dom'
+import { useLayoutEffect } from 'react'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import { Header } from './components/Header'
 import { SiteLearningPanel } from './components/SiteLearningPanel'
 import { WindModelComparisonPanel } from './components/WindModelComparisonPanel'
@@ -9,6 +10,12 @@ import { usePreferences } from './preferences'
 import { LocalizedDocument } from './components/LocalizedDocument'
 
 function ResultsRoute() {
+  const location = useLocation()
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.key])
+
   return <>
     <WindModelComparisonPanel />
     <SiteLearningPanel />
