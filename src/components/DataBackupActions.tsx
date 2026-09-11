@@ -1,6 +1,12 @@
-import { Check, Download, FileUp } from 'lucide-react'
-import { useRef, useState } from 'react'
-import { importPortableCoachBriefData, portableCoachBriefDataToJson } from '../portableData'
+import { Check, CloudDownload, CloudUpload, Download, FileUp, LoaderCircle } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { firebaseCloudAdapter, type CloudSyncSnapshot } from '../cloudSync'
+import { onFirebaseAuthStateChanged, type FirebaseAccount } from '../firebase'
+import {
+  exportPortableCoachBriefData,
+  importPortableCoachBriefData,
+  portableCoachBriefDataToJson,
+} from '../portableData'
 import './dataBackupActions.css'
 
 function todayFileStamp() {
@@ -14,6 +20,13 @@ function todayFileStamp() {
 export function DataBackupActions() {
   const importRef = useRef<HTMLInputElement | null>(null)
   const [status, setStatus] = useState('')
+  const [account, setAccount] = useState<FirebaseAccount | null>(null)
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false)
+
+  useEffect(() => onFirebaseAuthStateChanged((nextAccount) => {
+    setAccount(nextAccount)
+    if (!nextAccount) setStatus('')
+  }), [])
 
   function downloadAllData() {
     const blob = new Blob([portableCoachBriefDataToJson()], { type: 'application/json;charset=utf-8' })
@@ -42,6 +55,43 @@ export function DataBackupActions() {
     }
   }
 
+  async function saveToCloud() {
+    if (isCloudSyncing) return
+    setIsCloudSyncing(true)
+    setStatus('Synchronisation…')
+    try {
+      const updatedAt = new Date().toISOString()
+      const snapshot: CloudSyncSnapshot = {
+        revision: crypto.randomUUID(),
+        updatedAt,
+        bundle: exportPortableCoachBriefData(),
+      }
+      await firebaseCloudAdapter.push(snapshot)
+      setStatus('Sauvegarde cloud réussie')
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'La synchronisation Firebase a échoué. Réessayez plus tard.')
+    } finally {
+      setIsCloudSyncing(false)
+    }
+  }
+
+  async function restoreFromCloud() {
+    if (isCloudSyncing) return
+    setIsCloudSyncing(true)
+    setStatus('Synchronisation…')
+    try {
+      const snapshot = await firebaseCloudAdapter.pull()
+      if (!snapshot) throw new Error('Aucune sauvegarde cloud disponible pour ce compte.')
+      importPortableCoachBriefData(JSON.stringify(snapshot.bundle), 'replace')
+      setStatus('Restauration cloud réussie')
+      window.setTimeout(() => window.location.reload(), 900)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'La synchronisation Firebase a échoué. Réessayez plus tard.')
+    } finally {
+      setIsCloudSyncing(false)
+    }
+  }
+
   return <div className="data-backup-actions" aria-label="Sauvegarde des données CoachBrief">
     <input
       ref={importRef}
@@ -56,6 +106,16 @@ export function DataBackupActions() {
     <button type="button" onClick={() => importRef.current?.click()} title="Restaurer ou fusionner une sauvegarde CoachBrief">
       <FileUp size={15} /> <span>Restaurer</span>
     </button>
-    {status && <small className="data-backup-status" role="status"><Check size={12} /> {status}</small>}
+    {account && <>
+      <button type="button" onClick={() => void saveToCloud()} disabled={isCloudSyncing} title="Sauvegarder toutes les données CoachBrief dans Firebase">
+        <CloudUpload size={15} /> <span>Sauvegarder dans le cloud</span>
+      </button>
+      <button type="button" onClick={() => void restoreFromCloud()} disabled={isCloudSyncing} title="Restaurer la sauvegarde CoachBrief depuis Firebase">
+        <CloudDownload size={15} /> <span>Restaurer depuis le cloud</span>
+      </button>
+    </>}
+    {status && <small className="data-backup-status" role="status">
+      {isCloudSyncing ? <LoaderCircle className="header-spin" size={12} /> : <Check size={12} />} {status}
+    </small>}
   </div>
 }
