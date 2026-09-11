@@ -50,6 +50,10 @@ button:hover { background: #25524e; transform: translateY(-1px); }
 
 .results-page { padding: 54px 0 80px; }
 .back-link { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; text-decoration: none; color: #617570; margin-bottom: 52px; }
+.results-edit-navigation { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding-top: 28px; }
+.results-edit-navigation .back-link { min-height: 44px; margin: 0; padding: 10px 14px; border: 1px solid rgba(23, 59, 58, .22); background: #fff; color: #173b3a; font-weight: 600; transition: border-color .2s, background .2s, transform .2s; }
+.results-edit-navigation .back-link:hover { border-color: #47716b; background: #edf3f0; transform: translateY(-1px); }
+.results-edit-navigation .back-link:focus-visible { outline: 3px solid rgba(33, 110, 140, .3); outline-offset: 3px; }
 .results-heading { text-align: center; }
 .results-heading h1 { font-size: clamp(42px, 6vw, 68px); }
 .results-heading p { display: flex; justify-content: center; gap: 8px; align-items: center; color: #6d807b; }
@@ -142,7 +146,7 @@ button:hover { background: #25524e; transform: translateY(-1px); }
 footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; padding: 24px 0 28px; border-top: 1px solid rgba(23,59,58,.13); display: flex; justify-content: space-between; gap: 24px; color: #7b8985; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
 
 @media (max-width: 840px) {
-  .site-header, .home-page, .results-page, footer { width: min(100% - 30px, 1180px); }
+  .site-header, .home-page, .results-page, .results-edit-navigation, footer { width: min(100% - 30px, 1180px); }
   .home-page { grid-template-columns: 1fr; padding-top: 38px; }
   .hero { padding-top: 0; margin-bottom: 38px; }
   .benefits { gap: 20px; justify-content: space-between; }
@@ -165,7 +169,7 @@ footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; padding: 24
 }
 
 @media (max-width: 600px) {
-  .site-header, .home-page, .results-page, footer { width: min(100% - 24px, 1180px); }
+  .site-header, .home-page, .results-page, .results-edit-navigation, footer { width: min(100% - 24px, 1180px); }
   .home-page { padding: 28px 0 38px; }
   .hero { margin-bottom: 28px; }
   .hero h1, .results-heading h1 { font-size: clamp(38px, 11vw, 52px); line-height: 1.08; }
@@ -174,6 +178,7 @@ footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; padding: 24
   .field input, .field select, .field textarea { min-height: 48px; font-size: 16px; }
   button { min-height: 48px; }
   .results-page { padding: 30px 0 56px; }
+  .results-edit-navigation { padding-top: 18px; }
   .back-link { min-height: 44px; margin-bottom: 28px; }
   .briefing-hero h1 { font-size: 38px; letter-spacing: -2px; overflow-wrap: anywhere; }
   .weather-overview, .dynamics-grid, .brief-section { margin-bottom: 42px; }
