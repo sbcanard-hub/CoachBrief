@@ -5,8 +5,10 @@ import { WindModelComparisonPanel } from './components/WindModelComparisonPanel'
 import { HomePage } from './pages/HomePage'
 import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
+import { usePreferences } from './preferences'
 
 export default function App() {
+  const { t } = usePreferences()
   return (
     <div className="app-shell">
       <Header />
@@ -15,7 +17,7 @@ export default function App() {
         <Route path="/resultats" element={<><WindModelComparisonPanel /><SiteLearningPanel /><ResultsPage /></>} />
         <Route path="/briefings" element={<SavedBriefingsPage />} />
       </Routes>
-      <footer><span>CoachBrief © 2026</span><span>Conçu pour ceux qui regardent l'horizon.</span></footer>
+      <footer><span>CoachBrief © 2026</span><span>{t('footer')}</span></footer>
     </div>
   )
 }

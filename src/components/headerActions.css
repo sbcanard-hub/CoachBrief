@@ -60,6 +60,15 @@
 .help-empty strong { font-size: 14px; }
 .help-empty span { color: #6f817d; font-size: 12px; line-height: 1.5; }
 
+.settings-overlay { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgb(9 31 39 / 58%); }
+.settings-dialog { position: relative; width: min(560px, 100%); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 28px; border-radius: 14px; background: #f9faf7; box-shadow: 0 24px 70px rgb(9 31 39 / 28%); color: #173b3a; }
+.settings-close { position: absolute; top: 12px; right: 12px; min-width: 38px; min-height: 38px; padding: 7px; border: 1px solid #d2dcd7; border-radius: 50%; color: #173b3a; background: #fff; }
+.settings-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 25px; }
+.settings-heading > svg { color: #db6b45; }.settings-heading span { color: #6f817d; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }.settings-heading h2 { margin: 2px 0 0; font: 500 27px 'Manrope', sans-serif; }
+.settings-dialog fieldset { margin: 0 0 24px; padding: 0; border: 0; }.settings-dialog legend { margin-bottom: 10px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
+.settings-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }.settings-options button { min-width: 0; min-height: 64px; justify-content: space-between; margin: 0; padding: 12px 14px; border: 1px solid #d2dcd7; border-radius: 8px; color: #173b3a; background: #fff; text-align: left; }.settings-options button.is-selected { border-color: #216e8c; background: #eaf2f1; box-shadow: inset 3px 0 #216e8c; }.settings-options button > span { display: grid; gap: 4px; }.settings-options small { color: #657975; font-size: 11px; font-weight: 400; }.settings-languages button { min-height: 48px; }
+.settings-saved { margin: 0; color: #657975; font-size: 12px; }
+
 @media (max-width: 1280px) {
   .site-header { position: relative; z-index: 100; gap: 10px; }
   .mobile-menu-button { width: auto; min-height: 44px; display: inline-flex; align-items: center; gap: 7px; margin: 0 0 0 auto; padding: 9px 12px; border: 1px solid #cbd7d2; color: #173b3a; background: #fff; font-size: 12px; }
@@ -90,6 +99,7 @@
 }
 
 @media (max-width: 760px) {
+  .settings-overlay { padding: 8px; align-items: end; }.settings-dialog { width: 100%; padding: 24px 16px; border-radius: 14px 14px 0 0; }.settings-options { grid-template-columns: 1fr; }.settings-languages { grid-template-columns: 1fr 1fr; }
   .auth-dialog { max-height: calc(100dvh - 24px); overflow-y: auto; padding: 26px 20px; }
   .help-overlay { padding: 8px; place-items: stretch; }
   .help-dialog { width: 100%; max-height: calc(100dvh - 16px); padding: 20px 14px; border-radius: 12px; }

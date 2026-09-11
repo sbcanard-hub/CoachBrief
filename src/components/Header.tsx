@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookmarkPlus, Check, CircleHelp, FolderOpen, LoaderCircle, Menu, Printer, Sailboat, X } from 'lucide-react'
+import { BookmarkPlus, Check, CircleHelp, FolderOpen, LoaderCircle, Menu, Printer, Sailboat, Settings, X } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { sourceReliabilityForRequest } from '../calibration'
 import { nearbyMetarSources } from '../localSources'
@@ -13,6 +13,8 @@ import { AuthControl } from './AuthControl'
 import { HelpDialog } from './HelpDialog'
 import { LocalEffectsPanel } from './LocalEffectsPanel'
 import { SourceConfidencePanel } from './SourceConfidencePanel'
+import { SettingsDialog } from './SettingsDialog'
+import { usePreferences } from '../preferences'
 import './headerActions.css'
 import './readability.css'
 import '../print.css'
@@ -23,6 +25,8 @@ export function Header() {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [menuOpen, setMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const { t } = usePreferences()
   const sourceReliability = sourceReliabilityForRequest(loadSavedBriefings(), request)
 
   useEffect(() => {
@@ -30,6 +34,7 @@ export function Header() {
       setSaveState('idle')
       setMenuOpen(false)
       setHelpOpen(false)
+      setSettingsOpen(false)
     }, 0)
     return () => window.clearTimeout(reset)
   }, [location.key, location.pathname])
@@ -102,11 +107,11 @@ export function Header() {
         onClick={() => setMenuOpen((open) => !open)}
       >
         {menuOpen ? <X size={22} /> : <Menu size={22} />}
-        <span>Plus</span>
+        <span>{t('more')}</span>
       </button>
 
       <nav id="main-navigation" className="header-actions" aria-label="Navigation principale">
-        <Link to="/briefings"><FolderOpen size={15} /> <span>Mes briefings</span></Link>
+        <Link to="/briefings"><FolderOpen size={15} /> <span>{t('briefings')}</span></Link>
         {request && <button type="button" onClick={printCurrentBriefing} title="Imprimer la fiche ou l’enregistrer en PDF" aria-label="Imprimer le briefing ou l’enregistrer en PDF">
           <Printer size={15} /> <span>Imprimer / PDF</span>
         </button>}
@@ -114,17 +119,19 @@ export function Header() {
           {saveState === 'saving' ? <LoaderCircle className="header-spin" size={15} /> : saveState === 'saved' ? <Check size={15} /> : <BookmarkPlus size={15} />}
           <span>{saveState === 'saving' ? 'Enregistrement…' : saveState === 'saved' ? 'Enregistré' : saveState === 'error' ? 'Réessayer' : 'Enregistrer'}</span>
         </button>}
-        {!request && <span className="header-label">Météo de régate</span>}
+        {!request && <span className="header-label">{t('weather')}</span>}
       </nav>
       <div id="secondary-navigation" className={`header-secondary${menuOpen ? ' is-open' : ''}`}>
         <button type="button" onClick={() => { setHelpOpen(true); setMenuOpen(false) }}>
-          <CircleHelp size={15} /> <span>Aide</span>
+          <CircleHelp size={15} /> <span>{t('help')}</span>
         </button>
+        <button type="button" onClick={() => { setSettingsOpen(true); setMenuOpen(false) }}><Settings size={15} /> <span>{t('settings')}</span></button>
         <DataBackupActions />
         <AuthControl />
       </div>
     </header>
     <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+    <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     {request && <>
       <div className="header-confidence-wrap"><SourceConfidencePanel reliability={sourceReliability} /></div>
       <LocalEffectsPanel request={request} />

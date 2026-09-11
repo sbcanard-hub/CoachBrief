@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { calculateCourseSizing } from '../courseSizing'
 import type { BoatClass, BriefingRequest, CourseType } from '../types'
 import { CoursePreview } from './CoursePreview'
+import { usePreferences } from '../preferences'
 
 type CourseSizingPanelProps = {
   boatClass: BoatClass
@@ -15,6 +16,7 @@ type CourseSizingPanelProps = {
 }
 
 export function CourseSizingPanel({ boatClass, courseType, windSpeed, latitude, longitude, courseAxis, windwardOffset }: CourseSizingPanelProps) {
+  const { length } = usePreferences()
   const sizing = calculateCourseSizing(boatClass, courseType, windSpeed)
   const hasPoint = Number.isFinite(latitude) && Number.isFinite(longitude)
   const { state } = useLocation()
@@ -32,7 +34,7 @@ export function CourseSizingPanel({ boatClass, courseType, windSpeed, latitude, 
 
       <div className="course-sizing-layout">
         <div className="course-sizing-data">
-          <div className="course-sizing-main"><strong>{sizing.firstLegNm.toFixed(2).replace('.', ',')} <small>NM</small></strong><span>≈ {sizing.firstLegMeters} m · premier bord</span></div>
+          <div className="course-sizing-main"><strong>{sizing.firstLegNm.toFixed(2).replace('.', ',')} <small>NM</small></strong><span>≈ {length(sizing.firstLegMeters, 0)} · premier bord</span></div>
           <div className="course-sizing-metrics">
             <article><Sailboat size={16} /><div><small>Classe</small><strong>{boatClass}</strong></div></article>
             <article><Compass size={16} /><div><small>Vent utilisé</small><strong>{Math.round(sizing.windSpeed)} nd</strong></div></article>

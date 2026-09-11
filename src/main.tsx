@@ -5,13 +5,12 @@ import App from './App'
 import './styles.css'
 import './tactics.css'
 import { registerServiceWorker } from './pwa'
+import { PreferencesProvider } from './preferences'
 
 registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <HashRouter>
-      <App />
-    </HashRouter>
+    <PreferencesProvider><HashRouter><App /></HashRouter></PreferencesProvider>
   </StrictMode>,
 )
