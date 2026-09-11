@@ -96,12 +96,32 @@ function isCoachBriefDataBundle(value: unknown): value is CoachBriefDataBundle {
     && candidate.briefings.every(isSavedBriefing)
 }
 
-function briefingModifiedAt(item: SavedBriefing) {
+export function briefingModifiedAt(item: SavedBriefing) {
   const candidates = [item.updatedAt, item.reality?.recordedAt, item.savedAt]
     .filter((value): value is string => Boolean(value))
     .map((value) => new Date(value).getTime())
     .filter(Number.isFinite)
   return candidates.length ? Math.max(...candidates) : 0
+}
+
+/**
+ * Réunit plusieurs copies d'une bibliothèque sans modifier les sources.
+ * L'identifiant stable évite les doublons et la copie la plus récemment
+ * modifiée gagne, qu'elle provienne du navigateur ou de Firestore.
+ */
+export function mergeSavedBriefings(...collections: SavedBriefing[][]): SavedBriefing[] {
+  const merged = new Map<string, SavedBriefing>()
+  for (const collection of collections) {
+    for (const item of collection) {
+      if (!isSavedBriefing(item)) continue
+      const normalized = normalizedBriefing(item)
+      const current = merged.get(normalized.id)
+      if (!current || briefingModifiedAt(normalized) > briefingModifiedAt(current)) {
+        merged.set(normalized.id, normalized)
+      }
+    }
+  }
+  return Array.from(merged.values()).sort((a, b) => briefingModifiedAt(b) - briefingModifiedAt(a))
 }
 
 function normalizedBriefing(item: SavedBriefing): SavedBriefing {
@@ -174,6 +194,10 @@ export function saveRaceReality(id: string, reality: Omit<RaceReality, 'recorded
     : item)
   persistSavedBriefings(next)
   return next.find((item) => item.id === id) ?? null
+}
+
+export function saveExistingBriefing(item: SavedBriefing) {
+  persistSavedBriefings(mergeSavedBriefings(loadSavedBriefings(), [item]))
 }
 
 export function deleteSavedBriefing(id: string) {
