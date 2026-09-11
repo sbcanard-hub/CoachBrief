@@ -171,9 +171,9 @@ export function ResultsPage() {
 
   return (
     <main className="results-page briefing-page">
-      {request && <Link className="results-edit-button" to="/" state={{ prefill: request, editing: true }}>
+      <Link className="results-edit-button" to="/" state={request ? { prefill: request, editing: true } : undefined}>
         ← Modifier le briefing
-      </Link>}
+      </Link>
 
       <section className="briefing-hero" aria-labelledby="briefing-title">
         <div>
