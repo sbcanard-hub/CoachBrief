@@ -1,0 +1,173 @@
+/* Global readability and responsive polish.
+   Loaded after the component styles so small legacy text remains readable
+   without changing application logic. */
+
+body {
+  font-size: 16px;
+}
+
+/* Comfortable baseline for secondary UI text. */
+.eyebrow,
+.step-label,
+.card-kicker,
+.header-label,
+.legend {
+  font-size: 12px;
+}
+
+.field > span,
+.back-link,
+.event-meta,
+.condition-card p,
+.metric-line,
+.detail-panel > p,
+.results-heading p {
+  font-size: 14px;
+}
+
+.benefits p,
+.hero-status,
+.wind-details small,
+.condition-card small,
+.forecast-time,
+.hour-gust,
+.hour-direction,
+.hour-speed small {
+  font-size: 12px;
+}
+
+/* Header: keep actions readable on large screens and switch to the menu
+   before a 13-inch laptop runs out of horizontal room. */
+.header-actions a,
+.header-actions button {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1320px) {
+  .site-header {
+    position: relative;
+    z-index: 100;
+    gap: 10px;
+  }
+
+  .mobile-menu-button {
+    width: auto;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 0 auto;
+    padding: 9px 12px;
+    border: 1px solid #cbd7d2;
+    color: #173b3a;
+    background: #fff;
+    font-size: 13px;
+  }
+
+  .header-actions {
+    position: absolute;
+    top: calc(100% - 8px);
+    right: 0;
+    width: min(360px, calc(100vw - 24px));
+    max-height: calc(100dvh - 90px);
+    display: none;
+    align-items: stretch;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px solid #cbd7d2;
+    background: #f4f5ef;
+    box-shadow: 0 16px 35px rgba(23,59,58,.18);
+  }
+
+  .header-actions.is-open {
+    display: grid;
+    gap: 8px;
+  }
+
+  .header-actions a,
+  .header-actions button {
+    width: 100%;
+    min-height: 46px;
+    justify-content: flex-start;
+    padding: 11px 13px;
+    font-size: 13px;
+  }
+
+  .header-actions a span,
+  .header-actions button span {
+    display: inline;
+  }
+
+  .header-actions .header-label {
+    display: none;
+  }
+
+  .data-backup-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .data-backup-actions .automatic-cloud-sync {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border: 1px solid #d2dcd7;
+    background: #fff;
+  }
+
+  .data-backup-actions .automatic-cloud-sync > span {
+    display: inline;
+  }
+
+  .data-backup-status,
+  .last-cloud-sync {
+    position: static;
+    grid-column: 1 / -1;
+    min-width: 0;
+    white-space: normal;
+  }
+}
+
+/* The local-effects block was especially dense on the results screen. */
+.local-effects-confidence small { font-size: 10px; }
+.local-effects-confidence strong { font-size: 12px; }
+.local-effects-loading,
+.local-effects-error { font-size: 12px; }
+.local-effects-warning { font-size: 11px; }
+.local-effects-metrics small { font-size: 10px; }
+.local-effects-metrics strong { font-size: 12px; }
+.local-effects-metrics span { font-size: 11px; }
+.local-water-geometry-summary p { font-size: 11px; }
+.local-effect-card-heading strong { font-size: 12px; }
+.local-effect-card-heading span { font-size: 9px; }
+.local-effect-card p { font-size: 11px; }
+.local-effects-advice p { font-size: 12px; }
+.local-effects-note { font-size: 10px; }
+
+/* FAQ/help must stay comfortably readable too. */
+.help-search input { font-size: 15px; }
+.help-result-count { font-size: 12px; }
+.help-category > h3 { font-size: 12px; }
+.help-faq-list summary { font-size: 14px; }
+.help-faq-list details p { font-size: 14px; }
+.help-empty strong { font-size: 15px; }
+.help-empty span { font-size: 13px; }
+
+@media (max-width: 760px) {
+  body { font-size: 16px; }
+  .site-header,
+  .home-page,
+  .results-page { width: min(100% - 24px, 1180px); }
+  .header-actions a,
+  .header-actions button { font-size: 14px; }
+  .help-faq-list summary,
+  .help-faq-list details p { font-size: 14px; }
+}
+
+/* Preserve compact print output. */
+@media print {
+  body { font-size: initial; }
+}

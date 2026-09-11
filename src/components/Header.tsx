@@ -14,6 +14,7 @@ import { HelpDialog } from './HelpDialog'
 import { LocalEffectsPanel } from './LocalEffectsPanel'
 import { SourceConfidencePanel } from './SourceConfidencePanel'
 import './headerActions.css'
+import './readability.css'
 import '../print.css'
 
 export function Header() {
