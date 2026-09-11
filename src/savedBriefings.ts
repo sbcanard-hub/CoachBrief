@@ -1,6 +1,7 @@
 import type { GpxPoint } from './gpx'
 import type { BriefingRequest, CourseType } from './types'
 import type { LiveWeatherData } from './weather'
+import { notifyPersistentDataChanged } from './persistentDataEvents'
 
 export type SavedCourseVariant = {
   id: string
@@ -124,6 +125,7 @@ export function loadSavedBriefings(): SavedBriefing[] {
 
 function persistSavedBriefings(items: SavedBriefing[]) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(normalizedBriefing)))
+  notifyPersistentDataChanged()
 }
 
 export function writeCurrentCourseSnapshot(snapshot: CourseSnapshot) {

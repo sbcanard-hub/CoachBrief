@@ -46,6 +46,42 @@ export const CLOUD_SYNC_NOTE = isFirebaseConfigured
   ? 'La sauvegarde privée Firebase est disponible pour le compte connecté.'
   : 'Configurez Firebase pour activer l’authentification et la sauvegarde privée.'
 
+const LAST_SYNC_PREFIX = 'coachbrief:cloud-sync:v1:'
+
+type LastCloudSync = { fingerprint: string; syncedAt: string }
+
+export function portableDataFingerprint(bundle: CoachBriefPortableBundle) {
+  // Les dates d'export changent à chaque lecture sans représenter une modification des données.
+  const stableBundle = {
+    ...bundle,
+    exportedAt: '',
+    data: { ...bundle.data, exportedAt: '' },
+  }
+  const input = JSON.stringify(stableBundle)
+  let hash = 2166136261
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `${input.length}-${(hash >>> 0).toString(16)}`
+}
+
+export function loadLastCloudSync(accountId: string): LastCloudSync | null {
+  try {
+    const raw = localStorage.getItem(`${LAST_SYNC_PREFIX}${accountId}`)
+    return raw ? JSON.parse(raw) as LastCloudSync : null
+  } catch {
+    return null
+  }
+}
+
+export function rememberCloudSync(accountId: string, bundle: CoachBriefPortableBundle, syncedAt: string) {
+  localStorage.setItem(`${LAST_SYNC_PREFIX}${accountId}`, JSON.stringify({
+    fingerprint: portableDataFingerprint(bundle),
+    syncedAt,
+  } satisfies LastCloudSync))
+}
+
 type FirestoreDocument = {
   fields?: {
     ownerId?: { stringValue?: string }
