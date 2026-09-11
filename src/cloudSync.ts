@@ -1,4 +1,5 @@
 import type { CoachBriefPortableBundle } from './portableData'
+import { isFirebaseConfigured } from './firebase'
 
 export type CloudAccount = {
   id: string
@@ -30,10 +31,10 @@ export type CloudSyncCapabilities = {
 }
 
 export const CLOUD_SYNC_CAPABILITIES: CloudSyncCapabilities = {
-  configured: false,
-  authentication: false,
+  configured: isFirebaseConfigured,
+  authentication: isFirebaseConfigured,
   privateSync: false,
   communityKnowledge: false,
 }
 
-export const CLOUD_SYNC_NOTE = 'Le contrat de synchronisation est prêt. Un fournisseur cloud avec authentification doit encore être configuré avant d’activer les comptes, la sauvegarde automatique et la base commune multi-utilisateurs.'
+export const CLOUD_SYNC_NOTE = 'L’authentification Firebase est configurée. La sauvegarde automatique et la base commune multi-utilisateurs restent à brancher.'

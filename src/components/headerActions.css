@@ -7,6 +7,17 @@
 .header-spin { animation: header-spin .9s linear infinite; }
 @keyframes header-spin { to { transform: rotate(360deg); } }
 
+.auth-overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgb(9 31 39 / 55%); }
+.auth-dialog { position: relative; width: min(420px, 100%); padding: 28px; border-radius: 12px; background: #fff; box-shadow: 0 20px 60px rgb(9 31 39 / 25%); color: #173b3a; }
+.auth-dialog h2 { margin: 0 0 8px; font-size: 24px; }
+.auth-dialog p { margin: 0 0 20px; font-size: 14px; line-height: 1.5; }
+.auth-dialog form { display: grid; gap: 8px; }
+.auth-dialog label { margin-top: 7px; font-size: 12px; font-weight: 700; }
+.auth-dialog input { min-height: 42px; padding: 9px 11px; border: 1px solid #b9c9c3; border-radius: 6px; font: inherit; }
+.auth-dialog form button { margin-top: 12px; min-height: 42px; font-size: 13px; }
+.auth-dialog .auth-close { position: absolute; top: 12px; right: 12px; min-width: 34px; padding: 7px; color: #173b3a; background: transparent; border-color: transparent; }
+.auth-dialog .auth-error { margin: 5px 0 0; color: #a32c21; font-weight: 650; }
+
 @media (max-width: 620px) {
   .site-header { gap: 10px; }
   .header-actions { gap: 6px; }

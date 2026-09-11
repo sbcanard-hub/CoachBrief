@@ -9,6 +9,7 @@ import { loadSavedBriefings, readCurrentCourseSnapshot, saveBriefing } from '../
 import type { SavedMetarSnapshot } from '../savedBriefings'
 import type { BriefingRequest } from '../types'
 import { DataBackupActions } from './DataBackupActions'
+import { AuthControl } from './AuthControl'
 import { LocalEffectsPanel } from './LocalEffectsPanel'
 import { SourceConfidencePanel } from './SourceConfidencePanel'
 import './headerActions.css'
@@ -86,6 +87,7 @@ export function Header() {
       <nav className="header-actions" aria-label="Navigation principale">
         <Link to="/briefings"><FolderOpen size={15} /> <span>Mes briefings</span></Link>
         <DataBackupActions />
+        <AuthControl />
         {request && <button type="button" onClick={printCurrentBriefing} title="Imprimer la fiche ou l’enregistrer en PDF" aria-label="Imprimer le briefing ou l’enregistrer en PDF">
           <Printer size={15} /> <span>Imprimer / PDF</span>
         </button>}
