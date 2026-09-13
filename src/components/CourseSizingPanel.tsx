@@ -16,7 +16,7 @@ type CourseSizingPanelProps = {
 }
 
 export function CourseSizingPanel({ boatClass, courseType, windSpeed, latitude, longitude, courseAxis, windwardOffset }: CourseSizingPanelProps) {
-  const { length, language } = usePreferences()
+  const { t, length, language } = usePreferences()
   const c = {
     fr: { step: 'Dimensionnement & tracé', title: 'Parcours recommandé', estimate: 'Estimation coach · à calibrer', firstLeg: 'premier bord', boatClass: 'Classe', wind: 'Vent utilisé', range: 'Fourchette', vmg: 'VMG estimée', target: 'Objectif de calcul : environ', minutes: 'minutes', targetEnd: 'sur le premier bord pour le bateau de tête.', disclaimer: 'La carte dessine une géométrie complète adaptée au type de parcours choisi. C’est une aide de préparation : les instructions de course, la flotte, le clapot, le courant, la visibilité et la zone disponible restent prioritaires.', empty: 'Placez précisément le plan d’eau pour afficher le parcours complet sur la carte.', notes: { Banane: 'Sur une banane, ce premier bord sert de base ; ajuster ensuite le nombre de tours au temps cible de la manche.', 'Trapèze': 'Sur un trapèze, contrôler ensuite la longueur et l’angle des travers pour conserver le temps cible global.', Triangle: 'Sur un triangle, vérifier que les bords de reaching restent suffisamment longs pour être tactiquement lisibles.' } },
     en: { step: 'Sizing & layout', title: 'Recommended course', estimate: 'Coach estimate · calibration required', firstLeg: 'first leg', boatClass: 'Class', wind: 'Wind used', range: 'Range', vmg: 'Estimated VMG', target: 'Calculation target: about', minutes: 'minutes', targetEnd: 'on the first leg for the leading boat.', disclaimer: 'The map now draws a complete geometry suited to the selected course type. This is a planning aid: sailing instructions, fleet, chop, current, visibility and available space remain the priorities.', empty: 'Set the sailing area precisely to display the complete course on the map.', notes: { Banane: 'For a windward/leeward course, use this first leg as the basis, then adjust the number of laps to the target race time.', 'Trapèze': 'For a trapezoid, then check reach lengths and angles to preserve the overall target time.', Triangle: 'For a triangle, ensure the reaching legs remain long enough to be tactically meaningful.' } },
@@ -43,9 +43,9 @@ export function CourseSizingPanel({ boatClass, courseType, windSpeed, latitude, 
           <div className="course-sizing-main"><strong>{sizing.firstLegNm.toFixed(2).replace('.', ',')} <small>NM</small></strong><span>≈ {length(sizing.firstLegMeters, 0)} · {c.firstLeg}</span></div>
           <div className="course-sizing-metrics">
             <article><Sailboat size={16} /><div><small>{c.boatClass}</small><strong>{boatClass}</strong></div></article>
-            <article><Compass size={16} /><div><small>{c.wind}</small><strong>{Math.round(sizing.windSpeed)} nd</strong></div></article>
+            <article><Compass size={16} /><div><small>{c.wind}</small><strong>{Math.round(sizing.windSpeed)} {t('windUnit')}</strong></div></article>
             <article><Ruler size={16} /><div><small>{c.range}</small><strong>{sizing.minNm.toFixed(2).replace('.', ',')}–{sizing.maxNm.toFixed(2).replace('.', ',')} NM</strong></div></article>
-            <article><Compass size={16} /><div><small>{c.vmg}</small><strong>{sizing.estimatedVmg.toFixed(1).replace('.', ',')} nd</strong></div></article>
+            <article><Compass size={16} /><div><small>{c.vmg}</small><strong>{sizing.estimatedVmg.toFixed(1).replace('.', ',')} {t('windUnit')}</strong></div></article>
           </div>
           <p>{c.target} <strong>{sizing.targetMinutes} {c.minutes}</strong> {c.targetEnd} {c.notes[courseType]}</p>
           <small className="course-sizing-disclaimer">{c.disclaimer}</small>
