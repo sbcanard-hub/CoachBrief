@@ -7,6 +7,8 @@ import type { LiveWeatherData } from '../weather'
 import { ExpressReading } from '../components/ExpressReading'
 import { WindShiftRhythm } from '../components/WindShiftRhythm'
 import { StartLineAnalysis } from '../components/StartLineAnalysis'
+import { IntelligentBriefing } from '../components/IntelligentBriefing'
+import type { IntelligentBriefing as IntelligentBriefingData } from '../intelligentBriefing'
 import './startMode.css'
 
 type Props = {
@@ -16,6 +18,7 @@ type Props = {
   rows: BernotRow[]
   advice: StartModeAdvice
   observation: CoachObservationSignal
+  intelligentBriefing: IntelligentBriefingData
   onBack: () => void
   onReadingsChange: (readings: NonNullable<BriefingRequest['expressReadings']>) => void
   onRequestChange: (request: BriefingRequest) => void
@@ -38,7 +41,7 @@ function remainingLabel(request: BriefingRequest | null, now: Date) {
   return hours ? `${hours} h ${String(rest).padStart(2, '0')}` : `${rest} min`
 }
 
-export function StartMode({ request, weather, scenario, rows, advice, observation, onBack, onReadingsChange, onRequestChange }: Props) {
+export function StartMode({ request, weather, scenario, rows, advice, observation, intelligentBriefing, onBack, onReadingsChange, onRequestChange }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     document.body.classList.add('start-mode-open')
@@ -87,6 +90,7 @@ export function StartMode({ request, weather, scenario, rows, advice, observatio
     </section>
 
     <section className="start-plan" aria-labelledby="start-plan-title"><h2 id="start-plan-title">Plan de départ</h2><ol>{advice.plan.slice(0, 4).map((item, index) => <li key={`${index}-${item}`}><span>{index + 1}</span><strong>{item}</strong></li>)}</ol></section>
+    <IntelligentBriefing briefing={intelligentBriefing} compact />
     <button className="start-back-bottom" type="button" onClick={onBack}><ArrowLeft size={20} /> Retour au briefing</button>
   </main>
 }
