@@ -8,17 +8,31 @@ import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
 import { usePreferences } from './preferences'
 import { LocalizedDocument } from './components/LocalizedDocument'
+import { SimilarSituations } from './components/SimilarSituations'
+import type { BriefingRequest } from './types'
+import { useEffect, useState } from 'react'
+import { fetchWeatherForBriefing } from './weather'
 
 function ResultsRoute() {
   const location = useLocation()
+  const request = location.state as BriefingRequest | null
+  const [memoryWeather, setMemoryWeather] = useState<Awaited<ReturnType<typeof fetchWeatherForBriefing>> | null>(null)
   const startMode = new URLSearchParams(location.search).get('mode') === 'depart'
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0)
   }, [location.key])
 
+  useEffect(() => {
+    let active = true
+    if (!request) return
+    fetchWeatherForBriefing(request).then((weather) => { if (active) setMemoryWeather(weather) }).catch(() => { if (active) setMemoryWeather(null) })
+    return () => { active = false }
+  }, [request])
+
   return <>
     {!startMode && <WindModelComparisonPanel />}
+    {!startMode && request && <SimilarSituations request={request} weather={memoryWeather} />}
     {!startMode && <SiteLearningPanel />}
     <ResultsPage />
   </>
@@ -34,6 +48,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/resultats" element={<ResultsRoute />} />
         <Route path="/briefings" element={<SavedBriefingsPage />} />
+        <Route path="/historique-plan-eau" element={<SavedBriefingsPage />} />
       </Routes>
       <footer><span>CoachBrief © 2026</span><span>{t('footer')}</span></footer>
     </div>
