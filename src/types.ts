@@ -4,6 +4,19 @@ export type StartLineBias = 'Comité' | 'Neutre' | 'Pin'
 export type FinishOrientation = 'Sous le vent' | 'Travers' | 'Au vent'
 export type WeatherModelKey = 'best_match' | 'meteofrance_arome_france' | 'ecmwf_ifs' | 'icon_eu' | 'ncep_gfs_global'
 
+export type ExpressReading = {
+  id: string
+  recordedAt: string
+  windSpeed: string
+  windDirection: string
+  gust: string
+  currentSpeed: string
+  currentDirection: string
+  pressure: string
+  cloudCover: string
+  notes: string
+}
+
 export type BriefingRequest = {
   location: string
   latitude: string
@@ -32,4 +45,6 @@ export type BriefingRequest = {
   observedCloudCover: string
   observedPressure: string
   observationNotes: string
+  /** Chronological on-water readings. The forecast remains stored separately. */
+  expressReadings?: ExpressReading[]
 }
