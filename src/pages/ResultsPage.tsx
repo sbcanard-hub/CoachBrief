@@ -5,13 +5,14 @@ import {
 } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations, buildStartModeAdvice } from '../bernot'
-import { applyCalibrationToWeather, calibrationConfidence, calibrationForSituation } from '../calibration'
+import type { BernotRow, CoachRecommendation, WeatherScenario } from '../bernot'
+import { applyCalibrationToWeather, calibrationForSituation } from '../calibration'
 import { CourseSizingPanel } from '../components/CourseSizingPanel'
 import { ExpressReading } from '../components/ExpressReading'
 import { WindShiftRhythm } from '../components/WindShiftRhythm'
 import { RecommendedTrajectory } from '../components/RecommendedTrajectory'
 import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
-import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
+import { fetchMetarCache, observationForStation, signedDirectionDelta } from '../metar'
 import type { MetarCache, MetarObservation } from '../metar'
 import { buildCoachObservationSignal, observationImpactLabel } from '../observations'
 import { loadSavedBriefings, updateSavedBriefingRequest } from '../savedBriefings'
@@ -19,7 +20,7 @@ import { fetchWeatherForBriefing } from '../weather'
 import type { LiveWeatherData, WeatherHour } from '../weather'
 import type { BriefingRequest } from '../types'
 import './resultsCalibration.css'
-import { usePreferences } from '../preferences'
+import { usePreferences, type Language } from '../preferences'
 import { StartMode } from './StartMode'
 import { StartLineAnalysis } from '../components/StartLineAnalysis'
 import { IntelligentBriefing } from '../components/IntelligentBriefing'
@@ -86,15 +87,42 @@ function closestCurrentModelHour(hours: WeatherHour[]) {
   }
   return distance <= 90 ? closest : null
 }
-function metarWindLabel(observation: MetarObservation) {
+function metarWindLabel(observation: MetarObservation, gustLabel: string) {
   const direction = observation.variableWind ? 'VRB' : observation.windDirection == null ? '—' : formatDegrees(observation.windDirection)
   const speed = observation.windSpeed == null ? '—' : `${observation.windSpeed} nd`
-  const gust = observation.gust == null ? '' : ` · raf. ${observation.gust}`
+  const gust = observation.gust == null ? '' : ` · ${gustLabel} ${observation.gust}`
   return `${direction} · ${speed}${gust}`
 }
 function signed(value: number, unit: string) {
   const rounded = Math.round(value)
   return `${rounded > 0 ? '+' : ''}${rounded}${unit}`
+}
+
+const bernotNames: Record<Language, Record<string, string>> = {
+  fr: { Vent: 'Vent', Courant: 'Courant', Vagues: 'Vagues', 'Relief / côte': 'Relief / côte', Nuages: 'Nuages', Parcours: 'Parcours', Adversaires: 'Adversaires', Gauche: 'Gauche', 'Centre G.': 'Centre G.', Centre: 'Centre', 'Centre D.': 'Centre D.', Droite: 'Droite' },
+  en: { Vent: 'Wind', Courant: 'Current', Vagues: 'Waves', 'Relief / côte': 'Terrain / coast', Nuages: 'Clouds', Parcours: 'Course', Adversaires: 'Competitors', Gauche: 'Left', 'Centre G.': 'Centre-left', Centre: 'Centre', 'Centre D.': 'Centre-right', Droite: 'Right' },
+  it: { Vent: 'Vento', Courant: 'Corrente', Vagues: 'Onde', 'Relief / côte': 'Rilievo / costa', Nuages: 'Nuvole', Parcours: 'Percorso', Adversaires: 'Avversari', Gauche: 'Sinistra', 'Centre G.': 'Centro-sinistra', Centre: 'Centro', 'Centre D.': 'Centro-destra', Droite: 'Destra' },
+  es: { Vent: 'Viento', Courant: 'Corriente', Vagues: 'Olas', 'Relief / côte': 'Relieve / costa', Nuages: 'Nubes', Parcours: 'Recorrido', Adversaires: 'Rivales', Gauche: 'Izquierda', 'Centre G.': 'Centro-izquierda', Centre: 'Centro', 'Centre D.': 'Centro-derecha', Droite: 'Derecha' },
+}
+
+function localizedBernotRows(rows: BernotRow[], language: Language, weather: WeatherScenario, request: BriefingRequest): BernotRow[] {
+  if (language === 'fr') return rows
+  const notes: Record<Exclude<Language, 'fr'>, Record<string, string>> = {
+    en: { Vent: `Model trend from ${Math.round(weather.windStart)}° to ${Math.round(weather.windEnd)}°; estimated oscillation ±${weather.oscillation}°.`, Courant: 'Use measured or model current and check its cross-course component.', Vagues: 'Sea state affects speed, control and the chosen tack.', 'Relief / côte': `Confirm local coastal and terrain effects at ${request.location}.`, Nuages: `${Math.round(weather.cloudCover)}% cloud cover; monitor pressure changes.`, Parcours: `Course axis ${request.courseAxis || '—'}° and windward-mark offset ${request.windwardOffset || 0}°.`, Adversaires: 'Keep clear air and account for fleet density.' },
+    it: { Vent: `Tendenza da ${Math.round(weather.windStart)}° a ${Math.round(weather.windEnd)}°; oscillazione stimata ±${weather.oscillation}°.`, Courant: 'Usa la corrente rilevata o prevista e controlla la componente trasversale.', Vagues: 'Lo stato del mare influenza velocità, controllo e bordo scelto.', 'Relief / côte': `Conferma gli effetti locali di costa e rilievo a ${request.location}.`, Nuages: `Nuvolosità ${Math.round(weather.cloudCover)}%; controlla le variazioni di pressione.`, Parcours: `Asse ${request.courseAxis || '—'}° e scarto della boa al vento ${request.windwardOffset || 0}°.`, Adversaires: 'Mantieni aria libera e considera la densità della flotta.' },
+    es: { Vent: `Tendencia de ${Math.round(weather.windStart)}° a ${Math.round(weather.windEnd)}°; oscilación estimada ±${weather.oscillation}°.`, Courant: 'Usa la corriente observada o prevista y comprueba su componente transversal.', Vagues: 'El estado del mar afecta a la velocidad, el control y el bordo elegido.', 'Relief / côte': `Confirma los efectos locales de costa y relieve en ${request.location}.`, Nuages: `${Math.round(weather.cloudCover)}% de nubosidad; vigila los cambios de presión.`, Parcours: `Eje ${request.courseAxis || '—'}° y desvío de la boya de barlovento ${request.windwardOffset || 0}°.`, Adversaires: 'Mantén viento libre y considera la densidad de la flota.' },
+  }
+  return rows.map((row) => ({ ...row, factor: bernotNames[language][row.factor] || row.factor, note: notes[language][row.factor] || row.note }))
+}
+
+function localizedRecommendations(items: CoachRecommendation[], language: Language): CoachRecommendation[] {
+  if (language === 'fr') return items
+  const copy = {
+    en: [{ title: 'Read the overall wind trend', text: 'Keep a route that benefits from the modelled rotation without committing to an edge too early.', why: 'The broad trend gives the strategy; on-water shifts determine the timing.' }, { title: 'Protect the start exit', text: 'Balance the favoured end with speed, traffic and the route to the intended side.', why: 'A small line advantage can be lost immediately in disturbed air or without an exit lane.' }, { title: 'Confirm the priority on the water', text: 'Compare the first readings with the model and keep an alternative route available.', why: 'Local effects can alter timing, strength and direction at short range.' }],
+    it: [{ title: 'Leggere la tendenza generale', text: 'Mantieni una rotta che sfrutti la rotazione prevista senza chiuderti troppo presto su un bordo.', why: 'La tendenza generale indica la strategia; le rotazioni reali determinano il momento.' }, { title: 'Proteggere l’uscita dalla partenza', text: 'Bilancia l’estremità favorita con velocità, traffico e rotta verso il lato scelto.', why: 'Un piccolo vantaggio di linea si perde subito in aria sporca o senza via di uscita.' }, { title: 'Confermare la priorità in acqua', text: 'Confronta i primi rilievi con il modello e mantieni una rotta alternativa.', why: 'Gli effetti locali possono modificare rapidamente tempi, intensità e direzione.' }],
+    es: [{ title: 'Leer la tendencia general', text: 'Mantén una ruta que aproveche la rotación prevista sin cerrarte demasiado pronto en un extremo.', why: 'La tendencia general orienta la estrategia; los roles reales determinan el momento.' }, { title: 'Proteger la salida de la línea', text: 'Equilibra el extremo favorecido con velocidad, tráfico y ruta hacia el lado elegido.', why: 'Una pequeña ventaja de línea se pierde enseguida con viento sucio o sin vía de escape.' }, { title: 'Confirmar la prioridad en el agua', text: 'Compara las primeras lecturas con el modelo y mantén una ruta alternativa.', why: 'Los efectos locales pueden modificar rápidamente el momento, la fuerza y la dirección.' }],
+  }[language]
+  return items.map((_, index) => copy[Math.min(index, copy.length - 1)])
 }
 export function ResultsPage() {
   const { language, locale, temperature, pressure, distance, length, t } = usePreferences()
@@ -176,15 +204,23 @@ export function ResultsPage() {
   const finishOrientation = request?.finishOrientation === 'Au vent' ? t('windward') : request?.finishOrientation === 'Travers' ? t('beamReach') : t('leeward')
   const localCalibrationMatch = calibrationForSituation(savedBriefings, request, liveWeather)
   const localCalibration = localCalibrationMatch?.calibration ?? null
+  const localCalibrationConfidence = localCalibration ? ({
+    fr: localCalibration.sampleCount >= 6 ? 'bonne confiance' : localCalibration.sampleCount >= 3 ? 'confiance moyenne' : 'premiers retours',
+    en: localCalibration.sampleCount >= 6 ? 'good confidence' : localCalibration.sampleCount >= 3 ? 'medium confidence' : 'early feedback',
+    it: localCalibration.sampleCount >= 6 ? 'buona affidabilità' : localCalibration.sampleCount >= 3 ? 'affidabilità media' : 'primi riscontri',
+    es: localCalibration.sampleCount >= 6 ? 'buena confianza' : localCalibration.sampleCount >= 3 ? 'confianza media' : 'primeros datos',
+  }[language]) : ''
   const correctedPreview = liveWeather && localCalibration ? applyCalibrationToWeather(liveWeather, localCalibration) : null
   const effectiveWeather = useLocalCalibration && correctedPreview ? correctedPreview : liveWeather
   const coachObservation = buildCoachObservationSignal(request, effectiveWeather)
-  const bernotRows = buildBernotRows(request, effectiveWeather?.scenario, coachObservation)
+  const rawBernotRows = buildBernotRows(request, effectiveWeather?.scenario, coachObservation)
   const tacticalWeather = effectiveWeather?.scenario ?? {
     windStart: 80, windEnd: 110, oscillation: 8, raceWindSpeed: 11,
     maxWindSpeed: 14, cloudCover: 25, waveHeight: 0.6,
   }
-  const recommendations = buildCoachRecommendations(request, effectiveWeather?.scenario, coachObservation)
+  const rawRecommendations = buildCoachRecommendations(request, effectiveWeather?.scenario, coachObservation)
+  const bernotRows = localizedBernotRows(rawBernotRows, language, tacticalWeather, request)
+  const recommendations = localizedRecommendations(rawRecommendations, language)
   const forecast = effectiveWeather?.hourly.length ? effectiveWeather.hourly : mockHourlyForecast
   const raceWeather = effectiveWeather?.race ?? { speed: 11, gust: 15, direction: 80, temperature: 20, humidity: 62, dewPoint: 14, pressure: 1018, cloudCover: 25 }
   const marine = effectiveWeather?.marine
@@ -203,8 +239,8 @@ export function ResultsPage() {
   const windRotation = effectiveWeather ? signedDirectionDelta(effectiveWeather.scenario.windStart, effectiveWeather.scenario.windEnd) : 30
   const windRotationLabel = Math.abs(windRotation) < 2 ? t('stable') : `${windRotation > 0 ? t('right') : t('left')} · ${signed(windRotation, '°')}`
   const startMode = new URLSearchParams(locationState.search).get('mode') === 'depart'
-  const tacticalCoherence = buildTacticalCoherence(request, tacticalWeather, bernotRows, savedBriefings)
-  const startAdvice = buildStartModeAdvice(request, tacticalWeather, bernotRows, tacticalCoherence)
+  const tacticalCoherence = buildTacticalCoherence(request, tacticalWeather, rawBernotRows, savedBriefings)
+  const startAdvice = buildStartModeAdvice(request, tacticalWeather, rawBernotRows, tacticalCoherence)
   const intelligentBriefing = buildIntelligentBriefing({ request, scenario: tacticalWeather, rows: bernotRows, observation: coachObservation, savedBriefings, localCorrectionApplied: useLocalCalibration, language, formatLength: (metres) => length(metres, 0), coherence: tacticalCoherence })
 
   function updateExpressReadings(readings: NonNullable<BriefingRequest['expressReadings']>) {
@@ -274,8 +310,8 @@ export function ResultsPage() {
 
       {localCalibration && localCalibrationMatch && <section className={`local-calibration-suggestion${useLocalCalibration ? ' is-applied' : ''}`} aria-labelledby="local-calibration-title">
         <div className="local-calibration-copy">
-          <div className="local-calibration-heading"><h2 id="local-calibration-title">{t('localCorrectionSuggested')}</h2><span>{calibrationConfidence(localCalibration.sampleCount)}</span></div>
-          <p><strong>{localCalibrationMatch.situationLabel}</strong> · {localCalibrationMatch.scope === 'situation' ? t('comparableRacesUsed', { count: localCalibrationMatch.situationSampleCount }) : t('globalHistoryFallback', { count: localCalibrationMatch.situationSampleCount, label: localCalibration.label })} {t('modelCalibrationSummary', { speed: calibrationSpeedText(localCalibration.meanSpeedBias), direction: calibrationDirectionText(localCalibration.meanDirectionBias) })}</p>
+          <div className="local-calibration-heading"><h2 id="local-calibration-title">{t('localCorrectionSuggested')}</h2><span>{localCalibrationConfidence}</span></div>
+          <p><strong>{language === 'fr' ? localCalibrationMatch.situationLabel : request.location}</strong> · {localCalibrationMatch.scope === 'situation' ? t('comparableRacesUsed', { count: localCalibrationMatch.situationSampleCount }) : t('globalHistoryFallback', { count: localCalibrationMatch.situationSampleCount, label: localCalibration.label })} {t('modelCalibrationSummary', { speed: calibrationSpeedText(localCalibration.meanSpeedBias), direction: calibrationDirectionText(localCalibration.meanDirectionBias) })}</p>
           <div className="local-calibration-metrics">
             <span>{t('speedBias')} <strong>{localCalibration.meanSpeedBias == null ? '—' : `${localCalibration.meanSpeedBias >= 0 ? '+' : ''}${formatDecimal(localCalibration.meanSpeedBias)} nd`}</strong></span>
             <span>{t('directionBias')} <strong>{localCalibration.meanDirectionBias == null ? '—' : `${localCalibration.meanDirectionBias >= 0 ? '+' : ''}${Math.round(localCalibration.meanDirectionBias)}°`}</strong></span>
@@ -292,7 +328,7 @@ export function ResultsPage() {
       {coachObservation.hasObservation && <section className="coach-observation" aria-labelledby="coach-observation-title">
         <div className="coach-observation-heading">
           <div><Radio size={18} /><div><span className="step-label">{t('yourReading')}</span><h2 id="coach-observation-title">{t('coachObservation')}</h2></div></div>
-          <strong>{observationImpactLabel(coachObservation)}</strong>
+          <strong>{language === 'fr' ? observationImpactLabel(coachObservation) : Math.abs(coachObservation.windSpeedDelta ?? 0) >= 4 || Math.abs(coachObservation.windDirectionDelta ?? 0) >= 20 ? ({ en: 'Significant field/model difference', it: 'Scarto importante campo/modello', es: 'Diferencia importante campo/modelo' }[language]) : Math.abs(coachObservation.windSpeedDelta ?? 0) >= 2 || Math.abs(coachObservation.windDirectionDelta ?? 0) >= 10 ? ({ en: 'Field/model difference to monitor', it: 'Scarto campo/modello da monitorare', es: 'Diferencia campo/modelo por vigilar' }[language]) : ({ en: 'Field reading close to model', it: 'Rilievo vicino al modello', es: 'Lectura cercana al modelo' }[language])}</strong>
         </div>
         <div className="coach-observation-grid">
           <article><small>{t('time')}</small><strong>{coachObservation.observationTime || '—'}</strong>{coachObservation.modelHour && <span>{t('comparedModel')} : {coachObservation.modelHour.time}</span>}</article>
@@ -311,7 +347,7 @@ export function ResultsPage() {
       {localSources.length > 0 && <section className="local-sources" aria-labelledby="local-sources-title">
         <div className="local-sources-heading">
           <div><Radio size={18} /><div><span className="step-label">{t('externalObservations')}</span><h2 id="local-sources-title">{t('nearbyMetarStations')}</h2></div></div>
-          <small>{metarState === 'loading' ? t('loadingObservations') : metarState === 'unavailable' ? t('metarUnavailable') : `Cache : ${formatMetarGeneratedAt(metarCache?.generatedAt ?? null)}`}</small>
+          <small>{metarState === 'loading' ? t('loadingObservations') : metarState === 'unavailable' ? t('metarUnavailable') : `Cache: ${metarCache?.generatedAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(metarCache.generatedAt)) : t('unavailable')}`}</small>
         </div>
         <div className="local-source-grid">{localSources.map((source) => {
           const observation = observationForStation(metarCache, source.id)
@@ -322,7 +358,7 @@ export function ResultsPage() {
             <div className="local-source-title"><strong>{source.id}</strong><span>{source.name}</span></div>
             <small>{distance(source.distance)} {t('fromSailingArea')}{observation?.reportTime ? ` · ${observation.reportTime}` : ''}</small>
             {observation ? <>
-              <div className="metar-reading"><span>{t('observedWind')}</span><strong>{metarWindLabel(observation)}</strong></div>
+              <div className="metar-reading"><span>{t('observedWind')}</span><strong>{metarWindLabel(observation, t('gust').toLowerCase())}</strong></div>
               <div className="metar-secondary">
                 <span>{observation.temperature == null ? 'T° —' : temperature(observation.temperature)}</span>
                 <span>{observation.pressure == null ? 'QNH —' : pressure(observation.pressure)}</span>
@@ -352,7 +388,7 @@ export function ResultsPage() {
       <CourseSizingPanel boatClass={boatClass} courseType={courseType} windSpeed={raceWeather.speed} latitude={sourceLatitude} longitude={sourceLongitude} courseAxis={courseAxisValue} windwardOffset={windwardOffsetValue} />
 
       <section className="brief-section" aria-labelledby="evolution-title"><div className="section-heading"><div><span className="section-number">01</span><div><span className="step-label">{t('raceWindow')}</span><h2 id="evolution-title">{t('hourlyEvolution')}</h2></div></div><div className="legend"><span className="legend-average" /> {t('averageWind')} <span className="legend-gust" /> {t('gusts')}</div></div>
-        <div className="forecast-scroll" tabIndex={0} aria-label={t('hourlyForecast')}><div className="forecast-table" style={{ gridTemplateColumns: `repeat(${forecast.length}, minmax(130px, 1fr))` }}>{forecast.map((hour) => { const race = isRaceHour(hour.time, raceTime); return <article className={`forecast-hour${race ? ' is-race' : ''}`} key={hour.time}><div className="forecast-time">{hour.time}{race && <span>{t('race')}</span>}</div><Navigation className="direction-arrow" size={27} aria-hidden="true" style={{ transform: `rotate(${hour.direction - 45}deg)` }} /><strong className="hour-speed">{Math.round(hour.speed)}<small> nds</small></strong><span className="hour-gust">raf. {Math.round(hour.gust)}</span><span className="hour-direction">{formatDegrees(hour.direction)} · {directionLabel(hour.direction)}</span><span className="hour-temperature">{Math.round(hour.temperature)}°</span></article> })}</div></div>
+        <div className="forecast-scroll" tabIndex={0} aria-label={t('hourlyForecast')}><div className="forecast-table" style={{ gridTemplateColumns: `repeat(${forecast.length}, minmax(130px, 1fr))` }}>{forecast.map((hour) => { const race = isRaceHour(hour.time, raceTime); return <article className={`forecast-hour${race ? ' is-race' : ''}`} key={hour.time}><div className="forecast-time">{hour.time}{race && <span>{t('race')}</span>}</div><Navigation className="direction-arrow" size={27} aria-hidden="true" style={{ transform: `rotate(${hour.direction - 45}deg)` }} /><strong className="hour-speed">{Math.round(hour.speed)}<small> nd</small></strong><span className="hour-gust">{t('gust').toLowerCase()} {Math.round(hour.gust)}</span><span className="hour-direction">{formatDegrees(hour.direction)} · {directionLabel(hour.direction)}</span><span className="hour-temperature">{Math.round(hour.temperature)}°</span></article> })}</div></div>
       </section>
 
       <section className="dynamics-grid" aria-label={t('windAndSeaDynamics')}>
@@ -360,7 +396,7 @@ export function ResultsPage() {
         <article className="detail-panel sea-panel"><div className="panel-icon"><Waves /></div><div><span className="step-label">{t('sailingArea')}</span><h2>{t('seaState')}</h2></div><div className="sea-measure"><strong>{marine?.waveHeight == null ? '—' : length(marine.waveHeight)} {''}</strong><span>{marine?.waveDirection == null ? t('marineUnavailable') : t('wavesFrom', { direction: formatDegrees(marine.waveDirection) })}<br />{marine?.wavePeriod == null ? '' : t('periodSeconds', { value: marine.wavePeriod.toFixed(1).replace('.', ',') })}</span></div><div className="metric-line"><span>{t('modelCurrent')}</span><strong>{marine?.currentVelocity == null ? '—' : `${marine.currentVelocity.toFixed(1).replace('.', ',')} nd · ${formatDegrees(marine.currentDirection ?? 0)}`}</strong></div><p>{t('marineDisclaimer')}</p></article>
       </section>
 
-      <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">{t('waterReading')}</span><h2 id="bernot-title">{t('bernot')}</h2></div></div><span className="bernot-help">{t('dynamicPriorityHelp')}</span></div><div className="bernot-scroll" tabIndex={0} aria-label={t('bernotTable')}><div className="bernot-board"><div className="bernot-head factor-head">{t('factor')}</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}{bernotRows.map((row) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>{row.zone === column ? <><span className="zone-marker">●</span><small>{t('trend')}</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">{t('bernotNote')}{useLocalCalibration ? ` ${t('historical')}` : ''}</p></section>
+      <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">{t('waterReading')}</span><h2 id="bernot-title">{t('bernot')}</h2></div></div><span className="bernot-help">{t('dynamicPriorityHelp')}</span></div><div className="bernot-scroll" tabIndex={0} aria-label={t('bernotTable')}><div className="bernot-board"><div className="bernot-head factor-head">{t('factor')}</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{bernotNames[language][column] || column}</div>)}{bernotRows.map((row, rowIndex) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${rawBernotRows[rowIndex]?.zone === column ? ' is-selected' : ''}`} key={column}>{rawBernotRows[rowIndex]?.zone === column ? <><span className="zone-marker">●</span><small>{t('trend')}</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">{t('bernotNote')}{useLocalCalibration ? ` ${t('historical')}` : ''}</p></section>
 
       <AnalysisCoherence coherence={tacticalCoherence} />
 

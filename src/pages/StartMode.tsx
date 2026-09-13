@@ -47,7 +47,7 @@ function remainingLabel(request: BriefingRequest | null, now: Date, t: (key: Tra
 }
 
 export function StartMode({ request, weather, scenario, rows, advice, observation, intelligentBriefing, coherence, onBack, onReadingsChange, onRequestChange }: Props) {
-  const { t } = usePreferences()
+  const { t, language } = usePreferences()
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     document.body.classList.add('start-mode-open')
@@ -61,6 +61,19 @@ export function StartMode({ request, weather, scenario, rows, advice, observatio
   const lineBias = request?.startLineBias === 'Pin' ? 'Pin' : request?.startLineBias === 'Comité' ? t('committee') : t('neutral')
   const offset = Number(request?.windwardOffset)
   const top = rows[0]
+  const topFactor = ({ fr: { Vent: 'Vent', Courant: 'Courant', Vagues: 'Vagues', 'Relief / côte': 'Relief / côte', Nuages: 'Nuages', Parcours: 'Parcours', Adversaires: 'Adversaires' }, en: { Vent: 'Wind', Courant: 'Current', Vagues: 'Waves', 'Relief / côte': 'Terrain / coast', Nuages: 'Clouds', Parcours: 'Course', Adversaires: 'Competitors' }, it: { Vent: 'Vento', Courant: 'Corrente', Vagues: 'Onde', 'Relief / côte': 'Rilievo / costa', Nuages: 'Nuvole', Parcours: 'Percorso', Adversaires: 'Avversari' }, es: { Vent: 'Viento', Courant: 'Corriente', Vagues: 'Olas', 'Relief / côte': 'Relieve / costa', Nuages: 'Nubes', Parcours: 'Recorrido', Adversaires: 'Rivales' } }[language] as Record<string, string>)[top.factor] || top.factor
+  const side = coherence.preferredSide
+  const sideLabel = side === 'right' ? t('right').toLowerCase() : side === 'left' ? t('left').toLowerCase() : t('neutral').toLowerCase()
+  const localizedAdvice = language === 'fr' ? advice : {
+    preferredSide: side === 'neutral' ? ({ en: 'Speed and a clear lane first', it: 'Priorità a velocità e spazio libero', es: 'Prioridad a velocidad y calle libre' }[language]) : `${language === 'en' ? 'Preferred side' : language === 'it' ? 'Lato preferito' : 'Lado preferente'}: ${sideLabel}`,
+    firstLeg: side === 'neutral' ? ({ en: 'Keep the first leg open', it: 'Mantieni aperta la prima bolina', es: 'Mantén abierto el primer tramo' }[language]) : `${language === 'en' ? 'Leg towards' : language === 'it' ? 'Bordo verso' : 'Tramo hacia'} ${sideLabel}`,
+    mainRisk: scenario.maxWindSpeed - scenario.raceWindSpeed >= 4 ? ({ en: 'Gusts and loss of control', it: 'Raffiche e perdita di controllo', es: 'Rachas y pérdida de control' }[language]) : scenario.oscillation >= 12 ? ({ en: 'Getting trapped by one shift', it: 'Restare chiusi su una rotazione', es: 'Quedar encerrado por un role' }[language]) : ({ en: 'No clear exit from the line', it: 'Uscita dalla linea senza spazio libero', es: 'Salida de línea sin calle libre' }[language]),
+    plan: [
+      ({ en: 'Start with speed and a clear exit lane', it: 'Partire con velocità e una via di uscita libera', es: 'Salir con velocidad y una vía de escape libre' }[language]),
+      side === 'neutral' ? ({ en: 'Keep both sides available on the first leg', it: 'Mantieni disponibili entrambi i lati sulla prima bolina', es: 'Mantén disponibles ambos lados en el primer tramo' }[language]) : `${language === 'en' ? 'Keep an option towards' : language === 'it' ? 'Mantieni un’opzione verso' : 'Mantén una opción hacia'} ${sideLabel}`,
+      scenario.oscillation >= 10 ? ({ en: 'Watch the first confirmed shift', it: 'Controlla la prima rotazione confermata', es: 'Vigila el primer role confirmado' }[language]) : ({ en: 'Watch pressure and clear air', it: 'Controlla pressione e aria libera', es: 'Vigila la presión y el viento libre' }[language]),
+    ],
+  }
 
   return <main className="start-mode" aria-labelledby="start-mode-title">
     <header className="start-mode-header">
@@ -90,14 +103,14 @@ export function StartMode({ request, weather, scenario, rows, advice, observatio
     </section>
 
     <section className="start-decisions" aria-label={t('tacticalDecisions')}>
-      <article><small>Bernot · {t('preferredSide')}</small><strong>{advice.preferredSide}</strong><span>{t('topStack')} : {top.factor}</span></article>
-      <article><small>{t('firstLeg')}</small><strong>{advice.firstLeg}</strong></article>
-      <article className="is-risk"><small>{t('mainRisk')}</small><strong>{advice.mainRisk}</strong></article>
+      <article><small>Bernot · {t('preferredSide')}</small><strong>{localizedAdvice.preferredSide}</strong><span>{t('topStack')} : {topFactor}</span></article>
+      <article><small>{t('firstLeg')}</small><strong>{localizedAdvice.firstLeg}</strong></article>
+      <article className="is-risk"><small>{t('mainRisk')}</small><strong>{localizedAdvice.mainRisk}</strong></article>
     </section>
 
     <AnalysisCoherence coherence={coherence} compact />
 
-    <section className="start-plan" aria-labelledby="start-plan-title"><h2 id="start-plan-title">{t('startPlan')}</h2><ol>{advice.plan.slice(0, 4).map((item, index) => <li key={`${index}-${item}`}><span>{index + 1}</span><strong>{item}</strong></li>)}</ol></section>
+    <section className="start-plan" aria-labelledby="start-plan-title"><h2 id="start-plan-title">{t('startPlan')}</h2><ol>{localizedAdvice.plan.slice(0, 4).map((item, index) => <li key={`${index}-${item}`}><span>{index + 1}</span><strong>{item}</strong></li>)}</ol></section>
     <IntelligentBriefing briefing={intelligentBriefing} compact />
     <button className="start-back-bottom" type="button" onClick={onBack}><ArrowLeft size={20} /> {t('backToBriefing')}</button>
   </main>

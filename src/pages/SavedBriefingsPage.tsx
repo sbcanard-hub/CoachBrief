@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Cloud, Copy, Download, FileUp, FolderOpen, Gauge, HardDrive, MapPin, Navigation, Radio, Sailboat, Save, Trash2, Waves, Wind, ClipboardCheck } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { buildPlanCalibrations, buildSourceReliabilities, calibrationConfidence, signedAngleDelta } from '../calibration'
+import { buildPlanCalibrations, buildSourceReliabilities, signedAngleDelta } from '../calibration'
 import {
   briefingToJson,
   deleteSavedBriefing,
@@ -21,7 +21,14 @@ import { exportPortableCoachBriefData } from '../portableData'
 import './savedBriefings.css'
 import { isSameWater } from '../localMemory'
 import type { BriefingRequest } from '../types'
-import { usePreferences } from '../preferences'
+import { usePreferences, type Language } from '../preferences'
+
+const detailCopy = {
+  fr: { merged: 'Briefings locaux et cloud réunis', noCloud: 'Aucun briefing cloud pour ce compte', cloudUnavailable: 'Cloud indisponible. Vos briefings locaux restent accessibles.', deletedBoth: 'Briefing supprimé localement et dans le cloud', deletedLocalOnly: 'Briefing supprimé localement, mais pas dans le cloud', deleted: 'Briefing supprimé', realitySaved: 'Réalité enregistrée pour', imported: 'importé', importFail: 'Import impossible', learning: 'Apprentissage local', calibration: 'Calibration par plan d’eau', calibrationIntro: 'Écart entre la prévision sauvegardée et la réalité saisie après la manche. Positif en direction = réalité plus à droite que le modèle.', races: 'manche(s) terminée(s)', speedBias: 'Biais moyen force', directionBias: 'Biais moyen direction', meanError: 'erreur abs. moy.', speedTimeline: 'Écart de force · chronologie', directionTimeline: 'Écart de direction · chronologie', chartEmpty: 'Pas assez de valeurs', fallback: 'Cette calibration générale sert de repli lorsqu’il n’y a pas encore assez de manches dans le même secteur et la même plage de force.', sourceQuality: 'Qualité des sources', reliability: 'Fiabilité modèle / METAR / coach', reliabilityIntro: 'L’erreur absolue moyenne est calculée face à la réalité post-course. Pour le METAR, l’instantané correspond au rapport disponible au moment de la sauvegarde.', comparisons: 'comparaison(s)', noComparison: 'Pas encore de comparaison', speedError: 'Erreur force', directionError: 'Erreur direction', bias: 'Biais', metarNew: 'Les nouveaux briefings sauvegardés capturent désormais le METAR proche.', savedList: 'Briefings enregistrés', saved: 'Sauvegardé', noVenue: 'Lieu non renseigné', noDate: 'Sans date', noWeather: 'Instantané météo indisponible', savedCourse: 'Parcours sauvegardé', automatic: 'Tracé automatique', points: 'points', axis: 'axe', recalculated: 'Le tracé sera recalculé à l’ouverture.', historyFlow: 'Prévision → METAR → terrain → réalité', forecast: 'Prévision sauvegardée', noSnapshot: 'Pas d’instantané météo', savedMetar: 'METAR sauvegardé', notCaptured: 'Non capturé', nextSaves: 'Disponible sur les prochaines sauvegardes', beforeStart: 'Relevé avant départ', reading: 'relevé', noCoach: 'Pas de relevé coach', raceReality: 'Réalité de la manche', toEnter: 'À renseigner', entered: 'saisie', after: 'Après la course', observed: 'Conditions observées', pressure: 'pression', clouds: 'nébulosité', current: 'courant', sea: 'mer', finalGap: 'Écart final au modèle', coachFeedback: 'Retour coach', enterAfter: 'À saisir après la course', wind: 'Vent', direction: 'Direction', gust: 'Rafale', waves: 'Vagues', currentDir: 'Dir. courant', airTemp: 'Temp. air', waterTemp: 'Temp. eau', raceFeedback: 'Retour de manche', placeholder: 'ex. droite plus forte que prévu, rotation plus tardive, clapot court au centre…', saveReality: 'Enregistrer la réalité', cancel: 'Annuler', neutral: 'quasi neutre', right: 'droite', left: 'gauche' },
+  en: { merged: 'Local and cloud briefings merged', noCloud: 'No cloud briefing for this account', cloudUnavailable: 'Cloud unavailable. Your local briefings remain accessible.', deletedBoth: 'Briefing deleted locally and from the cloud', deletedLocalOnly: 'Briefing deleted locally, but not from the cloud', deleted: 'Briefing deleted', realitySaved: 'Actual data saved for', imported: 'imported', importFail: 'Import failed', learning: 'Local learning', calibration: 'Calibration by sailing area', calibrationIntro: 'Difference between the saved forecast and post-race actual data. A positive direction value means the actual wind was farther right than the model.', races: 'completed race(s)', speedBias: 'Mean speed bias', directionBias: 'Mean direction bias', meanError: 'mean abs. error', speedTimeline: 'Speed difference · timeline', directionTimeline: 'Direction difference · timeline', chartEmpty: 'Not enough values', fallback: 'This general calibration is used as a fallback until enough races exist in the same wind sector and speed range.', sourceQuality: 'Source quality', reliability: 'Model / METAR / coach reliability', reliabilityIntro: 'Mean absolute error is calculated against post-race reality. For METAR, the snapshot is the report available when the briefing was saved.', comparisons: 'comparison(s)', noComparison: 'No comparison yet', speedError: 'Speed error', directionError: 'Direction error', bias: 'Bias', metarNew: 'Newly saved briefings now capture the nearby METAR.', savedList: 'Saved briefings', saved: 'Saved', noVenue: 'Venue not entered', noDate: 'No date', noWeather: 'Weather snapshot unavailable', savedCourse: 'Saved course', automatic: 'Automatic layout', points: 'points', axis: 'axis', recalculated: 'The layout will be recalculated when opened.', historyFlow: 'Forecast → METAR → field → actual', forecast: 'Saved forecast', noSnapshot: 'No weather snapshot', savedMetar: 'Saved METAR', notCaptured: 'Not captured', nextSaves: 'Available in future saves', beforeStart: 'Pre-start reading', reading: 'reading', noCoach: 'No coach reading', raceReality: 'Race actual data', toEnter: 'To be entered', entered: 'entered', after: 'After the race', observed: 'Observed conditions', pressure: 'pressure', clouds: 'cloud cover', current: 'current', sea: 'sea', finalGap: 'Final difference from model', coachFeedback: 'Coach feedback', enterAfter: 'Enter after the race', wind: 'Wind', direction: 'Direction', gust: 'Gust', waves: 'Waves', currentDir: 'Current dir.', airTemp: 'Air temp.', waterTemp: 'Water temp.', raceFeedback: 'Race feedback', placeholder: 'e.g. right stronger than expected, later rotation, short chop in the centre…', saveReality: 'Save actual data', cancel: 'Cancel', neutral: 'nearly neutral', right: 'right', left: 'left' },
+  it: { merged: 'Briefing locali e cloud riuniti', noCloud: 'Nessun briefing cloud per questo account', cloudUnavailable: 'Cloud non disponibile. I briefing locali restano accessibili.', deletedBoth: 'Briefing eliminato localmente e dal cloud', deletedLocalOnly: 'Briefing eliminato localmente, ma non dal cloud', deleted: 'Briefing eliminato', realitySaved: 'Dati reali salvati per', imported: 'importato', importFail: 'Importazione non riuscita', learning: 'Apprendimento locale', calibration: 'Calibrazione per campo di regata', calibrationIntro: 'Differenza tra previsione salvata e dati reali post-regata. Un valore positivo di direzione indica che il vento reale era più a destra del modello.', races: 'prove concluse', speedBias: 'Bias medio intensità', directionBias: 'Bias medio direzione', meanError: 'errore ass. medio', speedTimeline: 'Scarto intensità · cronologia', directionTimeline: 'Scarto direzione · cronologia', chartEmpty: 'Valori insufficienti', fallback: 'Questa calibrazione generale viene usata finché non ci sono abbastanza prove nello stesso settore e intervallo di vento.', sourceQuality: 'Qualità delle fonti', reliability: 'Affidabilità modello / METAR / coach', reliabilityIntro: 'L’errore assoluto medio è calcolato rispetto ai dati reali post-regata. Per METAR, l’istantanea è il rapporto disponibile al salvataggio.', comparisons: 'confronto/i', noComparison: 'Nessun confronto', speedError: 'Errore intensità', directionError: 'Errore direzione', bias: 'Bias', metarNew: 'I nuovi briefing salvati acquisiscono ora il METAR vicino.', savedList: 'Briefing salvati', saved: 'Salvato', noVenue: 'Luogo non inserito', noDate: 'Senza data', noWeather: 'Istantanea meteo non disponibile', savedCourse: 'Percorso salvato', automatic: 'Tracciato automatico', points: 'punti', axis: 'asse', recalculated: 'Il tracciato verrà ricalcolato all’apertura.', historyFlow: 'Previsione → METAR → campo → realtà', forecast: 'Previsione salvata', noSnapshot: 'Nessuna istantanea meteo', savedMetar: 'METAR salvato', notCaptured: 'Non acquisito', nextSaves: 'Disponibile nei prossimi salvataggi', beforeStart: 'Rilievo pre-partenza', reading: 'rilievo', noCoach: 'Nessun rilievo coach', raceReality: 'Dati reali della prova', toEnter: 'Da inserire', entered: 'inserito', after: 'Dopo la prova', observed: 'Condizioni osservate', pressure: 'pressione', clouds: 'nuvolosità', current: 'corrente', sea: 'mare', finalGap: 'Scarto finale dal modello', coachFeedback: 'Commento coach', enterAfter: 'Da inserire dopo la prova', wind: 'Vento', direction: 'Direzione', gust: 'Raffica', waves: 'Onde', currentDir: 'Dir. corrente', airTemp: 'Temp. aria', waterTemp: 'Temp. acqua', raceFeedback: 'Commento sulla prova', placeholder: 'es. destra più forte del previsto, rotazione più tardiva, onda corta al centro…', saveReality: 'Salva dati reali', cancel: 'Annulla', neutral: 'quasi neutra', right: 'destra', left: 'sinistra' },
+  es: { merged: 'Briefings locales y de la nube combinados', noCloud: 'No hay briefings en la nube para esta cuenta', cloudUnavailable: 'Nube no disponible. Tus briefings locales siguen accesibles.', deletedBoth: 'Briefing eliminado localmente y de la nube', deletedLocalOnly: 'Briefing eliminado localmente, pero no de la nube', deleted: 'Briefing eliminado', realitySaved: 'Datos reales guardados para', imported: 'importado', importFail: 'No se pudo importar', learning: 'Aprendizaje local', calibration: 'Calibración por campo de regatas', calibrationIntro: 'Diferencia entre la previsión guardada y los datos reales posteriores. Un valor positivo en dirección significa que el viento real estaba más a la derecha que el modelo.', races: 'prueba(s) terminada(s)', speedBias: 'Sesgo medio de fuerza', directionBias: 'Sesgo medio de dirección', meanError: 'error abs. medio', speedTimeline: 'Diferencia de fuerza · cronología', directionTimeline: 'Diferencia de dirección · cronología', chartEmpty: 'Valores insuficientes', fallback: 'Esta calibración general se utiliza hasta que haya suficientes pruebas en el mismo sector y rango de viento.', sourceQuality: 'Calidad de las fuentes', reliability: 'Fiabilidad modelo / METAR / entrenador', reliabilityIntro: 'El error absoluto medio se calcula frente a los datos reales posteriores. Para METAR, la instantánea corresponde al informe disponible al guardar.', comparisons: 'comparación(es)', noComparison: 'Todavía sin comparación', speedError: 'Error de fuerza', directionError: 'Error de dirección', bias: 'Sesgo', metarNew: 'Los nuevos briefings guardados capturan ahora el METAR cercano.', savedList: 'Briefings guardados', saved: 'Guardado', noVenue: 'Lugar no indicado', noDate: 'Sin fecha', noWeather: 'Instantánea meteorológica no disponible', savedCourse: 'Recorrido guardado', automatic: 'Trazado automático', points: 'puntos', axis: 'eje', recalculated: 'El trazado se recalculará al abrirlo.', historyFlow: 'Previsión → METAR → campo → realidad', forecast: 'Previsión guardada', noSnapshot: 'Sin instantánea meteorológica', savedMetar: 'METAR guardado', notCaptured: 'No capturado', nextSaves: 'Disponible en próximas copias', beforeStart: 'Lectura antes de la salida', reading: 'lectura', noCoach: 'Sin lectura del entrenador', raceReality: 'Datos reales de la prueba', toEnter: 'Por introducir', entered: 'introducido', after: 'Después de la prueba', observed: 'Condiciones observadas', pressure: 'presión', clouds: 'nubosidad', current: 'corriente', sea: 'mar', finalGap: 'Diferencia final con el modelo', coachFeedback: 'Comentario del entrenador', enterAfter: 'Introducir después de la prueba', wind: 'Viento', direction: 'Dirección', gust: 'Racha', waves: 'Olas', currentDir: 'Dir. corriente', airTemp: 'Temp. aire', waterTemp: 'Temp. agua', raceFeedback: 'Comentario de la prueba', placeholder: 'p. ej., derecha más fuerte de lo previsto, rotación más tardía, ola corta en el centro…', saveReality: 'Guardar datos reales', cancel: 'Cancelar', neutral: 'casi neutro', right: 'derecha', left: 'izquierda' },
+} as const
 
 const libraryCopy = {
   fr: { library: 'Bibliothèque locale et cloud', history: 'Historique du plan d’eau', mine: 'Mes briefings', historyIntro: 'Anciens briefings, conditions observées, écarts et tendances récurrentes. Les autres plans d’eau sont exclus.', intro: 'Retrouvez vos régates sauvegardées sur cet appareil et dans votre espace Firebase privé.', import: 'Importer un briefing', cloudLoading: 'Chargement des briefings cloud…', empty: 'Aucun briefing enregistré', emptyHelp: 'Préparez une régate puis utilisez « Enregistrer » dans l’en-tête du briefing.', open: 'Ouvrir', duplicate: 'Dupliquer', addReality: 'Ajouter réalité', editReality: 'Modifier réalité', export: 'Exporter', remove: 'Supprimer', removeConfirm: (name: string) => `Supprimer « ${name} » ?` },
@@ -64,13 +71,14 @@ function downloadBriefing(item: SavedBriefing) {
   URL.revokeObjectURL(url)
 }
 
-function windSummary(speed: string | number | null | undefined, direction: string | number | null | undefined) {
+function windSummary(speed: string | number | null | undefined, direction: string | number | null | undefined, language: Language) {
   const speedValue = Number(speed)
   const directionValue = Number(direction)
   const hasSpeed = speed !== '' && speed != null && Number.isFinite(speedValue)
   const hasDirection = direction !== '' && direction != null && Number.isFinite(directionValue)
   if (!hasSpeed && !hasDirection) return '—'
-  return `${hasSpeed ? `${speedValue.toFixed(1).replace('.0', '')} nd` : 'vent —'} · ${hasDirection ? `${String(Math.round(directionValue)).padStart(3, '0')}°` : 'dir. —'}`
+  const wind = { fr: 'vent', en: 'wind', it: 'vento', es: 'viento' }[language]
+  return `${hasSpeed ? `${speedValue.toFixed(1).replace('.0', '')} nd` : `${wind} —`} · ${hasDirection ? `${String(Math.round(directionValue)).padStart(3, '0')}°` : 'dir. —'}`
 }
 
 function finalGap(item: SavedBriefing) {
@@ -91,14 +99,15 @@ function signedGap(value: number | null, unit: string) {
   return `${value > 0 ? '+' : ''}${rounded} ${unit}`
 }
 
-function directionBiasLabel(value: number | null) {
+function directionBiasLabel(value: number | null, language: Language) {
+  const c = detailCopy[language]
   if (value == null) return '—'
-  if (Math.abs(value) < 1) return 'quasi neutre'
-  return `${Math.abs(Math.round(value))}° vers la ${value > 0 ? 'droite' : 'gauche'}`
+  if (Math.abs(value) < 1) return c.neutral
+  return `${Math.abs(Math.round(value))}° → ${value > 0 ? c.right : c.left}`
 }
 
-function MiniGapChart({ values, unit, ariaLabel }: { values: number[]; unit: string; ariaLabel: string }) {
-  if (!values.length) return <div className="calibration-chart-empty">Pas assez de valeurs</div>
+function MiniGapChart({ values, unit, ariaLabel, empty }: { values: number[]; unit: string; ariaLabel: string; empty: string }) {
+  if (!values.length) return <div className="calibration-chart-empty">{empty}</div>
   const limit = Math.max(unit === 'nd' ? 3 : 15, ...values.map((value) => Math.abs(value)))
   const width = 260
   const height = 72
@@ -123,6 +132,7 @@ function MiniGapChart({ values, unit, ariaLabel }: { values: number[]; unit: str
 export function SavedBriefingsPage() {
   const { t, language, locale } = usePreferences()
   const c = libraryCopy[language]
+  const d = detailCopy[language]
   const navigate = useNavigate()
   const route = useLocation()
   const historyRequest = route.pathname === '/historique-plan-eau'
@@ -141,6 +151,18 @@ export function SavedBriefingsPage() {
   const visibleItems = useMemo(() => historyRequest ? items.filter((item) => isSameWater(item.request, historyRequest)) : items, [historyRequest, items])
   const calibrations = useMemo(() => buildPlanCalibrations(visibleItems), [visibleItems])
   const sourceReliabilities = useMemo(() => buildSourceReliabilities(visibleItems), [visibleItems])
+  const calibrationLevel = (count: number) => ({
+    fr: count >= 6 ? 'bonne confiance' : count >= 3 ? 'confiance moyenne' : 'premiers retours',
+    en: count >= 6 ? 'good confidence' : count >= 3 ? 'medium confidence' : 'early feedback',
+    it: count >= 6 ? 'buona affidabilità' : count >= 3 ? 'affidabilità media' : 'primi riscontri',
+    es: count >= 6 ? 'buena confianza' : count >= 3 ? 'confianza media' : 'primeros datos',
+  }[language])
+  const sourceName = (key: 'model' | 'metar' | 'coach') => ({
+    fr: { model: 'Modèle Open-Meteo', metar: 'METAR proche', coach: 'Relevé coach' },
+    en: { model: 'Open-Meteo model', metar: 'Nearby METAR', coach: 'Coach reading' },
+    it: { model: 'Modello Open-Meteo', metar: 'METAR vicino', coach: 'Rilievo coach' },
+    es: { model: 'Modelo Open-Meteo', metar: 'METAR cercano', coach: 'Lectura del entrenador' },
+  }[language][key])
 
   useEffect(() => onFirebaseAuthStateChanged((nextAccount) => {
     const requestId = ++cloudRequestRef.current
@@ -161,11 +183,11 @@ export function SavedBriefingsPage() {
       setLocalIds(new Set(local.map((item) => item.id)))
       setCloudIds(new Set(cloud.map((item) => item.id)))
       setItems(mergeSavedBriefings(local, cloud))
-      setStatus(snapshot ? 'Briefings locaux et cloud réunis' : 'Aucun briefing cloud pour ce compte')
+      setStatus(snapshot ? d.merged : d.noCloud)
     }).catch((error) => {
       if (requestId !== cloudRequestRef.current) return
       setItems(loadSavedBriefings())
-      setStatus(error instanceof Error ? `Cloud indisponible : ${error.message} Vos briefings locaux restent accessibles.` : 'Cloud indisponible. Vos briefings locaux restent accessibles.')
+      setStatus(error instanceof Error ? `${d.cloudUnavailable} ${error.message}` : d.cloudUnavailable)
     }).finally(() => {
       if (requestId === cloudRequestRef.current) setCloudLoading(false)
     })
@@ -211,17 +233,17 @@ export function SavedBriefingsPage() {
         const updatedAt = new Date().toISOString()
         await firebaseCloudAdapter.push({ revision: crypto.randomUUID(), updatedAt, bundle })
         deleteSavedBriefing(item.id)
-        setStatus('Briefing supprimé localement et dans le cloud')
+        setStatus(d.deletedBoth)
       } catch (error) {
         deleteSavedBriefing(item.id)
         setStatus(error instanceof Error
-          ? `Briefing supprimé localement, mais pas dans le cloud : ${error.message}`
-          : 'Briefing supprimé localement, mais la suppression cloud a échoué.')
+          ? `${d.deletedLocalOnly}: ${error.message}`
+          : d.deletedLocalOnly)
       }
       return
     }
     deleteSavedBriefing(item.id)
-    setStatus('Briefing supprimé')
+    setStatus(d.deleted)
   }
 
   function editReality(item: SavedBriefing) {
@@ -252,7 +274,7 @@ export function SavedBriefingsPage() {
     refreshLocalItems()
     setEditingRealityId(null)
     setRealityDraft(emptyReality)
-    setStatus(`Réalité enregistrée pour « ${item.name} »`)
+    setStatus(`${d.realitySaved} « ${item.name} »`)
   }
 
   async function importFile(file: File | undefined) {
@@ -260,9 +282,9 @@ export function SavedBriefingsPage() {
     try {
       const imported = importSavedBriefing(await file.text())
       refreshLocalItems()
-      setStatus(`« ${imported.name} » importé`)
+      setStatus(`« ${imported.name} » ${d.imported}`)
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Import impossible')
+      setStatus(error instanceof Error && language === 'fr' ? error.message : d.importFail)
     } finally {
       if (importRef.current) importRef.current.value = ''
     }
@@ -287,43 +309,43 @@ export function SavedBriefingsPage() {
 
       {calibrations.length > 0 && <section className="calibration-section" aria-labelledby="calibration-title">
         <div className="calibration-heading">
-          <div><span className="step-label">Apprentissage local</span><h2 id="calibration-title">Calibration par plan d’eau</h2></div>
-          <p>Écart entre la prévision sauvegardée et la réalité saisie après la manche. Positif en direction = réalité plus à droite que le modèle.</p>
+          <div><span className="step-label">{d.learning}</span><h2 id="calibration-title">{d.calibration}</h2></div>
+          <p>{d.calibrationIntro}</p>
         </div>
         <div className="calibration-grid">{calibrations.map((calibration) => {
           const speedValues = calibration.samples.flatMap((sample) => sample.speedGap == null ? [] : [sample.speedGap])
           const directionValues = calibration.samples.flatMap((sample) => sample.directionGap == null ? [] : [sample.directionGap])
           return <article className="calibration-card" key={calibration.key}>
-            <div className="calibration-card-heading"><div><strong>{calibration.label}</strong><span>{calibration.sampleCount} manche{calibration.sampleCount > 1 ? 's' : ''} terminée{calibration.sampleCount > 1 ? 's' : ''}</span></div><small>{calibrationConfidence(calibration.sampleCount)}</small></div>
+            <div className="calibration-card-heading"><div><strong>{calibration.label}</strong><span>{calibration.sampleCount} {d.races}</span></div><small>{calibrationLevel(calibration.sampleCount)}</small></div>
             <div className="calibration-metrics">
-              <div><small>Biais moyen force</small><strong>{signedGap(calibration.meanSpeedBias, 'nd')}</strong><span>erreur abs. moy. {calibration.meanAbsSpeedError == null ? '—' : `${calibration.meanAbsSpeedError.toFixed(1).replace('.0', '')} nd`}</span></div>
-              <div><small>Biais moyen direction</small><strong>{directionBiasLabel(calibration.meanDirectionBias)}</strong><span>erreur abs. moy. {calibration.meanAbsDirectionError == null ? '—' : `${Math.round(calibration.meanAbsDirectionError)}°`}</span></div>
+              <div><small>{d.speedBias}</small><strong>{signedGap(calibration.meanSpeedBias, 'nd')}</strong><span>{d.meanError} {calibration.meanAbsSpeedError == null ? '—' : `${calibration.meanAbsSpeedError.toFixed(1).replace('.0', '')} nd`}</span></div>
+              <div><small>{d.directionBias}</small><strong>{directionBiasLabel(calibration.meanDirectionBias, language)}</strong><span>{d.meanError} {calibration.meanAbsDirectionError == null ? '—' : `${Math.round(calibration.meanAbsDirectionError)}°`}</span></div>
             </div>
             <div className="calibration-charts">
-              <div><small>Écart de force · chronologie</small><MiniGapChart values={speedValues} unit="nd" ariaLabel={`Écarts de force à ${calibration.label}`} /></div>
-              <div><small>Écart de direction · chronologie</small><MiniGapChart values={directionValues} unit="°" ariaLabel={`Écarts de direction à ${calibration.label}`} /></div>
+              <div><small>{d.speedTimeline}</small><MiniGapChart values={speedValues} unit="nd" ariaLabel={`${d.speedTimeline} ${calibration.label}`} empty={d.chartEmpty} /></div>
+              <div><small>{d.directionTimeline}</small><MiniGapChart values={directionValues} unit="°" ariaLabel={`${d.directionTimeline} ${calibration.label}`} empty={d.chartEmpty} /></div>
             </div>
-            <p className="calibration-note">Cette calibration générale sert de repli lorsqu’il n’y a pas encore assez de manches dans le même secteur et la même plage de force.</p>
+            <p className="calibration-note">{d.fallback}</p>
           </article>
         })}</div>
       </section>}
 
       {sourceReliabilities.length > 0 && <section className="source-reliability-section" aria-labelledby="source-reliability-title">
         <div className="calibration-heading">
-          <div><span className="step-label">Qualité des sources</span><h2 id="source-reliability-title">Fiabilité modèle / METAR / coach</h2></div>
-          <p>L’erreur absolue moyenne est calculée face à la réalité post-course. Pour le METAR, l’instantané correspond au rapport disponible au moment où le briefing a été sauvegardé.</p>
+          <div><span className="step-label">{d.sourceQuality}</span><h2 id="source-reliability-title">{d.reliability}</h2></div>
+          <p>{d.reliabilityIntro}</p>
         </div>
         <div className="source-reliability-plans">{sourceReliabilities.map((entry) => <article className="source-reliability-plan" key={entry.key}>
           <div className="source-reliability-plan-title"><MapPin size={14} /><strong>{entry.label}</strong></div>
           <div className="source-reliability-grid">{entry.metrics.map((metric) => <div className={`source-reliability-card source-${metric.key}`} key={metric.key}>
-            <div className="source-reliability-name">{metric.key === 'metar' ? <Radio size={15} /> : metric.key === 'coach' ? <Gauge size={15} /> : <Wind size={15} />}<strong>{metric.label}</strong></div>
-            <span>{metric.sampleCount ? `${metric.sampleCount} comparaison${metric.sampleCount > 1 ? 's' : ''}` : 'Pas encore de comparaison'}</span>
+            <div className="source-reliability-name">{metric.key === 'metar' ? <Radio size={15} /> : metric.key === 'coach' ? <Gauge size={15} /> : <Wind size={15} />}<strong>{sourceName(metric.key)}</strong></div>
+            <span>{metric.sampleCount ? `${metric.sampleCount} ${d.comparisons}` : d.noComparison}</span>
             <div className="source-reliability-values">
-              <small>Erreur force <strong>{metric.meanAbsSpeedError == null ? '—' : `${metric.meanAbsSpeedError.toFixed(1).replace('.0', '')} nd`}</strong></small>
-              <small>Erreur direction <strong>{metric.meanAbsDirectionError == null ? '—' : `${Math.round(metric.meanAbsDirectionError)}°`}</strong></small>
+              <small>{d.speedError} <strong>{metric.meanAbsSpeedError == null ? '—' : `${metric.meanAbsSpeedError.toFixed(1).replace('.0', '')} nd`}</strong></small>
+              <small>{d.directionError} <strong>{metric.meanAbsDirectionError == null ? '—' : `${Math.round(metric.meanAbsDirectionError)}°`}</strong></small>
             </div>
-            {metric.sampleCount > 0 && <small className="source-reliability-bias">Biais : {signedGap(metric.meanSpeedBias, 'nd')} · {signedGap(metric.meanDirectionBias, '°')}</small>}
-            {metric.key === 'metar' && metric.sampleCount === 0 && <small className="source-reliability-bias">Les nouveaux briefings sauvegardés capturent désormais le METAR proche.</small>}
+            {metric.sampleCount > 0 && <small className="source-reliability-bias">{d.bias}: {signedGap(metric.meanSpeedBias, 'nd')} · {signedGap(metric.meanDirectionBias, '°')}</small>}
+            {metric.key === 'metar' && metric.sampleCount === 0 && <small className="source-reliability-bias">{d.metarNew}</small>}
           </div>)}</div>
         </article>)}</div>
       </section>}
@@ -335,60 +357,60 @@ export function SavedBriefingsPage() {
           <p>{c.emptyHelp}</p>
         </section>
       ) : (
-        <section className="saved-briefings-grid" aria-label="Briefings enregistrés">
+        <section className="saved-briefings-grid" aria-label={d.savedList}>
           {visibleItems.map((item) => {
             const raceWeather = item.weather?.race
             const gap = finalGap(item)
             const editingReality = editingRealityId === item.id
             return <article className="saved-briefing-card" key={item.id}>
               <div className="saved-briefing-heading">
-                <div><span className="step-label">Sauvegardé {formatSavedAt(item.savedAt, locale)}</span><h2>{item.name}</h2><span className={`saved-storage-badge storage-${storageLabel(item.id).toLowerCase().replaceAll(' ', '-').replace('+', 'and')}`}>{storageLabel(item.id) === 'Cloud' ? <Cloud size={11} /> : <HardDrive size={11} />}{storageLabel(item.id)}</span></div>
+                <div><span className="step-label">{d.saved} {formatSavedAt(item.savedAt, locale)}</span><h2>{item.name}</h2><span className={`saved-storage-badge storage-${storageLabel(item.id).toLowerCase().replaceAll(' ', '-').replace('+', 'and')}`}>{storageLabel(item.id) === 'Cloud' ? <Cloud size={11} /> : <HardDrive size={11} />}{storageLabel(item.id)}</span></div>
                 <span className="saved-course-badge">{item.request.courseType}</span>
               </div>
 
               <div className="saved-briefing-meta">
-                <span><MapPin size={14} /> {item.request.location || 'Lieu non renseigné'}</span>
-                <span><CalendarDays size={14} /> {item.request.date || 'Sans date'} · {item.request.raceTime || '—'}</span>
+                <span><MapPin size={14} /> {item.request.location || d.noVenue}</span>
+                <span><CalendarDays size={14} /> {item.request.date || d.noDate} · {item.request.raceTime || '—'}</span>
                 <span><Sailboat size={14} /> {item.request.boatClass}</span>
-                <span><Wind size={14} /> {raceWeather ? `${Math.round(raceWeather.speed)} nd · ${String(Math.round(raceWeather.direction)).padStart(3, '0')}°` : 'Instantané météo indisponible'}</span>
+                <span><Wind size={14} /> {raceWeather ? `${Math.round(raceWeather.speed)} nd · ${String(Math.round(raceWeather.direction)).padStart(3, '0')}°` : d.noWeather}</span>
               </div>
 
               <div className="saved-briefing-course">
-                <small>Parcours sauvegardé</small>
-                <strong>{item.course?.activeVariantName || 'Tracé automatique'}</strong>
-                <span>{item.course ? `${item.course.points.length} points · axe ${String(Math.round(item.course.bearing)).padStart(3, '0')}°` : 'Le tracé sera recalculé à l’ouverture.'}</span>
+                <small>{d.savedCourse}</small>
+                <strong>{item.course?.activeVariantName || d.automatic}</strong>
+                <span>{item.course ? `${item.course.points.length} ${d.points} · ${d.axis} ${String(Math.round(item.course.bearing)).padStart(3, '0')}°` : d.recalculated}</span>
               </div>
 
               <div className="history-block">
-                <div className="history-title"><Gauge size={15} /><strong>Prévision → METAR → terrain → réalité</strong></div>
+                <div className="history-title"><Gauge size={15} /><strong>{d.historyFlow}</strong></div>
                 <div className="history-grid">
-                  <article><small>Prévision sauvegardée</small><strong>{raceWeather ? windSummary(raceWeather.speed, raceWeather.direction) : '—'}</strong><span>{raceWeather ? `raf. ${Math.round(raceWeather.gust)} nd` : 'Pas d’instantané météo'}</span></article>
-                  <article><small>METAR sauvegardé</small><strong>{item.metar ? windSummary(item.metar.windSpeed, item.metar.windDirection) : 'Non capturé'}</strong><span>{item.metar ? `${item.metar.station} · ${Math.round(item.metar.distanceKm)} km${item.metar.reportTime ? ` · ${item.metar.reportTime}` : ''}` : 'Disponible sur les prochaines sauvegardes'}</span></article>
-                  <article><small>Relevé avant départ</small><strong>{windSummary(item.request.observedWindSpeed, item.request.observedWindDirection)}</strong><span>{item.request.observationTime ? `relevé ${item.request.observationTime}` : 'Pas de relevé coach'}</span></article>
-                  <article className={item.reality ? 'has-reality' : ''}><small>Réalité de la manche</small><strong>{item.reality ? windSummary(item.reality.windSpeed, item.reality.windDirection) : 'À renseigner'}</strong><span>{item.reality ? `saisie ${formatSavedAt(item.reality.recordedAt, locale)}` : 'Après la course'}</span></article>
+                  <article><small>{d.forecast}</small><strong>{raceWeather ? windSummary(raceWeather.speed, raceWeather.direction, language) : '—'}</strong><span>{raceWeather ? `${d.gust} ${Math.round(raceWeather.gust)} nd` : d.noSnapshot}</span></article>
+                  <article><small>{d.savedMetar}</small><strong>{item.metar ? windSummary(item.metar.windSpeed, item.metar.windDirection, language) : d.notCaptured}</strong><span>{item.metar ? `${item.metar.station} · ${Math.round(item.metar.distanceKm)} km${item.metar.reportTime ? ` · ${item.metar.reportTime}` : ''}` : d.nextSaves}</span></article>
+                  <article><small>{d.beforeStart}</small><strong>{windSummary(item.request.observedWindSpeed, item.request.observedWindDirection, language)}</strong><span>{item.request.observationTime ? `${d.reading} ${item.request.observationTime}` : d.noCoach}</span></article>
+                  <article className={item.reality ? 'has-reality' : ''}><small>{d.raceReality}</small><strong>{item.reality ? windSummary(item.reality.windSpeed, item.reality.windDirection, language) : d.toEnter}</strong><span>{item.reality ? `${d.entered} ${formatSavedAt(item.reality.recordedAt, locale)}` : d.after}</span></article>
                 </div>
-                {item.reality && <p className="history-note"><strong>Conditions observées :</strong> raf. {item.reality.gust || '—'} nd · pression {item.reality.pressure || '—'} hPa · nébulosité {item.reality.cloudCover || '—'} % · courant {item.reality.currentSpeed || '—'} nd / {item.reality.currentDirection || '—'}° · mer {item.reality.waveHeight || '—'} m · air/eau {item.reality.airTemperature || '—'} / {item.reality.waterTemperature || '—'} °C</p>}
-                {gap && <p className="history-gap">Écart final au modèle : {gap.speedGap == null ? '' : `${gap.speedGap >= 0 ? '+' : ''}${gap.speedGap.toFixed(1).replace('.0', '')} nd`}{gap.speedGap != null && gap.directionGap != null ? ' · ' : ''}{gap.directionGap == null ? '' : `${gap.directionGap >= 0 ? '+' : ''}${Math.round(gap.directionGap)}°`}</p>}
-                {item.reality?.notes && <p className="history-note"><strong>Retour coach :</strong> {item.reality.notes}</p>}
+                {item.reality && <p className="history-note"><strong>{d.observed}:</strong> {d.gust} {item.reality.gust || '—'} nd · {d.pressure} {item.reality.pressure || '—'} hPa · {d.clouds} {item.reality.cloudCover || '—'} % · {d.current} {item.reality.currentSpeed || '—'} nd / {item.reality.currentDirection || '—'}° · {d.sea} {item.reality.waveHeight || '—'} m · {d.airTemp}/{d.waterTemp} {item.reality.airTemperature || '—'} / {item.reality.waterTemperature || '—'} °C</p>}
+                {gap && <p className="history-gap">{d.finalGap}: {gap.speedGap == null ? '' : `${gap.speedGap >= 0 ? '+' : ''}${gap.speedGap.toFixed(1).replace('.0', '')} nd`}{gap.speedGap != null && gap.directionGap != null ? ' · ' : ''}{gap.directionGap == null ? '' : `${gap.directionGap >= 0 ? '+' : ''}${Math.round(gap.directionGap)}°`}</p>}
+                {item.reality?.notes && <p className="history-note"><strong>{d.coachFeedback}:</strong> {item.reality.notes}</p>}
                 {item.debrief && <p className="history-note"><strong>{t('raceDebrief')} :</strong> {item.debrief.validatedAt ? t('debriefMemoryAdded') : t('debriefDraft')}</p>}
               </div>
 
               {editingReality && <div className="reality-form">
-                <div className="reality-form-title"><strong>Réalité de la manche</strong><span>À saisir après la course</span></div>
+                <div className="reality-form-title"><strong>{d.raceReality}</strong><span>{d.enterAfter}</span></div>
                 <div className="reality-fields">
-                  <label><span><Wind size={13} /> Vent</span><div><input type="number" min="0" max="80" step="0.1" value={realityDraft.windSpeed} onChange={(event) => updateReality('windSpeed', event.target.value)} /><small>nd</small></div></label>
-                  <label><span><Navigation size={13} /> Direction</span><div><input type="number" min="0" max="359" step="1" value={realityDraft.windDirection} onChange={(event) => updateReality('windDirection', event.target.value)} /><small>°</small></div></label>
-                  <label><span><Wind size={13} /> Rafale</span><div><input type="number" min="0" max="100" step="0.1" value={realityDraft.gust} onChange={(event) => updateReality('gust', event.target.value)} /><small>nd</small></div></label>
-                  <label><span><Waves size={13} /> Vagues</span><div><input type="number" min="0" max="10" step="0.1" value={realityDraft.waveHeight} onChange={(event) => updateReality('waveHeight', event.target.value)} /><small>m</small></div></label>
-                  <label><span><Navigation size={13} /> Courant</span><div><input type="number" min="0" max="8" step="0.1" value={realityDraft.currentSpeed} onChange={(event) => updateReality('currentSpeed', event.target.value)} /><small>nd</small></div></label>
-                  <label><span><Navigation size={13} /> Dir. courant</span><div><input type="number" min="0" max="359" step="1" value={realityDraft.currentDirection} onChange={(event) => updateReality('currentDirection', event.target.value)} /><small>°</small></div></label>
-                  <label><span><Gauge size={13} /> Pression</span><div><input type="number" min="850" max="1100" step="1" value={realityDraft.pressure} onChange={(event) => updateReality('pressure', event.target.value)} /><small>hPa</small></div></label>
-                  <label><span><Cloud size={13} /> Nébulosité</span><div><input type="number" min="0" max="100" step="1" value={realityDraft.cloudCover} onChange={(event) => updateReality('cloudCover', event.target.value)} /><small>%</small></div></label>
-                  <label><span>Temp. air</span><div><input type="number" min="-30" max="60" step="0.1" value={realityDraft.airTemperature} onChange={(event) => updateReality('airTemperature', event.target.value)} /><small>°C</small></div></label>
-                  <label><span>Temp. eau</span><div><input type="number" min="-5" max="40" step="0.1" value={realityDraft.waterTemperature} onChange={(event) => updateReality('waterTemperature', event.target.value)} /><small>°C</small></div></label>
+                  <label><span><Wind size={13} /> {d.wind}</span><div><input type="number" min="0" max="80" step="0.1" value={realityDraft.windSpeed} onChange={(event) => updateReality('windSpeed', event.target.value)} /><small>nd</small></div></label>
+                  <label><span><Navigation size={13} /> {d.direction}</span><div><input type="number" min="0" max="359" step="1" value={realityDraft.windDirection} onChange={(event) => updateReality('windDirection', event.target.value)} /><small>°</small></div></label>
+                  <label><span><Wind size={13} /> {d.gust}</span><div><input type="number" min="0" max="100" step="0.1" value={realityDraft.gust} onChange={(event) => updateReality('gust', event.target.value)} /><small>nd</small></div></label>
+                  <label><span><Waves size={13} /> {d.waves}</span><div><input type="number" min="0" max="10" step="0.1" value={realityDraft.waveHeight} onChange={(event) => updateReality('waveHeight', event.target.value)} /><small>m</small></div></label>
+                  <label><span><Navigation size={13} /> {d.current}</span><div><input type="number" min="0" max="8" step="0.1" value={realityDraft.currentSpeed} onChange={(event) => updateReality('currentSpeed', event.target.value)} /><small>nd</small></div></label>
+                  <label><span><Navigation size={13} /> {d.currentDir}</span><div><input type="number" min="0" max="359" step="1" value={realityDraft.currentDirection} onChange={(event) => updateReality('currentDirection', event.target.value)} /><small>°</small></div></label>
+                  <label><span><Gauge size={13} /> {d.pressure}</span><div><input type="number" min="850" max="1100" step="1" value={realityDraft.pressure} onChange={(event) => updateReality('pressure', event.target.value)} /><small>hPa</small></div></label>
+                  <label><span><Cloud size={13} /> {d.clouds}</span><div><input type="number" min="0" max="100" step="1" value={realityDraft.cloudCover} onChange={(event) => updateReality('cloudCover', event.target.value)} /><small>%</small></div></label>
+                  <label><span>{d.airTemp}</span><div><input type="number" min="-30" max="60" step="0.1" value={realityDraft.airTemperature} onChange={(event) => updateReality('airTemperature', event.target.value)} /><small>°C</small></div></label>
+                  <label><span>{d.waterTemp}</span><div><input type="number" min="-5" max="40" step="0.1" value={realityDraft.waterTemperature} onChange={(event) => updateReality('waterTemperature', event.target.value)} /><small>°C</small></div></label>
                 </div>
-                <label className="reality-notes"><span>Retour de manche</span><textarea rows={3} value={realityDraft.notes} onChange={(event) => updateReality('notes', event.target.value)} placeholder="ex. droite plus forte que prévu, rotation plus tardive, clapot court au centre…" /></label>
-                <div className="reality-form-actions"><button type="button" className="primary" onClick={() => persistReality(item)}><Save size={14} /> Enregistrer la réalité</button><button type="button" onClick={() => setEditingRealityId(null)}>Annuler</button></div>
+                <label className="reality-notes"><span>{d.raceFeedback}</span><textarea rows={3} value={realityDraft.notes} onChange={(event) => updateReality('notes', event.target.value)} placeholder={d.placeholder} /></label>
+                <div className="reality-form-actions"><button type="button" className="primary" onClick={() => persistReality(item)}><Save size={14} /> {d.saveReality}</button><button type="button" onClick={() => setEditingRealityId(null)}>{d.cancel}</button></div>
               </div>}
 
               <div className="saved-briefing-actions">
