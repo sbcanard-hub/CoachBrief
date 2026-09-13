@@ -24,7 +24,7 @@ function numeric(value: string) { const result = Number(value); return value.tri
 function localTime(iso: string, locale: string) { return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(new Date(iso)) }
 
 export function ExpressReading({ request, weather, onChange }: Props) {
-  const { language, locale, units, pressure: formatPressure, pressureUnit } = usePreferences()
+  const { t, language, locale, units, pressure: formatPressure, pressureUnit } = usePreferences()
   const c = copy[language as Language]
   const [form, setForm] = useState(empty)
   const readings = request?.expressReadings ?? []
@@ -66,8 +66,8 @@ export function ExpressReading({ request, weather, onChange }: Props) {
 
   return <section className="express-reading" aria-labelledby="express-reading-title">
     <header><div className="express-icon"><Wind aria-hidden="true" /></div><div><span>{c.intro}</span><h2 id="express-reading-title">{c.title}</h2></div></header>
-    {latest && <div className="express-comparison" aria-live="polite"><div><Gauge /><h3>{c.gap}</h3></div><p className="source-separation"><b>{c.model}</b> {model ? `${model.speed.toFixed(1)} nd · ${Math.round(model.direction)}°` : '—'} <span>≠</span> <b>{c.actual}</b> {numeric(latest.windSpeed) ?? '—'} nd · {numeric(latest.windDirection) ?? '—'}°</p>{comparison && <ul>
-      {comparison.speed != null && <li>{c.realWind}: <strong>{comparison.speed >= 0 ? '+' : ''}{comparison.speed.toFixed(1).replace('.', ',')} nd</strong></li>}
+    {latest && <div className="express-comparison" aria-live="polite"><div><Gauge /><h3>{c.gap}</h3></div><p className="source-separation"><b>{c.model}</b> {model ? `${model.speed.toFixed(1)} ${t('windUnit')} · ${Math.round(model.direction)}°` : '—'} <span>≠</span> <b>{c.actual}</b> {numeric(latest.windSpeed) ?? '—'} {t('windUnit')} · {numeric(latest.windDirection) ?? '—'}°</p>{comparison && <ul>
+      {comparison.speed != null && <li>{c.realWind}: <strong>{comparison.speed >= 0 ? '+' : ''}{comparison.speed.toFixed(1).replace('.', ',')} {t('windUnit')}</strong></li>}
       {comparison.direction != null && <li>{c.direction}: <strong>{Math.abs(Math.round(comparison.direction))}° {comparison.direction >= 0 ? c.right : c.left}</strong></li>}
       {comparison.gust != null && <li>{c.gust}: <strong>{Math.abs(comparison.gust) < 1 ? c.similar : comparison.gust > 0 ? c.stronger : c.weaker}</strong></li>}
       {comparison.pressure != null && <li>{c.pressure}: <strong>{Math.abs(comparison.pressure) < 0.8 ? c.stable : comparison.pressure > 0 ? c.rising : c.falling}</strong>{pressureValue != null && <> · {formatPressure(pressureValue)}</>}</li>}
@@ -76,13 +76,13 @@ export function ExpressReading({ request, weather, onChange }: Props) {
       <summary>{c.enter}</summary>
       <form onSubmit={submit}>
       <div className="express-fields">
-        {input('windSpeed', c.wind, 'nd', 0)}{input('windDirection', c.direction, '°', 0, 360)}{input('gust', c.gust, 'nd', 0)}
-        {input('currentSpeed', c.current, 'nd', 0)}{input('currentDirection', c.currentDirection, '°', 0, 360)}{input('pressure', c.pressure, pressureUnit, 0)}{input('cloudCover', c.clouds, '%', 0, 100)}
+        {input('windSpeed', c.wind, t('windUnit'), 0)}{input('windDirection', c.direction, '°', 0, 360)}{input('gust', c.gust, t('windUnit'), 0)}
+        {input('currentSpeed', c.current, t('windUnit'), 0)}{input('currentDirection', c.currentDirection, '°', 0, 360)}{input('pressure', c.pressure, pressureUnit, 0)}{input('cloudCover', c.clouds, '%', 0, 100)}
         <label className="express-note"><span>{c.note}</span><input maxLength={100} value={form.notes} placeholder={c.placeholder} onChange={(event) => set('notes', event.target.value)} /></label>
       </div>
       <button className="express-add" type="submit"><Plus /> {c.add}</button>
       </form>
     </details>
-    <div className="express-history"><h3><CloudSun /> {c.latest}</h3>{readings.length === 0 ? <p>{c.empty}</p> : <ol>{[...readings].reverse().slice(0, 6).map((reading) => <li key={reading.id}><time dateTime={reading.recordedAt}>{localTime(reading.recordedAt, locale)}</time><span><b>{reading.windSpeed || '—'} nd</b> · {reading.windDirection || '—'}° · {c.gustShort} {reading.gust || '—'}{reading.notes && <small>{reading.notes}</small>}</span><button type="button" title={c.remove} aria-label={`${c.remove} ${c.at} ${localTime(reading.recordedAt, locale)}`} onClick={() => { if (window.confirm(c.removeConfirm)) onChange(readings.filter((item) => item.id !== reading.id)) }}><Trash2 /></button></li>)}</ol>}</div>
+    <div className="express-history"><h3><CloudSun /> {c.latest}</h3>{readings.length === 0 ? <p>{c.empty}</p> : <ol>{[...readings].reverse().slice(0, 6).map((reading) => <li key={reading.id}><time dateTime={reading.recordedAt}>{localTime(reading.recordedAt, locale)}</time><span><b>{reading.windSpeed || '—'} {t('windUnit')}</b> · {reading.windDirection || '—'}° · {c.gustShort} {reading.gust || '—'}{reading.notes && <small>{reading.notes}</small>}</span><button type="button" title={c.remove} aria-label={`${c.remove} ${c.at} ${localTime(reading.recordedAt, locale)}`} onClick={() => { if (window.confirm(c.removeConfirm)) onChange(readings.filter((item) => item.id !== reading.id)) }}><Trash2 /></button></li>)}</ol>}</div>
   </section>
 }
