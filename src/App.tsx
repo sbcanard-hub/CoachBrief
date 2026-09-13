@@ -6,6 +6,7 @@ import { WindModelComparisonPanel } from './components/WindModelComparisonPanel'
 import { HomePage } from './pages/HomePage'
 import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
+import { DebriefPage } from './pages/DebriefPage'
 import { usePreferences } from './preferences'
 import { LocalizedDocument } from './components/LocalizedDocument'
 import { SimilarSituations } from './components/SimilarSituations'
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/resultats" element={<ResultsRoute />} />
         <Route path="/briefings" element={<SavedBriefingsPage />} />
+        <Route path="/briefings/:id/debrief" element={<DebriefPage />} />
         <Route path="/historique-plan-eau" element={<SavedBriefingsPage />} />
       </Routes>
       <footer><span>CoachBrief © 2026</span><span>{t('footer')}</span></footer>

@@ -37,6 +37,32 @@ export type RaceReality = {
   notes: string
 }
 
+export type DebriefQuality = 'very-relevant' | 'relevant' | 'partly-relevant' | 'not-very-relevant'
+
+/** Post-race account attached to (and versioned with) its original briefing. */
+export type RaceDebrief = {
+  updatedAt: string
+  validatedAt?: string
+  actualStartTime: string
+  windSpeed: string
+  windDirection: string
+  gust: string
+  windEvolution: string
+  observedShifts: string
+  currentObserved: string
+  favouredLineSide: string
+  favouredCourseSide: string
+  winningTrajectory: string
+  strategyChange: string
+  seaConditions: string
+  keyEvents: string
+  coachNotes: string
+  actualRotation: string
+  actualOscillations: string
+  manualQuality: DebriefQuality | ''
+  manualAssessment: string
+}
+
 export type SavedMetarSnapshot = {
   capturedAt: string
   station: string
@@ -59,6 +85,7 @@ export type SavedBriefing = {
   weather: LiveWeatherData | null
   course: CourseSnapshot | null
   reality?: RaceReality | null
+  debrief?: RaceDebrief | null
   metar?: SavedMetarSnapshot | null
 }
 
@@ -101,7 +128,7 @@ function isCoachBriefDataBundle(value: unknown): value is CoachBriefDataBundle {
 }
 
 export function briefingModifiedAt(item: SavedBriefing) {
-  const candidates = [item.updatedAt, item.reality?.recordedAt, item.savedAt]
+  const candidates = [item.updatedAt, item.debrief?.updatedAt, item.reality?.recordedAt, item.savedAt]
     .filter((value): value is string => Boolean(value))
     .map((value) => new Date(value).getTime())
     .filter(Number.isFinite)
@@ -198,6 +225,37 @@ export function saveRaceReality(id: string, reality: Omit<RaceReality, 'recorded
     : item)
   persistSavedBriefings(next)
   return next.find((item) => item.id === id) ?? null
+}
+
+export function saveRaceDebrief(id: string, debrief: Omit<RaceDebrief, 'updatedAt' | 'validatedAt'>, validate = false) {
+  const items = loadSavedBriefings()
+  const now = new Date().toISOString()
+  const next = items.map((item): SavedBriefing => {
+    if (item.id !== id) return item
+    const savedDebrief: RaceDebrief = { ...clone(debrief), updatedAt: now, ...(validate ? { validatedAt: now } : {}) }
+    // Historical learning only consumes `reality`; an unvalidated draft therefore cannot affect it.
+    const reality: RaceReality | null = validate ? {
+      recordedAt: now,
+      windSpeed: debrief.windSpeed,
+      windDirection: debrief.windDirection,
+      gust: debrief.gust,
+      waveHeight: '',
+      currentSpeed: debrief.currentObserved,
+      currentDirection: '',
+      notes: [debrief.windEvolution, debrief.observedShifts, debrief.coachNotes].filter(Boolean).join(' · '),
+    } : null
+    return { ...item, updatedAt: now, debrief: savedDebrief, reality }
+  })
+  persistSavedBriefings(next)
+  return next.find((item) => item.id === id) ?? null
+}
+
+export function deleteRaceDebrief(id: string) {
+  const now = new Date().toISOString()
+  const next = loadSavedBriefings().map((item): SavedBriefing => item.id === id
+    ? { ...item, updatedAt: now, debrief: null, reality: null }
+    : item)
+  persistSavedBriefings(next)
 }
 
 export function saveExistingBriefing(item: SavedBriefing) {
