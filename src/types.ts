@@ -24,6 +24,9 @@ export type BriefingRequest = {
   committeeLatitude?: string
   committeeLongitude?: string
   committeeAccuracy?: string
+  pinLatitude?: string
+  pinLongitude?: string
+  pinAccuracy?: string
   weatherModel?: WeatherModelKey
   date: string
   startTime: string

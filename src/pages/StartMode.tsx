@@ -6,6 +6,7 @@ import type { BriefingRequest } from '../types'
 import type { LiveWeatherData } from '../weather'
 import { ExpressReading } from '../components/ExpressReading'
 import { WindShiftRhythm } from '../components/WindShiftRhythm'
+import { StartLineAnalysis } from '../components/StartLineAnalysis'
 import './startMode.css'
 
 type Props = {
@@ -17,6 +18,7 @@ type Props = {
   observation: CoachObservationSignal
   onBack: () => void
   onReadingsChange: (readings: NonNullable<BriefingRequest['expressReadings']>) => void
+  onRequestChange: (request: BriefingRequest) => void
 }
 
 function degrees(value: number) { return `${String(Math.round(value)).padStart(3, '0')}°` }
@@ -36,7 +38,7 @@ function remainingLabel(request: BriefingRequest | null, now: Date) {
   return hours ? `${hours} h ${String(rest).padStart(2, '0')}` : `${rest} min`
 }
 
-export function StartMode({ request, weather, scenario, rows, advice, observation, onBack, onReadingsChange }: Props) {
+export function StartMode({ request, weather, scenario, rows, advice, observation, onBack, onReadingsChange, onRequestChange }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     document.body.classList.add('start-mode-open')
@@ -64,6 +66,8 @@ export function StartMode({ request, weather, scenario, rows, advice, observatio
 
     <ExpressReading request={request} weather={weather} onChange={onReadingsChange} />
     <WindShiftRhythm readings={request?.expressReadings} />
+
+    <StartLineAnalysis request={request} windDirection={race?.direction ?? scenario.windStart} currentSpeed={currentSpeed} currentDirection={currentDirection} editable onChange={onRequestChange} />
 
     <section className="start-metrics" aria-label="Conditions tactiques essentielles">
       <article className="is-primary"><Wind /><small>Vent moyen</small><strong>{race ? Math.round(race.speed) : Math.round(scenario.raceWindSpeed)} <span>nd</span></strong></article>
