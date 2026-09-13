@@ -5,6 +5,7 @@ import type { CoachObservationSignal } from '../observations'
 import type { BriefingRequest } from '../types'
 import type { LiveWeatherData } from '../weather'
 import { ExpressReading } from '../components/ExpressReading'
+import { WindShiftRhythm } from '../components/WindShiftRhythm'
 import './startMode.css'
 
 type Props = {
@@ -62,6 +63,7 @@ export function StartMode({ request, weather, scenario, rows, advice, observatio
     </section>
 
     <ExpressReading request={request} weather={weather} onChange={onReadingsChange} />
+    <WindShiftRhythm readings={request?.expressReadings} />
 
     <section className="start-metrics" aria-label="Conditions tactiques essentielles">
       <article className="is-primary"><Wind /><small>Vent moyen</small><strong>{race ? Math.round(race.speed) : Math.round(scenario.raceWindSpeed)} <span>nd</span></strong></article>
