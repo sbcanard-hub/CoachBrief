@@ -8,6 +8,7 @@ import { bernotColumns, buildBernotRows, buildCoachRecommendations, buildStartMo
 import { applyCalibrationToWeather, calibrationConfidence, calibrationForSituation } from '../calibration'
 import { CourseSizingPanel } from '../components/CourseSizingPanel'
 import { ExpressReading } from '../components/ExpressReading'
+import { WindShiftRhythm } from '../components/WindShiftRhythm'
 import { RecommendedTrajectory } from '../components/RecommendedTrajectory'
 import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
 import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
@@ -228,6 +229,7 @@ export function ResultsPage() {
       </section>
 
       <ExpressReading request={request} weather={effectiveWeather} onChange={updateExpressReadings} />
+      <WindShiftRhythm readings={request?.expressReadings} />
 
       {localCalibration && localCalibrationMatch && <section className={`local-calibration-suggestion${useLocalCalibration ? ' is-applied' : ''}`} aria-labelledby="local-calibration-title">
         <div className="local-calibration-copy">
