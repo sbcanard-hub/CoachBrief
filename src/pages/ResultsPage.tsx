@@ -21,6 +21,7 @@ import type { BriefingRequest } from '../types'
 import './resultsCalibration.css'
 import { usePreferences } from '../preferences'
 import { StartMode } from './StartMode'
+import { StartLineAnalysis } from '../components/StartLineAnalysis'
 
 const mockHourlyForecast: WeatherHour[] = [
   { time: '09:00', speed: 7, gust: 10, direction: 45, temperature: 18 },
@@ -194,6 +195,11 @@ export function ResultsPage() {
     navigate(`${locationState.pathname}${locationState.search}`, { state: next, replace: true })
   }
 
+  function updateRequest(next: BriefingRequest) {
+    setRequest(next)
+    navigate(`${locationState.pathname}${locationState.search}`, { state: next, replace: true })
+  }
+
   if (startMode) return <StartMode
     request={request}
     weather={effectiveWeather}
@@ -202,6 +208,7 @@ export function ResultsPage() {
     advice={startAdvice}
     observation={coachObservation}
     onReadingsChange={updateExpressReadings}
+    onRequestChange={updateRequest}
     onBack={() => navigate('/resultats', { state: request, replace: true })}
   />
 
@@ -230,6 +237,8 @@ export function ResultsPage() {
 
       <ExpressReading request={request} weather={effectiveWeather} onChange={updateExpressReadings} />
       <WindShiftRhythm readings={request?.expressReadings} />
+
+      <StartLineAnalysis request={request} windDirection={raceWeather.direction} currentSpeed={coachObservation.currentVelocity ?? marine?.currentVelocity} currentDirection={coachObservation.currentDirection ?? marine?.currentDirection} />
 
       {localCalibration && localCalibrationMatch && <section className={`local-calibration-suggestion${useLocalCalibration ? ' is-applied' : ''}`} aria-labelledby="local-calibration-title">
         <div className="local-calibration-copy">
