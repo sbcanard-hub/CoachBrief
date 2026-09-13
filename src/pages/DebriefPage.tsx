@@ -10,12 +10,13 @@ type Draft = Omit<RaceDebrief, 'updatedAt' | 'validatedAt'>
 const emptyDraft: Draft = { actualStartTime: '', windSpeed: '', windDirection: '', gust: '', windEvolution: '', observedShifts: '', currentObserved: '', favouredLineSide: '', favouredCourseSide: '', winningTrajectory: '', strategyChange: '', seaConditions: '', keyEvents: '', coachNotes: '', actualRotation: '', actualOscillations: '', manualQuality: '', manualAssessment: '' }
 
 export function DebriefPage() {
-  const { id = '' } = useParams(); const navigate = useNavigate(); const { t } = usePreferences()
+  const { id = '' } = useParams(); const navigate = useNavigate(); const { t, language } = usePreferences()
   const [item, setItem] = useState(() => loadSavedBriefings().find((briefing) => briefing.id === id) ?? null)
   const [draft, setDraft] = useState<Draft>(() => item?.debrief ? { ...item.debrief, validatedAt: undefined, updatedAt: undefined } : emptyDraft)
   const [status, setStatus] = useState('')
   const preview = useMemo<RaceDebrief>(() => ({ ...draft, updatedAt: item?.debrief?.updatedAt ?? new Date().toISOString(), validatedAt: item?.debrief?.validatedAt }), [draft, item])
-  const comparisons = useMemo(() => item ? buildDebriefComparison(item, preview) : [], [item, preview])
+  const windUnit = { fr: 'nd', en: 'kt', it: 'nodi', es: 'nudos' }[language]
+  const comparisons = useMemo(() => item ? buildDebriefComparison(item, preview, windUnit) : [], [item, preview, windUnit])
   const automaticQuality = calculatedDebriefQuality(comparisons)
   const lessons = item ? extractLessons(item, preview) : []
   const update = (field: keyof Draft, value: string) => setDraft((current) => ({ ...current, [field]: value }))

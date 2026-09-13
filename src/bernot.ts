@@ -271,7 +271,7 @@ export function buildStartModeAdvice(
         : 'Sortie de ligne sans voie libre'
 
   return {
-    preferredSide: side ? `Côté ${side}` : neutral,
+    preferredSide: side ? `${side[0].toUpperCase()}${side.slice(1)}` : neutral,
     firstLeg,
     mainRisk,
     plan: [
