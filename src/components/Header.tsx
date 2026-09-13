@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookmarkPlus, Check, CircleHelp, FolderOpen, LoaderCircle, Menu, Printer, Sailboat, Settings, X } from 'lucide-react'
+import { BookmarkPlus, Check, CircleHelp, Flag, FolderOpen, LoaderCircle, Menu, Printer, Sailboat, Settings, X } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { sourceReliabilityForRequest } from '../calibration'
 import { nearbyMetarSources } from '../localSources'
@@ -22,6 +22,7 @@ import '../print.css'
 export function Header() {
   const location = useLocation()
   const request = location.pathname === '/resultats' ? location.state as BriefingRequest | null : null
+  const startMode = new URLSearchParams(location.search).get('mode') === 'depart'
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [menuOpen, setMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -115,6 +116,9 @@ export function Header() {
           ← Modifier le briefing
         </Link>}
         <Link to="/briefings"><FolderOpen size={15} /> <span>{t('briefings')}</span></Link>
+        {request && !startMode && <Link className="start-mode-button" to={{ pathname: '/resultats', search: '?mode=depart' }} state={request}>
+          <Flag size={15} /> <span>Mode Départ</span>
+        </Link>}
         {request && <button type="button" onClick={printCurrentBriefing} title="Imprimer la fiche ou l’enregistrer en PDF" aria-label="Imprimer le briefing ou l’enregistrer en PDF">
           <Printer size={15} /> <span>Imprimer / PDF</span>
         </button>}
