@@ -11,14 +11,15 @@ import { LocalizedDocument } from './components/LocalizedDocument'
 
 function ResultsRoute() {
   const location = useLocation()
+  const startMode = new URLSearchParams(location.search).get('mode') === 'depart'
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0)
   }, [location.key])
 
   return <>
-    <WindModelComparisonPanel />
-    <SiteLearningPanel />
+    {!startMode && <WindModelComparisonPanel />}
+    {!startMode && <SiteLearningPanel />}
     <ResultsPage />
   </>
 }

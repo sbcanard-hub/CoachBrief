@@ -31,6 +31,13 @@ export type CoachRecommendation = {
   why: string
 }
 
+export type StartModeAdvice = {
+  preferredSide: string
+  firstLeg: string
+  mainRisk: string
+  plan: string[]
+}
+
 export const mockWeatherScenario: WeatherScenario = {
   windStart: 80,
   windEnd: 110,
@@ -233,4 +240,41 @@ export function buildCoachRecommendations(
   return observationRecommendation
     ? [observationRecommendation, windRecommendation, lineRecommendation]
     : [windRecommendation, lineRecommendation, geometryRecommendation]
+}
+
+/** A short, deterministic reading of the already-ranked Bernot stacks. */
+export function buildStartModeAdvice(
+  request: BriefingRequest | null,
+  weather: WeatherScenario = mockWeatherScenario,
+  rows = buildBernotRows(request, weather),
+): StartModeAdvice {
+  const zoneValue: Record<BernotZone, number> = { Gauche: -2, 'Centre G.': -1, Centre: 0, 'Centre D.': 1, Droite: 2 }
+  const tacticalRows = rows.filter((row) => row.factor !== 'Adversaires')
+  const weighted = tacticalRows.reduce((total, row) => total + zoneValue[row.zone] * (8 - row.priority), 0)
+  const directionalSupport = tacticalRows.filter((row) => zoneValue[row.zone] !== 0)
+  const side = Math.abs(weighted) >= 8 && directionalSupport.length >= 2 ? (weighted > 0 ? 'droite' : 'gauche') : null
+  const lineBias = request?.startLineBias
+  const line = lineBias === 'Pin' ? 'près du pin' : lineBias === 'Comité' ? 'près du comité' : 'dans une zone dégagée de la ligne'
+  const rotation = signedAngleDelta(weather.windStart, weather.windEnd)
+  const firstLeg = side ? `Bord vers la ${side}` : Math.abs(rotation) > 5 ? `Rester libre vers la ${rotation > 0 ? 'droite' : 'gauche'}` : 'Bord libre, priorité à la vitesse'
+  const neutral = 'Priorité à la vitesse et à une voie libre'
+  const mainRisk = weather.maxWindSpeed - weather.raceWindSpeed >= 4
+    ? 'Rafales et perte de contrôle'
+    : weather.oscillation >= 12
+      ? 'S’enfermer sur une oscillation'
+      : lineBias && lineBias !== 'Neutre'
+        ? `Trafic à l’extrémité ${lineBias}`
+        : 'Sortie de ligne sans voie libre'
+
+  return {
+    preferredSide: side ? `Côté ${side}` : neutral,
+    firstLeg,
+    mainRisk,
+    plan: [
+      lineBias && lineBias !== 'Neutre' ? `Se placer ${line}, sans sacrifier la vitesse` : neutral,
+      side || Math.abs(rotation) > 5 ? `Premier bord : ${firstLeg.toLowerCase()}` : neutral,
+      side ? `Viser la zone ${side}, avec une porte de sortie` : neutral,
+      weather.oscillation >= 10 ? 'Surveiller la première oscillation' : weather.maxWindSpeed > weather.raceWindSpeed + 2 ? 'Surveiller l’arrivée des rafales' : 'Surveiller l’air libre et la vitesse',
+    ],
+  }
 }

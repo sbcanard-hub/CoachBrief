@@ -3,8 +3,8 @@ import {
   ArrowDownRight, ArrowUpRight, CalendarDays, ChevronDown, Clock3, CloudSun, Compass,
   Droplets, ExternalLink, Flag, Gauge, HelpCircle, Navigation, Radio, Sailboat, Thermometer, Waves, Wind,
 } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
-import { bernotColumns, buildBernotRows, buildCoachRecommendations } from '../bernot'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { bernotColumns, buildBernotRows, buildCoachRecommendations, buildStartModeAdvice } from '../bernot'
 import { applyCalibrationToWeather, calibrationConfidence, calibrationForSituation } from '../calibration'
 import { CourseSizingPanel } from '../components/CourseSizingPanel'
 import { RecommendedTrajectory } from '../components/RecommendedTrajectory'
@@ -18,6 +18,7 @@ import type { LiveWeatherData, WeatherHour } from '../weather'
 import type { BriefingRequest } from '../types'
 import './resultsCalibration.css'
 import { usePreferences } from '../preferences'
+import { StartMode } from './StartMode'
 
 const mockHourlyForecast: WeatherHour[] = [
   { time: '09:00', speed: 7, gust: 10, direction: 45, temperature: 18 },
@@ -101,7 +102,9 @@ function calibrationDirectionText(value: number | null) {
 
 export function ResultsPage() {
   const { locale, temperature, pressure, distance, length } = usePreferences()
-  const { state } = useLocation()
+  const locationState = useLocation()
+  const navigate = useNavigate()
+  const { state } = locationState
   const request = state as BriefingRequest | null
   const [openWhy, setOpenWhy] = useState<number | null>(null)
   const [liveWeather, setLiveWeather] = useState<LiveWeatherData | null>(null)
@@ -172,6 +175,18 @@ export function ResultsPage() {
   const currentModelHour = request?.date === todayIso() && effectiveWeather ? closestCurrentModelHour(effectiveWeather.hourly) : null
   const windRotation = effectiveWeather ? signedDirectionDelta(effectiveWeather.scenario.windStart, effectiveWeather.scenario.windEnd) : 30
   const windRotationLabel = Math.abs(windRotation) < 2 ? 'Stable' : `${windRotation > 0 ? 'Droite' : 'Gauche'} · ${signed(windRotation, '°')}`
+  const startMode = new URLSearchParams(locationState.search).get('mode') === 'depart'
+  const startAdvice = buildStartModeAdvice(request, tacticalWeather, bernotRows)
+
+  if (startMode) return <StartMode
+    request={request}
+    weather={effectiveWeather}
+    scenario={tacticalWeather}
+    rows={bernotRows}
+    advice={startAdvice}
+    observation={coachObservation}
+    onBack={() => navigate('/resultats', { state: request, replace: true })}
+  />
 
   return (
     <main className="results-page briefing-page">

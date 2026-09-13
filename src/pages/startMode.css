@@ -1,0 +1,50 @@
+.start-mode { width: min(1080px, calc(100% - 32px)); min-height: 100dvh; margin: 0 auto; padding: clamp(22px, 4vw, 46px) 0 max(32px, env(safe-area-inset-bottom)); color: #102f35; }
+.start-mode-open .site-header, .start-mode-open .header-confidence-wrap, .start-mode-open .local-effects-panel, .start-mode-open footer { display: none; }
+.start-mode-open { background: #eef3f0; }
+.start-mode-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-bottom: 20px; border-bottom: 3px solid #102f35; }
+.start-mode-header span, .start-mode small { display: block; color: #526b6e; font-size: 11px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.start-mode-header h1 { margin: 2px 0; font: 700 clamp(34px, 6vw, 58px)/1 'Manrope', sans-serif; letter-spacing: -2px; }
+.start-mode-header p { margin: 0; font-weight: 700; }
+.start-mode-header button, .start-back-bottom { width: auto; min-height: 50px; margin: 0; background: #102f35; }
+.start-countdown { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 18px; background: #102f35; }
+.start-countdown > div { position: relative; padding: 20px 24px; background: #fff; }
+.start-countdown svg { position: absolute; top: 20px; right: 20px; color: #286d87; }
+.start-countdown strong { display: block; margin-top: 2px; font: 700 clamp(46px, 8vw, 82px)/1 'Manrope', sans-serif; letter-spacing: -4px; }
+.start-countdown .is-countdown { color: #fff; background: #174f61; }
+.start-countdown .is-countdown small, .start-countdown .is-countdown svg { color: #c9e4e9; }
+.start-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin-top: 18px; background: #c6d2ce; border: 2px solid #c6d2ce; }
+.start-metrics article { position: relative; min-height: 126px; padding: 18px; background: #fff; }
+.start-metrics article > svg { position: absolute; top: 15px; right: 15px; color: #286d87; }
+.start-metrics strong { display: block; margin-top: 18px; font: 700 clamp(23px, 3vw, 35px)/1.08 'Manrope', sans-serif; letter-spacing: -1.2px; }
+.start-metrics strong span { font-size: .45em; letter-spacing: 0; }
+.start-metrics .is-primary { color: #fff; background: #102f35; }
+.start-metrics .is-primary small { color: #bad0cf; }
+.start-decisions { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 8px; margin-top: 18px; }
+.start-decisions article { padding: 20px; border: 2px solid #286d87; background: #e4f0f3; }
+.start-decisions article.is-risk { border-color: #9b461f; background: #f7e8df; }
+.start-decisions strong { display: block; margin-top: 10px; font: 700 clamp(20px, 3vw, 29px)/1.12 'Manrope', sans-serif; }
+.start-decisions span { display: block; margin-top: 8px; color: #526b6e; font-size: 12px; }
+.start-plan { margin-top: 20px; padding: 22px; color: #fff; background: #102f35; }
+.start-plan h2 { margin: 0 0 16px; font: 700 25px 'Manrope', sans-serif; }
+.start-plan ol { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.start-plan li { display: grid; grid-template-columns: 36px 1fr; align-items: center; gap: 12px; min-height: 62px; padding: 10px 14px; border: 1px solid #587377; }
+.start-plan li span { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: #102f35; background: #fff; font-weight: 800; }
+.start-plan li strong { font-size: 17px; line-height: 1.25; }
+.start-back-bottom { display: none; margin-top: 18px; }
+@media (max-width: 700px) {
+  .start-mode { width: 100%; padding: 16px 12px max(22px, env(safe-area-inset-bottom)); }
+  .start-mode-header button { display: none; }
+  .start-countdown { grid-template-columns: .8fr 1.2fr; }
+  .start-countdown > div { padding: 16px; }
+  .start-countdown strong { font-size: clamp(38px, 13vw, 58px); letter-spacing: -3px; }
+  .start-metrics { grid-template-columns: 1fr 1fr; }
+  .start-metrics article { min-height: 108px; padding: 15px; }
+  .start-metrics strong { margin-top: 14px; font-size: clamp(21px, 7vw, 29px); }
+  .start-decisions { grid-template-columns: 1fr; }
+  .start-decisions article { padding: 16px; }
+  .start-plan { padding: 18px 14px; }
+  .start-plan ol { grid-template-columns: 1fr; gap: 7px; }
+  .start-plan li { min-height: 56px; }
+  .start-plan li strong { font-size: 15px; }
+  .start-back-bottom { display: flex; width: 100%; }
+}
