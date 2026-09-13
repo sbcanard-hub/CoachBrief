@@ -18,6 +18,8 @@ export type ExpressReading = {
 }
 
 export type BriefingRequest = {
+  /** Stable id while an existing saved briefing is reopened and edited. */
+  savedBriefingId?: string
   location: string
   latitude: string
   longitude: string

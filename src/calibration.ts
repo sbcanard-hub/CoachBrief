@@ -380,8 +380,8 @@ function sourceMetric(group: SavedBriefing[], key: SourceReliabilityMetric['key'
     if (!item.reality) continue
     const actualSpeed = numeric(item.reality.windSpeed)
     const actualDirection = numeric(item.reality.windDirection)
-    let sourceSpeed: number | null = null
-    let sourceDirection: number | null = null
+    let sourceSpeed: number | null
+    let sourceDirection: number | null
 
     if (key === 'model') {
       sourceSpeed = item.weather?.race.speed ?? null

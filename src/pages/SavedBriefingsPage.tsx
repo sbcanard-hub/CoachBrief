@@ -6,9 +6,11 @@ import {
   briefingToJson,
   deleteSavedBriefing,
   importSavedBriefing,
+  importCoachBriefData,
   loadSavedBriefings,
   mergeSavedBriefings,
   prepareBriefingRestore,
+  requestForSavedBriefing,
   saveExistingBriefing,
   saveRaceReality,
 } from '../savedBriefings'
@@ -20,6 +22,13 @@ import './savedBriefings.css'
 import { isSameWater } from '../localMemory'
 import type { BriefingRequest } from '../types'
 import { usePreferences } from '../preferences'
+
+const libraryCopy = {
+  fr: { library: 'Bibliothèque locale et cloud', history: 'Historique du plan d’eau', mine: 'Mes briefings', historyIntro: 'Anciens briefings, conditions observées, écarts et tendances récurrentes. Les autres plans d’eau sont exclus.', intro: 'Retrouvez vos régates sauvegardées sur cet appareil et dans votre espace Firebase privé.', import: 'Importer un briefing', cloudLoading: 'Chargement des briefings cloud…', empty: 'Aucun briefing enregistré', emptyHelp: 'Préparez une régate puis utilisez « Enregistrer » dans l’en-tête du briefing.', open: 'Ouvrir', duplicate: 'Dupliquer', addReality: 'Ajouter réalité', editReality: 'Modifier réalité', export: 'Exporter', remove: 'Supprimer', removeConfirm: (name: string) => `Supprimer « ${name} » ?` },
+  en: { library: 'Local and cloud library', history: 'Sailing area history', mine: 'My briefings', historyIntro: 'Past briefings, observed conditions, differences and recurring trends. Other sailing areas are excluded.', intro: 'Find races saved on this device and in your private Firebase space.', import: 'Import a briefing', cloudLoading: 'Loading cloud briefings…', empty: 'No saved briefing', emptyHelp: 'Prepare a race, then use “Save” in the briefing header.', open: 'Open', duplicate: 'Duplicate', addReality: 'Add actual data', editReality: 'Edit actual data', export: 'Export', remove: 'Delete', removeConfirm: (name: string) => `Delete “${name}”?` },
+  it: { library: 'Archivio locale e cloud', history: 'Storico del campo di regata', mine: 'I miei briefing', historyIntro: 'Briefing precedenti, condizioni osservate, scarti e tendenze ricorrenti. Gli altri campi di regata sono esclusi.', intro: 'Ritrova le regate salvate su questo dispositivo e nel tuo spazio Firebase privato.', import: 'Importa un briefing', cloudLoading: 'Caricamento briefing cloud…', empty: 'Nessun briefing salvato', emptyHelp: 'Prepara una regata, poi usa “Salva” nell’intestazione del briefing.', open: 'Apri', duplicate: 'Duplica', addReality: 'Aggiungi dati reali', editReality: 'Modifica dati reali', export: 'Esporta', remove: 'Elimina', removeConfirm: (name: string) => `Eliminare “${name}”?` },
+  es: { library: 'Biblioteca local y en la nube', history: 'Historial del campo de regatas', mine: 'Mis briefings', historyIntro: 'Briefings anteriores, condiciones observadas, diferencias y tendencias recurrentes. Se excluyen los demás campos de regatas.', intro: 'Consulta las regatas guardadas en este dispositivo y en tu espacio privado de Firebase.', import: 'Importar un briefing', cloudLoading: 'Cargando briefings de la nube…', empty: 'No hay briefings guardados', emptyHelp: 'Prepara una regata y usa “Guardar” en el encabezado del briefing.', open: 'Abrir', duplicate: 'Duplicar', addReality: 'Añadir datos reales', editReality: 'Editar datos reales', export: 'Exportar', remove: 'Eliminar', removeConfirm: (name: string) => `¿Eliminar “${name}”?` },
+} as const
 
 const emptyReality: Omit<RaceReality, 'recordedAt'> = {
   windSpeed: '',
@@ -35,10 +44,10 @@ const emptyReality: Omit<RaceReality, 'recordedAt'> = {
   notes: '',
 }
 
-function formatSavedAt(value: string) {
+function formatSavedAt(value: string, locale: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(date)
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(date)
 }
 
 function safeFileName(value: string) {
@@ -112,7 +121,8 @@ function MiniGapChart({ values, unit, ariaLabel }: { values: number[]; unit: str
 }
 
 export function SavedBriefingsPage() {
-  const { t } = usePreferences()
+  const { t, language, locale } = usePreferences()
+  const c = libraryCopy[language]
   const navigate = useNavigate()
   const route = useLocation()
   const historyRequest = route.pathname === '/historique-plan-eau'
@@ -145,8 +155,9 @@ export function SavedBriefingsPage() {
     setCloudLoading(true)
     void firebaseCloudAdapter.pull().then((snapshot) => {
       if (requestId !== cloudRequestRef.current) return
-      const local = loadSavedBriefings()
       const cloud = snapshot?.bundle.data.briefings ?? []
+      if (snapshot) importCoachBriefData(JSON.stringify(snapshot.bundle.data), 'merge')
+      const local = loadSavedBriefings()
       setLocalIds(new Set(local.map((item) => item.id)))
       setCloudIds(new Set(cloud.map((item) => item.id)))
       setItems(mergeSavedBriefings(local, cloud))
@@ -175,36 +186,42 @@ export function SavedBriefingsPage() {
 
   function openBriefing(item: SavedBriefing) {
     prepareBriefingRestore(item)
-    navigate('/resultats', { state: item.request })
+    navigate('/resultats', { state: requestForSavedBriefing(item) })
   }
 
   function duplicateBriefing(item: SavedBriefing) {
     prepareBriefingRestore(item)
-    navigate('/', { state: { prefill: item.request, duplicate: true } })
+    const prefill = { ...item.request }
+    delete prefill.savedBriefingId
+    navigate('/', { state: { prefill, duplicate: true } })
   }
 
   async function removeBriefing(item: SavedBriefing) {
-    if (!window.confirm(`Supprimer « ${item.name} » ?`)) return
+    if (!window.confirm(c.removeConfirm(item.name))) return
     const remaining = items.filter((candidate) => candidate.id !== item.id)
-    deleteSavedBriefing(item.id)
     setItems(remaining)
     setLocalIds((current) => { const next = new Set(current); next.delete(item.id); return next })
     setCloudIds((current) => { const next = new Set(current); next.delete(item.id); return next })
-    setStatus('Briefing supprimé')
 
     if (account && cloudIds.has(item.id)) {
       try {
+        // Delete remotely first so automatic sync cannot pull and resurrect the old cloud copy.
         const bundle = exportPortableCoachBriefData()
         bundle.data.briefings = remaining
         const updatedAt = new Date().toISOString()
         await firebaseCloudAdapter.push({ revision: crypto.randomUUID(), updatedAt, bundle })
+        deleteSavedBriefing(item.id)
         setStatus('Briefing supprimé localement et dans le cloud')
       } catch (error) {
+        deleteSavedBriefing(item.id)
         setStatus(error instanceof Error
           ? `Briefing supprimé localement, mais pas dans le cloud : ${error.message}`
           : 'Briefing supprimé localement, mais la suppression cloud a échoué.')
       }
+      return
     }
+    deleteSavedBriefing(item.id)
+    setStatus('Briefing supprimé')
   }
 
   function editReality(item: SavedBriefing) {
@@ -255,18 +272,18 @@ export function SavedBriefingsPage() {
     <main className="saved-briefings-page">
       <section className="saved-briefings-hero">
         <div>
-          <span className="step-label">Bibliothèque locale et cloud</span>
-          <h1>{historyRequest ? 'Historique du plan d’eau' : 'Mes briefings'}</h1>
-          <p>{historyRequest ? `Anciens briefings, conditions observées, écarts et tendances récurrentes — ${historyRequest.location}. Les autres plans d’eau sont volontairement exclus.` : 'Retrouvez vos régates sauvegardées sur cet appareil et, lorsque vous êtes connecté, dans votre espace Firebase privé.'}</p>
+          <span className="step-label">{c.library}</span>
+          <h1>{historyRequest ? c.history : c.mine}</h1>
+          <p>{historyRequest ? `${c.historyIntro} — ${historyRequest.location}.` : c.intro}</p>
         </div>
         <div className="saved-briefings-import">
           <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={(event) => void importFile(event.target.files?.[0])} />
-          <button type="button" onClick={() => importRef.current?.click()}><FileUp size={16} /> Importer un briefing</button>
+          <button type="button" onClick={() => importRef.current?.click()}><FileUp size={16} /> {c.import}</button>
         </div>
       </section>
 
       {status && <p className="saved-briefings-status" role="status">{status}</p>}
-      {account && cloudLoading && <p className="saved-briefings-cloud-loading" role="status">Chargement des briefings cloud…</p>}
+      {account && cloudLoading && <p className="saved-briefings-cloud-loading" role="status">{c.cloudLoading}</p>}
 
       {calibrations.length > 0 && <section className="calibration-section" aria-labelledby="calibration-title">
         <div className="calibration-heading">
@@ -314,8 +331,8 @@ export function SavedBriefingsPage() {
       {visibleItems.length === 0 ? (
         <section className="saved-briefings-empty">
           <FolderOpen size={28} />
-          <h2>Aucun briefing enregistré</h2>
-          <p>Préparez une régate puis utilisez « Enregistrer » dans l’en-tête du briefing.</p>
+          <h2>{c.empty}</h2>
+          <p>{c.emptyHelp}</p>
         </section>
       ) : (
         <section className="saved-briefings-grid" aria-label="Briefings enregistrés">
@@ -325,7 +342,7 @@ export function SavedBriefingsPage() {
             const editingReality = editingRealityId === item.id
             return <article className="saved-briefing-card" key={item.id}>
               <div className="saved-briefing-heading">
-                <div><span className="step-label">Sauvegardé {formatSavedAt(item.savedAt)}</span><h2>{item.name}</h2><span className={`saved-storage-badge storage-${storageLabel(item.id).toLowerCase().replaceAll(' ', '-').replace('+', 'and')}`}>{storageLabel(item.id) === 'Cloud' ? <Cloud size={11} /> : <HardDrive size={11} />}{storageLabel(item.id)}</span></div>
+                <div><span className="step-label">Sauvegardé {formatSavedAt(item.savedAt, locale)}</span><h2>{item.name}</h2><span className={`saved-storage-badge storage-${storageLabel(item.id).toLowerCase().replaceAll(' ', '-').replace('+', 'and')}`}>{storageLabel(item.id) === 'Cloud' ? <Cloud size={11} /> : <HardDrive size={11} />}{storageLabel(item.id)}</span></div>
                 <span className="saved-course-badge">{item.request.courseType}</span>
               </div>
 
@@ -348,7 +365,7 @@ export function SavedBriefingsPage() {
                   <article><small>Prévision sauvegardée</small><strong>{raceWeather ? windSummary(raceWeather.speed, raceWeather.direction) : '—'}</strong><span>{raceWeather ? `raf. ${Math.round(raceWeather.gust)} nd` : 'Pas d’instantané météo'}</span></article>
                   <article><small>METAR sauvegardé</small><strong>{item.metar ? windSummary(item.metar.windSpeed, item.metar.windDirection) : 'Non capturé'}</strong><span>{item.metar ? `${item.metar.station} · ${Math.round(item.metar.distanceKm)} km${item.metar.reportTime ? ` · ${item.metar.reportTime}` : ''}` : 'Disponible sur les prochaines sauvegardes'}</span></article>
                   <article><small>Relevé avant départ</small><strong>{windSummary(item.request.observedWindSpeed, item.request.observedWindDirection)}</strong><span>{item.request.observationTime ? `relevé ${item.request.observationTime}` : 'Pas de relevé coach'}</span></article>
-                  <article className={item.reality ? 'has-reality' : ''}><small>Réalité de la manche</small><strong>{item.reality ? windSummary(item.reality.windSpeed, item.reality.windDirection) : 'À renseigner'}</strong><span>{item.reality ? `saisie ${formatSavedAt(item.reality.recordedAt)}` : 'Après la course'}</span></article>
+                  <article className={item.reality ? 'has-reality' : ''}><small>Réalité de la manche</small><strong>{item.reality ? windSummary(item.reality.windSpeed, item.reality.windDirection) : 'À renseigner'}</strong><span>{item.reality ? `saisie ${formatSavedAt(item.reality.recordedAt, locale)}` : 'Après la course'}</span></article>
                 </div>
                 {item.reality && <p className="history-note"><strong>Conditions observées :</strong> raf. {item.reality.gust || '—'} nd · pression {item.reality.pressure || '—'} hPa · nébulosité {item.reality.cloudCover || '—'} % · courant {item.reality.currentSpeed || '—'} nd / {item.reality.currentDirection || '—'}° · mer {item.reality.waveHeight || '—'} m · air/eau {item.reality.airTemperature || '—'} / {item.reality.waterTemperature || '—'} °C</p>}
                 {gap && <p className="history-gap">Écart final au modèle : {gap.speedGap == null ? '' : `${gap.speedGap >= 0 ? '+' : ''}${gap.speedGap.toFixed(1).replace('.0', '')} nd`}{gap.speedGap != null && gap.directionGap != null ? ' · ' : ''}{gap.directionGap == null ? '' : `${gap.directionGap >= 0 ? '+' : ''}${Math.round(gap.directionGap)}°`}</p>}
@@ -375,12 +392,12 @@ export function SavedBriefingsPage() {
               </div>}
 
               <div className="saved-briefing-actions">
-                <button type="button" className="primary" onClick={() => openBriefing(item)}><FolderOpen size={15} /> Ouvrir</button>
-                <button type="button" onClick={() => duplicateBriefing(item)}><Copy size={15} /> Dupliquer</button>
-                <button type="button" onClick={() => editReality(item)}><Gauge size={15} /> {item.reality ? 'Modifier réalité' : 'Ajouter réalité'}</button>
+                <button type="button" className="primary" onClick={() => openBriefing(item)}><FolderOpen size={15} /> {c.open}</button>
+                <button type="button" onClick={() => duplicateBriefing(item)}><Copy size={15} /> {c.duplicate}</button>
+                <button type="button" onClick={() => editReality(item)}><Gauge size={15} /> {item.reality ? c.editReality : c.addReality}</button>
                 <button type="button" onClick={() => navigate(`/briefings/${item.id}/debrief`)}><ClipboardCheck size={15} /> {item.debrief ? t('openDebrief') : t('addDebrief')}</button>
-                <button type="button" onClick={() => downloadBriefing(item)}><Download size={15} /> Exporter</button>
-                <button type="button" onClick={() => void removeBriefing(item)}><Trash2 size={15} /> Supprimer</button>
+                <button type="button" onClick={() => downloadBriefing(item)}><Download size={15} /> {c.export}</button>
+                <button type="button" onClick={() => void removeBriefing(item)}><Trash2 size={15} /> {c.remove}</button>
               </div>
             </article>
           })}

@@ -200,6 +200,22 @@ export function readCurrentCourseSnapshot(): CourseSnapshot | null {
 
 export function saveBriefing(request: BriefingRequest, weather: LiveWeatherData | null, course: CourseSnapshot | null, name?: string, metar?: SavedMetarSnapshot | null) {
   const now = new Date().toISOString()
+  const existing = request.savedBriefingId
+    ? loadSavedBriefings().find((candidate) => candidate.id === request.savedBriefingId)
+    : null
+  if (existing) {
+    const updated: SavedBriefing = {
+      ...existing,
+      name: name?.trim() || existing.name,
+      updatedAt: now,
+      request: clone(request),
+      weather: weather ? clone(weather) : existing.weather,
+      course: course ? clone(course) : existing.course,
+      metar: metar ? clone(metar) : existing.metar,
+    }
+    persistSavedBriefings(loadSavedBriefings().map((item) => item.id === existing.id ? updated : item))
+    return updated
+  }
   const item: SavedBriefing = {
     version: 1,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -236,14 +252,18 @@ export function saveRaceDebrief(id: string, debrief: Omit<RaceDebrief, 'updatedA
     // Historical learning only consumes `reality`; an unvalidated draft therefore cannot affect it.
     const reality: RaceReality | null = validate ? {
       recordedAt: now,
-      windSpeed: debrief.windSpeed,
-      windDirection: debrief.windDirection,
-      gust: debrief.gust,
-      waveHeight: '',
-      currentSpeed: debrief.currentObserved,
-      currentDirection: '',
-      notes: [debrief.windEvolution, debrief.observedShifts, debrief.coachNotes].filter(Boolean).join(' · '),
-    } : null
+      windSpeed: debrief.windSpeed || item.reality?.windSpeed || '',
+      windDirection: debrief.windDirection || item.reality?.windDirection || '',
+      gust: debrief.gust || item.reality?.gust || '',
+      waveHeight: item.reality?.waveHeight || '',
+      currentSpeed: debrief.currentObserved || item.reality?.currentSpeed || '',
+      currentDirection: item.reality?.currentDirection || '',
+      pressure: item.reality?.pressure || '',
+      cloudCover: item.reality?.cloudCover || '',
+      airTemperature: item.reality?.airTemperature || '',
+      waterTemperature: item.reality?.waterTemperature || '',
+      notes: [item.reality?.notes, debrief.windEvolution, debrief.observedShifts, debrief.coachNotes].filter(Boolean).join(' · '),
+    } : item.reality ?? null
     return { ...item, updatedAt: now, debrief: savedDebrief, reality }
   })
   persistSavedBriefings(next)
@@ -253,13 +273,26 @@ export function saveRaceDebrief(id: string, debrief: Omit<RaceDebrief, 'updatedA
 export function deleteRaceDebrief(id: string) {
   const now = new Date().toISOString()
   const next = loadSavedBriefings().map((item): SavedBriefing => item.id === id
-    ? { ...item, updatedAt: now, debrief: null, reality: null }
+    ? { ...item, updatedAt: now, debrief: null }
     : item)
   persistSavedBriefings(next)
 }
 
 export function saveExistingBriefing(item: SavedBriefing) {
   persistSavedBriefings(mergeSavedBriefings(loadSavedBriefings(), [item]))
+}
+
+export function updateSavedBriefingRequest(request: BriefingRequest) {
+  if (!request.savedBriefingId) return null
+  const now = new Date().toISOString()
+  let updated: SavedBriefing | null = null
+  const next = loadSavedBriefings().map((item) => {
+    if (item.id !== request.savedBriefingId) return item
+    updated = { ...item, updatedAt: now, request: clone(request) }
+    return updated
+  })
+  if (updated) persistSavedBriefings(next)
+  return updated
 }
 
 export function deleteSavedBriefing(id: string) {
@@ -339,6 +372,10 @@ export function prepareBriefingRestore(item: SavedBriefing) {
   } catch {
     // Le formulaire pourra quand même être rouvert sans le tracé mémorisé.
   }
+}
+
+export function requestForSavedBriefing(item: SavedBriefing): BriefingRequest {
+  return { ...clone(item.request), savedBriefingId: item.id }
 }
 
 export function consumeCourseRestore(storageKey: string): CourseSnapshot | null {
