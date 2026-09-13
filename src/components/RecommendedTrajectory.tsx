@@ -1,18 +1,19 @@
 import type { BernotRow, WeatherScenario } from '../bernot'
 import type { BriefingRequest } from '../types'
+import type { TacticalCoherence } from '../tacticalCoherence'
 
 type Side = 'left' | 'neutral' | 'right'
 type TrajectoryAdvice = { side: Side; start: string; firstLeg: string; target: string; tack: string; downwind: string; gate: string; rationale: string }
 const zoneValue = { Gauche: -2, 'Centre G.': -1, Centre: 0, 'Centre D.': 1, Droite: 2 } as const
 
-function buildTrajectoryAdvice(request: BriefingRequest | null, rows: BernotRow[], weather: WeatherScenario): TrajectoryAdvice {
+function buildTrajectoryAdvice(request: BriefingRequest | null, rows: BernotRow[], weather: WeatherScenario, coherence?: TacticalCoherence): TrajectoryAdvice {
   // The highest-ranked piles deliberately carry the most weight: this drawing
   // visualises the Bernot hierarchy rather than creating a separate forecast.
   const tacticalRows = rows.filter((row) => row.factor !== 'Adversaires')
   const weightedSide = tacticalRows.reduce((total, row) => total + zoneValue[row.zone] * (8 - row.priority), 0)
   const directionalWeight = tacticalRows.reduce((total, row) => total + Math.abs(zoneValue[row.zone]) * (8 - row.priority), 0)
   const normalized = directionalWeight ? weightedSide / directionalWeight : 0
-  const side: Side = Math.abs(normalized) < 0.28 ? 'neutral' : normalized > 0 ? 'right' : 'left'
+  const side: Side = coherence?.preferredSide ?? (Math.abs(normalized) < 0.28 ? 'neutral' : normalized > 0 ? 'right' : 'left')
   const leading = tacticalRows.filter((row) => row.zone !== 'Centre').slice(0, 2).map((row) => row.factor.toLowerCase())
   const rotation = ((weather.windEnd - weather.windStart + 540) % 360) - 180
 
@@ -36,8 +37,8 @@ function buildTrajectoryAdvice(request: BriefingRequest | null, rows: BernotRow[
   }
 }
 
-export function RecommendedTrajectory({ request, rows, weather }: { request: BriefingRequest | null; rows: BernotRow[]; weather: WeatherScenario }) {
-  const advice = buildTrajectoryAdvice(request, rows, weather)
+export function RecommendedTrajectory({ request, rows, weather, coherence }: { request: BriefingRequest | null; rows: BernotRow[]; weather: WeatherScenario; coherence?: TacticalCoherence }) {
+  const advice = buildTrajectoryAdvice(request, rows, weather, coherence)
   const right = advice.side === 'right'; const neutral = advice.side === 'neutral'
   const upwindPath = neutral ? 'M 300 408 C 290 335, 310 265, 300 105' : right ? 'M 300 408 C 350 355, 425 308, 432 242 S 375 145, 300 105' : 'M 300 408 C 250 355, 175 308, 168 242 S 225 145, 300 105'
   const downwindPath = neutral ? 'M 300 105 C 335 190, 265 300, 300 408' : right ? 'M 300 105 C 230 180, 220 280, 278 408' : 'M 300 105 C 370 180, 380 280, 322 408'
