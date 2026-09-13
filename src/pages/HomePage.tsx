@@ -69,7 +69,7 @@ function duplicatedForm(request: BriefingRequest) {
 }
 
 export function HomePage() {
-  const { units, pressureUnit, lengthUnit, t } = usePreferences()
+  const { language, units, pressureUnit, lengthUnit, t } = usePreferences()
   const navigate = useNavigate()
   const navigation = useLocation().state as HomeNavigationState | null
   const [form, setForm] = useState<BriefingRequest>(() => initialFormFromNavigation(navigation))
@@ -169,7 +169,7 @@ export function HomePage() {
             <input required name="location" placeholder={t('venuePlaceholder')} value={form.location} onChange={(e) => updateField('location', e.target.value)} />
           </label>
 
-          <MapPicker
+          <MapPicker key={language}
             location={form.location}
             latitude={form.latitude}
             longitude={form.longitude}
@@ -207,9 +207,9 @@ export function HomePage() {
             <label className="field">
               <span><Flag size={16} /> {t('course')}</span>
               <select name="courseType" value={form.courseType} onChange={(e) => updateField('courseType', e.target.value)}>
-                <option value="Banane">Banane</option>
-                <option value="Trapèze">Trapèze</option>
-                <option value="Triangle">Triangle</option>
+                <option value="Banane">{t('courseBanana')}</option>
+                <option value="Trapèze">{t('courseTrapezoid')}</option>
+                <option value="Triangle">{t('courseTriangle')}</option>
               </select>
             </label>
           </div>
@@ -275,7 +275,7 @@ export function HomePage() {
             </label>
             <label className="field">
               <span><Wind size={16} /> {t('observedWind')}</span>
-              <div className="input-with-unit"><input type="number" min="0" max="80" step="0.1" name="observedWindSpeed" value={form.observedWindSpeed} onChange={(e) => updateField('observedWindSpeed', e.target.value)} /><span>nd</span></div>
+              <div className="input-with-unit"><input type="number" min="0" max="80" step="0.1" name="observedWindSpeed" value={form.observedWindSpeed} onChange={(e) => updateField('observedWindSpeed', e.target.value)} /><span>{t('windUnit')}</span></div>
             </label>
             <label className="field">
               <span><Compass size={16} /> {t('observedDirection')}</span>
@@ -286,7 +286,7 @@ export function HomePage() {
           <div className="form-row tactical-form-row">
             <label className="field">
               <span><Wind size={16} /> {t('observedGust')}</span>
-              <div className="input-with-unit"><input type="number" min="0" max="100" step="0.1" name="observedGust" value={form.observedGust} onChange={(e) => updateField('observedGust', e.target.value)} /><span>nd</span></div>
+              <div className="input-with-unit"><input type="number" min="0" max="100" step="0.1" name="observedGust" value={form.observedGust} onChange={(e) => updateField('observedGust', e.target.value)} /><span>{t('windUnit')}</span></div>
             </label>
             <label className="field">
               <span><Waves size={16} /> {t('waves')}</span>
@@ -301,7 +301,7 @@ export function HomePage() {
           <div className="form-row tactical-form-row">
             <label className="field">
               <span><Navigation size={16} /> {t('observedCurrent')}</span>
-              <div className="input-with-unit"><input type="number" min="0" max="8" step="0.1" name="observedCurrentSpeed" value={form.observedCurrentSpeed} onChange={(e) => updateField('observedCurrentSpeed', e.target.value)} /><span>nd</span></div>
+              <div className="input-with-unit"><input type="number" min="0" max="8" step="0.1" name="observedCurrentSpeed" value={form.observedCurrentSpeed} onChange={(e) => updateField('observedCurrentSpeed', e.target.value)} /><span>{t('windUnit')}</span></div>
             </label>
             <label className="field">
               <span><Compass size={16} /> {t('currentDirection')}</span>

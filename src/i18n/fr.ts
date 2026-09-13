@@ -1,5 +1,11 @@
 /** French is the source catalogue. Keys are stable and never persisted with briefing data. */
 export const fr = {
+  windUnit: 'nd',
+  courseBanana: 'Banane',
+  courseTrapezoid: 'Trapèze',
+  courseTriangle: 'Triangle',
+  mainNavigation: 'Navigation principale',
+
   settings: 'Paramètres', language: 'Langue', units: 'Unités', close: 'Fermer', saved: 'Les choix sont enregistrés sur cet appareil.',
   metric: 'Métrique / nautique', imperial: 'Impérial / nautique', metricDetail: '°C, nœuds, hPa, km, m', imperialDetail: '°F, nœuds, inHg, miles nautiques, pieds',
   briefings: 'Mes briefings', help: 'Aide', more: 'Plus', weather: 'Météo de régate', footer: "Conçu pour ceux qui regardent l'horizon.",

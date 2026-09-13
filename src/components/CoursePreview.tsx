@@ -156,7 +156,8 @@ function persistVariants(key: string, variants: CourseVariant[]) {
 }
 
 export function CoursePreview({ latitude, longitude, axis, windwardOffset, firstLegNm, courseType, committeeLatitude, committeeLongitude, committeeAccuracy = '' }: CoursePreviewProps) {
-  const { language } = usePreferences()
+  const { language, t } = usePreferences()
+  const courseLabel = t(courseType === 'Banane' ? 'courseBanana' : courseType === 'Trapèze' ? 'courseTrapezoid' : 'courseTriangle')
   const c = courseCopy[language]
   const elementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
@@ -389,10 +390,10 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
 
   return (
     <div className="course-preview-shell">
-      <div ref={elementRef} className="course-preview-map" aria-label={`${c.preview} ${courseType}`} />
+      <div ref={elementRef} className="course-preview-map" aria-label={`${c.preview} ${courseLabel}`} />
       <div className="course-preview-caption">
         <div>
-          <strong>{courseType} · {activeVariantName}</strong>
+          <strong>{courseLabel} · {activeVariantName}</strong>
           <span>{routeSequence(points, routeOrder)}</span>
           <small>{c.axis}: {String(Math.round(bearing)).padStart(3, '0')}° · {c.drag}</small>
           {typeof committeeLatitude === 'number' && Number.isFinite(committeeLatitude) && typeof committeeLongitude === 'number' && Number.isFinite(committeeLongitude) && <small className="committee-course-summary">{c.marker}{committeeAccuracy ? ` · ${c.accuracy} ±${committeeAccuracy} m` : ''}</small>}
