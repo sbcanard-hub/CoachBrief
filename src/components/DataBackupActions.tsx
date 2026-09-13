@@ -20,10 +20,10 @@ import './dataBackupActions.css'
 import { usePreferences } from '../preferences'
 
 const backupCopy = {
-  fr: { sync: 'Synchronisation…', autoOk: 'Synchronisation automatique réussie', autoFail: 'Synchronisation automatique impossible', kept: 'Les données locales sont conservées.', never: 'jamais', complete: 'Sauvegarde complète créée', current: 'Données et préférences déjà à jour', restoreFail: 'Restauration impossible', cloudOk: 'Sauvegarde cloud réussie', cloudMerged: 'Données locales et cloud fusionnées', cloudMissing: 'Aucune sauvegarde cloud disponible pour ce compte.', label: 'Sauvegarde des données CoachBrief', all: 'Sauvegarder les données', restore: 'Restaurer', automatic: 'Synchronisation cloud automatique', enabled: 'Activée', disabled: 'Désactivée', saveCloud: 'Sauvegarder dans le cloud', restoreCloud: 'Restaurer depuis le cloud', last: 'Dernière synchronisation' },
-  en: { sync: 'Syncing…', autoOk: 'Automatic sync completed', autoFail: 'Automatic sync failed', kept: 'Local data has been kept.', never: 'never', complete: 'Full backup created', current: 'Data and preferences are already up to date', restoreFail: 'Restore failed', cloudOk: 'Cloud backup completed', cloudMerged: 'Local and cloud data merged', cloudMissing: 'No cloud backup is available for this account.', label: 'CoachBrief data backup', all: 'Back up data', restore: 'Restore', automatic: 'Automatic cloud sync', enabled: 'Enabled', disabled: 'Disabled', saveCloud: 'Save to cloud', restoreCloud: 'Restore from cloud', last: 'Last sync' },
-  it: { sync: 'Sincronizzazione…', autoOk: 'Sincronizzazione automatica riuscita', autoFail: 'Sincronizzazione automatica non riuscita', kept: 'I dati locali sono stati conservati.', never: 'mai', complete: 'Backup completo creato', current: 'Dati e preferenze sono già aggiornati', restoreFail: 'Ripristino non riuscito', cloudOk: 'Backup cloud riuscito', cloudMerged: 'Dati locali e cloud uniti', cloudMissing: 'Nessun backup cloud disponibile per questo account.', label: 'Backup dei dati CoachBrief', all: 'Salva i dati', restore: 'Ripristina', automatic: 'Sincronizzazione cloud automatica', enabled: 'Attivata', disabled: 'Disattivata', saveCloud: 'Salva nel cloud', restoreCloud: 'Ripristina dal cloud', last: 'Ultima sincronizzazione' },
-  es: { sync: 'Sincronizando…', autoOk: 'Sincronización automática completada', autoFail: 'No se pudo sincronizar automáticamente', kept: 'Los datos locales se han conservado.', never: 'nunca', complete: 'Copia completa creada', current: 'Los datos y preferencias ya están actualizados', restoreFail: 'No se pudo restaurar', cloudOk: 'Copia en la nube completada', cloudMerged: 'Datos locales y de la nube combinados', cloudMissing: 'No hay ninguna copia en la nube para esta cuenta.', label: 'Copia de datos de CoachBrief', all: 'Guardar datos', restore: 'Restaurar', automatic: 'Sincronización automática en la nube', enabled: 'Activada', disabled: 'Desactivada', saveCloud: 'Guardar en la nube', restoreCloud: 'Restaurar desde la nube', last: 'Última sincronización' },
+  fr: { sync: 'Synchronisation…', autoOk: 'Synchronisation automatique réussie', autoFail: 'Synchronisation automatique impossible', kept: 'Les données locales sont conservées.', never: 'jamais', complete: 'Sauvegarde complète créée', current: 'Données et préférences déjà à jour', restoreFail: 'Restauration impossible', cloudOk: 'Sauvegarde cloud réussie', cloudMerged: 'Données locales et cloud fusionnées', cloudMissing: 'Aucune sauvegarde cloud disponible pour ce compte.', cloudFail: 'La synchronisation Firebase a échoué. Réessayez plus tard.', label: 'Sauvegarde des données CoachBrief', all: 'Sauvegarder les données', allTitle: 'Sauvegarder tous les briefings, la mémoire locale et les préférences', restore: 'Restaurer', restoreTitle: 'Restaurer ou fusionner une sauvegarde CoachBrief', automatic: 'Synchronisation cloud automatique', enabled: 'Activée', disabled: 'Désactivée', saveCloud: 'Sauvegarder dans le cloud', saveCloudTitle: 'Sauvegarder toutes les données CoachBrief dans Firebase', restoreCloud: 'Restaurer depuis le cloud', restoreCloudTitle: 'Restaurer la sauvegarde CoachBrief depuis Firebase', last: 'Dernière synchronisation', added: 'ajout', updated: 'mise à jour' },
+  en: { sync: 'Syncing…', autoOk: 'Automatic sync completed', autoFail: 'Automatic sync failed', kept: 'Local data has been kept.', never: 'never', complete: 'Full backup created', current: 'Data and preferences are already up to date', restoreFail: 'Restore failed', cloudOk: 'Cloud backup completed', cloudMerged: 'Local and cloud data merged', cloudMissing: 'No cloud backup is available for this account.', cloudFail: 'Firebase sync failed. Please try again later.', label: 'CoachBrief data backup', all: 'Back up data', allTitle: 'Back up all briefings, local memory and preferences', restore: 'Restore', restoreTitle: 'Restore or merge a CoachBrief backup', automatic: 'Automatic cloud sync', enabled: 'Enabled', disabled: 'Disabled', saveCloud: 'Save to cloud', saveCloudTitle: 'Save all CoachBrief data to Firebase', restoreCloud: 'Restore from cloud', restoreCloudTitle: 'Restore the CoachBrief backup from Firebase', last: 'Last sync', added: 'added', updated: 'updated' },
+  it: { sync: 'Sincronizzazione…', autoOk: 'Sincronizzazione automatica riuscita', autoFail: 'Sincronizzazione automatica non riuscita', kept: 'I dati locali sono stati conservati.', never: 'mai', complete: 'Backup completo creato', current: 'Dati e preferenze sono già aggiornati', restoreFail: 'Ripristino non riuscito', cloudOk: 'Backup cloud riuscito', cloudMerged: 'Dati locali e cloud uniti', cloudMissing: 'Nessun backup cloud disponibile per questo account.', cloudFail: 'Sincronizzazione Firebase non riuscita. Riprova più tardi.', label: 'Backup dei dati CoachBrief', all: 'Salva i dati', allTitle: 'Salva tutti i briefing, la memoria locale e le preferenze', restore: 'Ripristina', restoreTitle: 'Ripristina o unisci un backup CoachBrief', automatic: 'Sincronizzazione cloud automatica', enabled: 'Attivata', disabled: 'Disattivata', saveCloud: 'Salva nel cloud', saveCloudTitle: 'Salva tutti i dati CoachBrief in Firebase', restoreCloud: 'Ripristina dal cloud', restoreCloudTitle: 'Ripristina il backup CoachBrief da Firebase', last: 'Ultima sincronizzazione', added: 'aggiunto', updated: 'aggiornato' },
+  es: { sync: 'Sincronizando…', autoOk: 'Sincronización automática completada', autoFail: 'No se pudo sincronizar automáticamente', kept: 'Los datos locales se han conservado.', never: 'nunca', complete: 'Copia completa creada', current: 'Los datos y preferencias ya están actualizados', restoreFail: 'No se pudo restaurar', cloudOk: 'Copia en la nube completada', cloudMerged: 'Datos locales y de la nube combinados', cloudMissing: 'No hay ninguna copia en la nube para esta cuenta.', cloudFail: 'La sincronización con Firebase ha fallado. Inténtalo de nuevo más tarde.', label: 'Copia de datos de CoachBrief', all: 'Guardar datos', allTitle: 'Guardar todos los briefings, la memoria local y las preferencias', restore: 'Restaurar', restoreTitle: 'Restaurar o combinar una copia de CoachBrief', automatic: 'Sincronización automática en la nube', enabled: 'Activada', disabled: 'Desactivada', saveCloud: 'Guardar en la nube', saveCloudTitle: 'Guardar todos los datos de CoachBrief en Firebase', restoreCloud: 'Restaurar desde la nube', restoreCloudTitle: 'Restaurar la copia de CoachBrief desde Firebase', last: 'Última sincronización', added: 'añadido', updated: 'actualizado' },
 } as const
 
 function todayFileStamp() {
@@ -72,7 +72,7 @@ export function DataBackupActions() {
         setLastSyncAt(updatedAt)
         setStatus(c.autoOk)
       } catch (error) {
-        setStatus(error instanceof Error ? `${c.autoFail}: ${error.message}` : `${c.autoFail}. ${c.kept}`)
+        setStatus(error instanceof Error && language === 'fr' ? `${c.autoFail}: ${error.message}` : `${c.autoFail}. ${c.kept}`)
       } finally {
         syncingRef.current = false
         setIsCloudSyncing(false)
@@ -120,11 +120,11 @@ export function DataBackupActions() {
       const result = importPortableCoachBriefData(await file.text(), 'merge')
       const changes = result.importedCount + result.replacedCount
       setStatus(changes
-        ? `${result.importedCount} ajout${result.importedCount > 1 ? 's' : ''} · ${result.replacedCount} mise${result.replacedCount > 1 ? 's' : ''} à jour`
+        ? `${result.importedCount} ${c.added} · ${result.replacedCount} ${c.updated}`
         : c.current)
       window.setTimeout(() => window.location.reload(), 900)
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : c.restoreFail)
+      setStatus(error instanceof Error && language === 'fr' ? error.message : c.restoreFail)
     } finally {
       if (importRef.current) importRef.current.value = ''
     }
@@ -150,7 +150,7 @@ export function DataBackupActions() {
       }
       setStatus(c.cloudOk)
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'La synchronisation Firebase a échoué. Réessayez plus tard.')
+      setStatus(error instanceof Error && language === 'fr' ? error.message : c.cloudFail)
     } finally {
       setIsCloudSyncing(false)
     }
@@ -171,7 +171,7 @@ export function DataBackupActions() {
       setStatus(c.cloudMerged)
       window.setTimeout(() => window.location.reload(), 900)
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'La synchronisation Firebase a échoué. Réessayez plus tard.')
+      setStatus(error instanceof Error && language === 'fr' ? error.message : c.cloudFail)
     } finally {
       setIsCloudSyncing(false)
     }
@@ -185,10 +185,10 @@ export function DataBackupActions() {
       hidden
       onChange={(event) => void restoreAllData(event.target.files?.[0])}
     />
-    <button type="button" onClick={downloadAllData} title="Sauvegarder tous les briefings, la mémoire locale et les préférences">
+    <button type="button" onClick={downloadAllData} title={c.allTitle}>
       <Download size={15} /> <span>{c.all}</span>
     </button>
-    <button type="button" onClick={() => importRef.current?.click()} title="Restaurer ou fusionner une sauvegarde CoachBrief">
+    <button type="button" onClick={() => importRef.current?.click()} title={c.restoreTitle}>
       <FileUp size={15} /> <span>{c.restore}</span>
     </button>
     {account && <>
@@ -199,10 +199,10 @@ export function DataBackupActions() {
           <option value="disabled">{c.disabled}</option>
         </select>
       </label>
-      <button type="button" onClick={() => void saveToCloud()} disabled={isCloudSyncing} title="Sauvegarder toutes les données CoachBrief dans Firebase">
+      <button type="button" onClick={() => void saveToCloud()} disabled={isCloudSyncing} title={c.saveCloudTitle}>
         <CloudUpload size={15} /> <span>{c.saveCloud}</span>
       </button>
-      <button type="button" onClick={() => void restoreFromCloud()} disabled={isCloudSyncing} title="Restaurer la sauvegarde CoachBrief depuis Firebase">
+      <button type="button" onClick={() => void restoreFromCloud()} disabled={isCloudSyncing} title={c.restoreCloudTitle}>
         <CloudDownload size={15} /> <span>{c.restoreCloud}</span>
       </button>
     </>}
