@@ -38,11 +38,20 @@ function ResultsRoute() {
   </>
 }
 
+function ScrollToTop() {
+  const location = useLocation()
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [location.pathname, location.search])
+  return null
+}
+
 export default function App() {
   const { t } = usePreferences()
   return (
     <div className="app-shell">
       <LocalizedDocument />
+      <ScrollToTop />
       <Header />
       <Routes>
         <Route path="/" element={<HomePage />} />

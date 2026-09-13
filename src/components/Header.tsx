@@ -115,10 +115,13 @@ export function Header() {
         {request && <Link className="results-edit-button" to="/" state={{ prefill: request, editing: true }}>
           ← Modifier le briefing
         </Link>}
-        <Link to="/briefings"><FolderOpen size={15} /> <span>{t('briefings')}</span></Link>
         {request && !startMode && <Link className="start-mode-button" to={{ pathname: '/resultats', search: '?mode=depart' }} state={request}>
           <Flag size={15} /> <span>Mode Départ</span>
         </Link>}
+        {!request && <span className="header-label">{t('weather')}</span>}
+      </nav>
+      <div id="secondary-navigation" className={`header-secondary${menuOpen ? ' is-open' : ''}`}>
+        <Link to="/briefings" onClick={() => setMenuOpen(false)}><FolderOpen size={15} /> <span>{t('briefings')}</span></Link>
         {request && <button type="button" onClick={printCurrentBriefing} title="Imprimer la fiche ou l’enregistrer en PDF" aria-label="Imprimer le briefing ou l’enregistrer en PDF">
           <Printer size={15} /> <span>Imprimer / PDF</span>
         </button>}
@@ -126,9 +129,6 @@ export function Header() {
           {saveState === 'saving' ? <LoaderCircle className="header-spin" size={15} /> : saveState === 'saved' ? <Check size={15} /> : <BookmarkPlus size={15} />}
           <span>{saveState === 'saving' ? 'Enregistrement…' : saveState === 'saved' ? 'Enregistré' : saveState === 'error' ? 'Réessayer' : 'Enregistrer'}</span>
         </button>}
-        {!request && <span className="header-label">{t('weather')}</span>}
-      </nav>
-      <div id="secondary-navigation" className={`header-secondary${menuOpen ? ' is-open' : ''}`}>
         <button type="button" onClick={() => { setHelpOpen(true); setMenuOpen(false) }}>
           <CircleHelp size={15} /> <span>{t('help')}</span>
         </button>
