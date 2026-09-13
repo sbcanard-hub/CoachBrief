@@ -14,7 +14,7 @@ import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
 import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
 import type { MetarCache, MetarObservation } from '../metar'
 import { buildCoachObservationSignal, observationImpactLabel } from '../observations'
-import { loadSavedBriefings } from '../savedBriefings'
+import { loadSavedBriefings, updateSavedBriefingRequest } from '../savedBriefings'
 import { fetchWeatherForBriefing } from '../weather'
 import type { LiveWeatherData, WeatherHour } from '../weather'
 import type { BriefingRequest } from '../types'
@@ -141,6 +141,16 @@ export function ResultsPage() {
     return () => { active = false }
   }, [])
 
+  if (!request) {
+    const emptyCopy = {
+      fr: ["Aucun briefing chargé", "Créez un nouveau briefing ou ouvrez une régate enregistrée.", "Nouveau briefing", "Mes briefings"],
+      en: ["No briefing loaded", "Create a new briefing or open a saved race.", "New briefing", "My briefings"],
+      it: ["Nessun briefing caricato", "Crea un nuovo briefing o apri una regata salvata.", "Nuovo briefing", "I miei briefing"],
+      es: ["No hay ningún briefing cargado", "Crea un nuevo briefing o abre una regata guardada.", "Nuevo briefing", "Mis briefings"],
+    }[language]
+    return <main className="results-page briefing-page"><section className="saved-briefings-empty"><h1>{emptyCopy[0]}</h1><p>{emptyCopy[1]}</p><div className="saved-briefing-actions"><button type="button" className="primary" onClick={() => navigate('/')}>{emptyCopy[2]}</button><button type="button" onClick={() => navigate('/briefings')}>{emptyCopy[3]}</button></div></section></main>
+  }
+
   const location = request?.location || 'Antibes · Baie des Anges'
   const raceTime = request?.raceTime || request?.startTime || '11:00'
   const boatClass = request?.boatClass || 'Optimist'
@@ -193,11 +203,13 @@ export function ResultsPage() {
       observedCloudCover: latest?.cloudCover ?? '', observationNotes: latest?.notes ?? '',
     }
     setRequest(next)
+    updateSavedBriefingRequest(next)
     navigate(`${locationState.pathname}${locationState.search}`, { state: next, replace: true })
   }
 
   function updateRequest(next: BriefingRequest) {
     setRequest(next)
+    updateSavedBriefingRequest(next)
     navigate(`${locationState.pathname}${locationState.search}`, { state: next, replace: true })
   }
 

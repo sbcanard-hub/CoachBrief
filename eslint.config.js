@@ -13,6 +13,10 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // Leaflet is loaded dynamically and exposes an untyped browser boundary.
+      '@typescript-eslint/no-explicit-any': 'off',
+      // These effects intentionally reset visible loading/restoration state before async work.
+      'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },

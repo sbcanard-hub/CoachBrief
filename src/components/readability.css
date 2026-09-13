@@ -239,6 +239,31 @@ body {
   .header-actions button { font-size: 14px; }
   .help-faq-list summary,
   .help-faq-list details p { font-size: 14px; }
+  .source-confidence-heading > small,
+  .source-confidence-name small,
+  .source-confidence-card > p,
+  .source-confidence-meta small,
+  .site-learning-metrics small,
+  .site-learning-metrics span,
+  .site-learning-confidence small,
+  .site-learning-confidence strong,
+  .knowledge-score-detail strong,
+  .knowledge-score-detail span,
+  .site-learning-note,
+  .multi-model-confidence small,
+  .multi-model-kpis small,
+  .multi-model-kpis p,
+  .multi-model-method { font-size: 11px !important; line-height: 1.45 !important; }
+  .source-confidence-name strong,
+  .source-confidence-summary,
+  .site-learning-subheading h3,
+  .site-learning-notes h3,
+  .site-learning-notes p,
+  .multi-model-kpis strong,
+  .multi-model-headline,
+  .multi-model-advice { font-size: 12px !important; line-height: 1.5 !important; }
+  .site-learning-metrics strong,
+  .multi-model-heading h3 { font-size: 15px !important; }
 }
 
 /* Preserve compact print output. */
