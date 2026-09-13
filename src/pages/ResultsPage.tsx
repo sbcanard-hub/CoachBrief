@@ -24,6 +24,8 @@ import { StartMode } from './StartMode'
 import { StartLineAnalysis } from '../components/StartLineAnalysis'
 import { IntelligentBriefing } from '../components/IntelligentBriefing'
 import { buildIntelligentBriefing } from '../intelligentBriefing'
+import { buildTacticalCoherence } from '../tacticalCoherence'
+import { AnalysisCoherence } from '../components/AnalysisCoherence'
 
 const mockHourlyForecast: WeatherHour[] = [
   { time: '09:00', speed: 7, gust: 10, direction: 45, temperature: 18 },
@@ -181,8 +183,9 @@ export function ResultsPage() {
   const windRotation = effectiveWeather ? signedDirectionDelta(effectiveWeather.scenario.windStart, effectiveWeather.scenario.windEnd) : 30
   const windRotationLabel = Math.abs(windRotation) < 2 ? 'Stable' : `${windRotation > 0 ? 'Droite' : 'Gauche'} · ${signed(windRotation, '°')}`
   const startMode = new URLSearchParams(locationState.search).get('mode') === 'depart'
-  const startAdvice = buildStartModeAdvice(request, tacticalWeather, bernotRows)
-  const intelligentBriefing = buildIntelligentBriefing({ request, scenario: tacticalWeather, rows: bernotRows, observation: coachObservation, savedBriefings, localCorrectionApplied: useLocalCalibration, language, formatLength: (metres) => length(metres, 0) })
+  const tacticalCoherence = buildTacticalCoherence(request, tacticalWeather, bernotRows, savedBriefings)
+  const startAdvice = buildStartModeAdvice(request, tacticalWeather, bernotRows, tacticalCoherence)
+  const intelligentBriefing = buildIntelligentBriefing({ request, scenario: tacticalWeather, rows: bernotRows, observation: coachObservation, savedBriefings, localCorrectionApplied: useLocalCalibration, language, formatLength: (metres) => length(metres, 0), coherence: tacticalCoherence })
 
   function updateExpressReadings(readings: NonNullable<BriefingRequest['expressReadings']>) {
     if (!request) return
@@ -211,6 +214,7 @@ export function ResultsPage() {
     advice={startAdvice}
     observation={coachObservation}
     intelligentBriefing={intelligentBriefing}
+    coherence={tacticalCoherence}
     onReadingsChange={updateExpressReadings}
     onRequestChange={updateRequest}
     onBack={() => navigate('/resultats', { state: request, replace: true })}
@@ -336,9 +340,11 @@ export function ResultsPage() {
 
       <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">Lecture du plan d’eau</span><h2 id="bernot-title">Les 7 piles de Bernot</h2></div></div><span className="bernot-help">Calcul dynamique · 1 = facteur prioritaire</span></div><div className="bernot-scroll" tabIndex={0} aria-label="Tableau des 7 piles de Bernot"><div className="bernot-board"><div className="bernot-head factor-head">Facteur</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{column}</div>)}{bernotRows.map((row) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${row.zone === column ? ' is-selected' : ''}`} key={column}>{row.zone === column ? <><span className="zone-marker">●</span><small>tendance</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">La hiérarchie combine les paramètres de course, les modèles et, lorsqu’il est renseigné, le relevé terrain du coach.{useLocalCalibration ? ' La correction locale historique est actuellement appliquée.' : ''}</p></section>
 
+      <AnalysisCoherence coherence={tacticalCoherence} />
+
       <section className="coach-section" aria-labelledby="coach-title"><div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div><div className="recommendations">{recommendations.map((recommendation, index) => { const isOpen = openWhy === index; return <article className="recommendation" key={recommendation.title}><span className="recommendation-number">0{index + 1}</span><div className="recommendation-content"><h3>{recommendation.title}</h3><p>{recommendation.text}</p><button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}><HelpCircle size={15} /> Pourquoi <ChevronDown className={isOpen ? 'rotated' : ''} size={15} /></button><div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div></div></article> })}</div></section>
 
-      <RecommendedTrajectory request={request} rows={bernotRows} weather={tacticalWeather} />
+      <RecommendedTrajectory request={request} rows={bernotRows} weather={tacticalWeather} coherence={tacticalCoherence} />
 
       <p className="data-note">Source modèle : Open-Meteo · Observations externes : METAR AviationWeather · Relevé terrain : saisie du coach · {useLocalCalibration ? 'Correction locale historique appliquée sur cette vue · ' : ''}Les recommandations restent une aide au briefing à confronter aux conditions réelles.</p>
     </main>

@@ -4,6 +4,7 @@ import type { SavedBriefing } from './savedBriefings'
 import { analyseStartLine, type StartLineAnalysis } from './startLine'
 import type { BriefingRequest } from './types'
 import type { Language } from './preferences'
+import type { TacticalCoherence } from './tacticalCoherence'
 
 export type IntelligentBriefing = {
   conditions: string[]
@@ -25,6 +26,7 @@ type Input = {
   localCorrectionApplied: boolean
   language: Language
   formatLength: (metres: number) => string
+  coherence?: TacticalCoherence
 }
 
 const text = {
@@ -42,7 +44,7 @@ function lineAnalysis(request: BriefingRequest | null, wind: number): StartLineA
 }
 
 export function buildIntelligentBriefing(input: Input): IntelligentBriefing {
-  const { request, scenario, rows, observation, savedBriefings, localCorrectionApplied, language, formatLength } = input
+  const { request, scenario, rows, observation, savedBriefings, localCorrectionApplied, language, formatLength, coherence } = input
   const c = text[language]
   const readings = request?.expressReadings ?? []
   const latest = readings.at(-1)
@@ -72,7 +74,8 @@ export function buildIntelligentBriefing(input: Input): IntelligentBriefing {
   const significantGap = observation.hasObservation && (Math.abs(observation.windSpeedDelta ?? 0) >= 2 || Math.abs(observation.windDirectionDelta ?? 0) >= 10)
   const watch = significantGap ? c.watchGap : localCorrectionApplied ? c.watchLocal : scenario.maxWindSpeed - scenario.raceWindSpeed >= 4 ? c.watchGust : scenario.oscillation >= 10 ? c.watchShift : c.watchDefault
   const evidence = readings.length || (observation.hasObservation ? 1 : 0)
-  const confidence = shared || (!evidence && !comparable) ? c.confidenceLow : evidence >= 3 && !significantGap ? fill(c.confidenceHigh, { count: evidence }) : fill(c.confidenceMedium, { count: evidence })
+  const coherenceLimitsConfidence = coherence?.confidence === 'low' || coherence?.state === 'shared' || coherence?.state === 'insufficient'
+  const confidence = shared || coherenceLimitsConfidence || (!evidence && !comparable) ? c.confidenceLow : evidence >= 3 && !significantGap && coherence?.confidence === 'high' ? fill(c.confidenceHigh, { count: evidence }) : fill(c.confidenceMedium, { count: evidence })
   const runner = [conditions[0], shared ? c.open : tactics[0], start, firstLeg, watch].slice(0, 5)
   return { conditions: conditions.slice(0, 3), tactics: tactics.slice(0, 3), start, firstLeg, watch, confidence, shared, runner }
 }

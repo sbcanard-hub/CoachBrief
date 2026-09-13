@@ -1,5 +1,6 @@
 import type { CoachObservationSignal } from './observations'
 import type { BriefingRequest, StartLineBias } from './types'
+import type { TacticalCoherence } from './tacticalCoherence'
 
 export const bernotColumns = ['Gauche', 'Centre G.', 'Centre', 'Centre D.', 'Droite'] as const
 export type BernotZone = (typeof bernotColumns)[number]
@@ -247,12 +248,15 @@ export function buildStartModeAdvice(
   request: BriefingRequest | null,
   weather: WeatherScenario = mockWeatherScenario,
   rows = buildBernotRows(request, weather),
+  coherence?: TacticalCoherence,
 ): StartModeAdvice {
   const zoneValue: Record<BernotZone, number> = { Gauche: -2, 'Centre G.': -1, Centre: 0, 'Centre D.': 1, Droite: 2 }
   const tacticalRows = rows.filter((row) => row.factor !== 'Adversaires')
   const weighted = tacticalRows.reduce((total, row) => total + zoneValue[row.zone] * (8 - row.priority), 0)
   const directionalSupport = tacticalRows.filter((row) => zoneValue[row.zone] !== 0)
-  const side = Math.abs(weighted) >= 8 && directionalSupport.length >= 2 ? (weighted > 0 ? 'droite' : 'gauche') : null
+  const side = coherence
+    ? coherence.preferredSide === 'neutral' ? null : coherence.preferredSide === 'right' ? 'droite' : 'gauche'
+    : Math.abs(weighted) >= 8 && directionalSupport.length >= 2 ? (weighted > 0 ? 'droite' : 'gauche') : null
   const lineBias = request?.startLineBias
   const line = lineBias === 'Pin' ? 'près du pin' : lineBias === 'Comité' ? 'près du comité' : 'dans une zone dégagée de la ligne'
   const rotation = signedAngleDelta(weather.windStart, weather.windEnd)
