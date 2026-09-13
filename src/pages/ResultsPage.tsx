@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { bernotColumns, buildBernotRows, buildCoachRecommendations, buildStartModeAdvice } from '../bernot'
 import { applyCalibrationToWeather, calibrationConfidence, calibrationForSituation } from '../calibration'
 import { CourseSizingPanel } from '../components/CourseSizingPanel'
+import { ExpressReading } from '../components/ExpressReading'
 import { RecommendedTrajectory } from '../components/RecommendedTrajectory'
 import { aviationWeatherMetarUrl, nearbyMetarSources } from '../localSources'
 import { fetchMetarCache, formatMetarGeneratedAt, observationForStation, signedDirectionDelta } from '../metar'
@@ -105,7 +106,7 @@ export function ResultsPage() {
   const locationState = useLocation()
   const navigate = useNavigate()
   const { state } = locationState
-  const request = state as BriefingRequest | null
+  const [request, setRequest] = useState<BriefingRequest | null>(() => state as BriefingRequest | null)
   const [openWhy, setOpenWhy] = useState<number | null>(null)
   const [liveWeather, setLiveWeather] = useState<LiveWeatherData | null>(null)
   const [weatherState, setWeatherState] = useState<'idle' | 'loading' | 'live' | 'fallback'>('idle')
@@ -178,6 +179,20 @@ export function ResultsPage() {
   const startMode = new URLSearchParams(locationState.search).get('mode') === 'depart'
   const startAdvice = buildStartModeAdvice(request, tacticalWeather, bernotRows)
 
+  function updateExpressReadings(readings: NonNullable<BriefingRequest['expressReadings']>) {
+    if (!request) return
+    const latest = readings.at(-1)
+    const next: BriefingRequest = {
+      ...request, expressReadings: readings,
+      observationTime: latest ? new Date(latest.recordedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '',
+      observedWindSpeed: latest?.windSpeed ?? '', observedWindDirection: latest?.windDirection ?? '', observedGust: latest?.gust ?? '',
+      observedCurrentSpeed: latest?.currentSpeed ?? '', observedCurrentDirection: latest?.currentDirection ?? '', observedPressure: latest?.pressure ?? '',
+      observedCloudCover: latest?.cloudCover ?? '', observationNotes: latest?.notes ?? '',
+    }
+    setRequest(next)
+    navigate(`${locationState.pathname}${locationState.search}`, { state: next, replace: true })
+  }
+
   if (startMode) return <StartMode
     request={request}
     weather={effectiveWeather}
@@ -185,6 +200,7 @@ export function ResultsPage() {
     rows={bernotRows}
     advice={startAdvice}
     observation={coachObservation}
+    onReadingsChange={updateExpressReadings}
     onBack={() => navigate('/resultats', { state: request, replace: true })}
   />
 
@@ -210,6 +226,8 @@ export function ResultsPage() {
         <article><Wind /><div><small>Bouée au vent</small><strong>{windwardOffset}</strong></div></article>
         <article><Flag /><div><small>Arrivée</small><strong>{finishOrientation}</strong></div></article>
       </section>
+
+      <ExpressReading request={request} weather={effectiveWeather} onChange={updateExpressReadings} />
 
       {localCalibration && localCalibrationMatch && <section className={`local-calibration-suggestion${useLocalCalibration ? ' is-applied' : ''}`} aria-labelledby="local-calibration-title">
         <div className="local-calibration-copy">

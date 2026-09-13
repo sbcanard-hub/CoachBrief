@@ -4,6 +4,7 @@ import type { BernotRow, StartModeAdvice, WeatherScenario } from '../bernot'
 import type { CoachObservationSignal } from '../observations'
 import type { BriefingRequest } from '../types'
 import type { LiveWeatherData } from '../weather'
+import { ExpressReading } from '../components/ExpressReading'
 import './startMode.css'
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
   advice: StartModeAdvice
   observation: CoachObservationSignal
   onBack: () => void
+  onReadingsChange: (readings: NonNullable<BriefingRequest['expressReadings']>) => void
 }
 
 function degrees(value: number) { return `${String(Math.round(value)).padStart(3, '0')}°` }
@@ -33,7 +35,7 @@ function remainingLabel(request: BriefingRequest | null, now: Date) {
   return hours ? `${hours} h ${String(rest).padStart(2, '0')}` : `${rest} min`
 }
 
-export function StartMode({ request, weather, scenario, rows, advice, observation, onBack }: Props) {
+export function StartMode({ request, weather, scenario, rows, advice, observation, onBack, onReadingsChange }: Props) {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     document.body.classList.add('start-mode-open')
@@ -58,6 +60,8 @@ export function StartMode({ request, weather, scenario, rows, advice, observatio
       <div><Clock3 /><small>Manche</small><strong>{request?.raceTime || request?.startTime || '—'}</strong></div>
       {remainingLabel(request, now) && <div className="is-countdown" aria-live="polite"><Timer /><small>Temps restant</small><strong>{remainingLabel(request, now)}</strong></div>}
     </section>
+
+    <ExpressReading request={request} weather={weather} onChange={onReadingsChange} />
 
     <section className="start-metrics" aria-label="Conditions tactiques essentielles">
       <article className="is-primary"><Wind /><small>Vent moyen</small><strong>{race ? Math.round(race.speed) : Math.round(scenario.raceWindSpeed)} <span>nd</span></strong></article>
