@@ -126,7 +126,7 @@ export function Header() {
         <span>{t('more')}</span>
       </button>
 
-      <nav id="main-navigation" className={`header-actions${request ? ' has-briefing-actions' : ''}`} aria-label="Navigation principale">
+      <nav id="main-navigation" className={`header-actions${request ? ' has-briefing-actions' : ''}`} aria-label={t('mainNavigation')}>
         {request && <Link className="results-edit-button" to="/" state={{ prefill: request, editing: true }}>
           ← {c.edit}
         </Link>}
