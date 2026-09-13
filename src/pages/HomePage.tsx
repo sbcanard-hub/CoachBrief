@@ -1,9 +1,10 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import { ArrowRight, CalendarDays, Clock3, CloudSun, Compass, Copy, Flag, Gauge, MapPin, Navigation, Sailboat, Waves, Wind } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { MapPicker } from '../components/MapPicker'
 import type { BriefingRequest } from '../types'
 import { usePreferences } from '../preferences'
+import { fetchWeatherForBriefing } from '../weather'
 
 const initialForm: BriefingRequest = {
   location: '',
@@ -19,6 +20,8 @@ const initialForm: BriefingRequest = {
   boatClass: 'Optimist',
   courseType: 'Banane',
   courseAxis: '080',
+  courseAxisMode: 'manual',
+  manualCourseAxis: '080',
   startLineBias: 'Neutre',
   windwardOffset: '0',
   finishOrientation: 'Sous le vent',
@@ -70,9 +73,49 @@ export function HomePage() {
   const navigate = useNavigate()
   const navigation = useLocation().state as HomeNavigationState | null
   const [form, setForm] = useState<BriefingRequest>(() => initialFormFromNavigation(navigation))
+  const [modelAxisState, setModelAxisState] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle')
+  const manualAxis = useRef(form.manualCourseAxis ?? form.courseAxis)
+
+  useEffect(() => {
+    if (form.courseAxisMode !== 'model_wind') {
+      setModelAxisState('idle')
+      return
+    }
+    if (!form.location.trim() || !form.date || !(form.raceTime || form.startTime)) {
+      setModelAxisState('unavailable')
+      return
+    }
+
+    let active = true
+    setModelAxisState('loading')
+    void fetchWeatherForBriefing(form).then((weather) => {
+      if (!active || !Number.isFinite(weather.race.direction)) return
+      const axis = String(Math.round(weather.race.direction)).padStart(3, '0')
+      setForm((current) => current.courseAxisMode === 'model_wind' ? { ...current, courseAxis: axis } : current)
+      setModelAxisState('ready')
+    }).catch(() => { if (active) setModelAxisState('unavailable') })
+    return () => { active = false }
+  }, [form.courseAxisMode, form.location, form.latitude, form.longitude, form.date, form.raceTime, form.startTime, form.weatherModel])
 
   function updateField(field: keyof BriefingRequest, value: string) {
+    if (field === 'courseAxis' && form.courseAxisMode !== 'model_wind') {
+      manualAxis.current = value
+      setForm((current) => ({ ...current, courseAxis: value, manualCourseAxis: value }))
+      return
+    }
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function setCourseAxisMode(mode: 'manual' | 'model_wind') {
+    setForm((current) => {
+      if (mode === 'model_wind') manualAxis.current = current.manualCourseAxis ?? current.courseAxis
+      return {
+        ...current,
+        courseAxisMode: mode,
+        manualCourseAxis: manualAxis.current,
+        courseAxis: mode === 'manual' ? manualAxis.current : current.courseAxis,
+      }
+    })
   }
 
   // The form always keeps its reference values (metres and hPa); only the control's presentation changes.
@@ -178,13 +221,21 @@ export function HomePage() {
               <span><Clock3 size={16} /> {t('raceTime')}</span>
               <input required type="time" name="raceTime" value={form.raceTime} onChange={(e) => updateField('raceTime', e.target.value)} />
             </label>
-            <label className="field">
+            <fieldset className="field course-axis-field">
+              <legend><Compass size={16} /> {t('courseAxis')}</legend>
+              <div className="course-axis-modes" role="radiogroup" aria-label={t('courseAxisMode')}>
+                <label><input type="radio" name="courseAxisMode" value="manual" checked={form.courseAxisMode !== 'model_wind'} onChange={() => setCourseAxisMode('manual')} /> {t('courseAxisManual')}</label>
+                <label><input type="radio" name="courseAxisMode" value="model_wind" checked={form.courseAxisMode === 'model_wind'} onChange={() => setCourseAxisMode('model_wind')} /> {t('courseAxisModelWind')}</label>
+              </div>
               <span><Compass size={16} /> {t('courseAxis')}</span>
               <div className="input-with-unit">
-                <input required type="number" min="0" max="359" step="1" name="courseAxis" value={form.courseAxis} onChange={(e) => updateField('courseAxis', e.target.value)} />
+                <input required type="number" min="0" max="359" step="1" name="courseAxis" value={form.courseAxis} readOnly={form.courseAxisMode === 'model_wind'} onChange={(e) => updateField('courseAxis', e.target.value)} />
                 <span>°</span>
               </div>
-            </label>
+              {form.courseAxisMode === 'model_wind' && <small className={`field-help model-axis-status${modelAxisState === 'unavailable' ? ' is-warning' : ''}`} aria-live="polite">
+                {modelAxisState === 'loading' ? t('courseAxisModelLoading') : modelAxisState === 'ready' ? t('courseAxisModelApplied', { direction: form.courseAxis }) : t('courseAxisModelUnavailable')}
+              </small>}
+            </fieldset>
             <label className="field">
               <span><Navigation size={16} /> {t('favouredLine')}</span>
               <select name="startLineBias" value={form.startLineBias} onChange={(e) => updateField('startLineBias', e.target.value)}>
