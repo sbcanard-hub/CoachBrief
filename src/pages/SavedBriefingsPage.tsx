@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Cloud, Copy, Download, FileUp, FolderOpen, Gauge, HardDrive, MapPin, Navigation, Radio, Sailboat, Save, Trash2, Waves, Wind } from 'lucide-react'
+import { CalendarDays, Cloud, Copy, Download, FileUp, FolderOpen, Gauge, HardDrive, MapPin, Navigation, Radio, Sailboat, Save, Trash2, Waves, Wind, ClipboardCheck } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { buildPlanCalibrations, buildSourceReliabilities, calibrationConfidence, signedAngleDelta } from '../calibration'
 import {
@@ -19,6 +19,7 @@ import { exportPortableCoachBriefData } from '../portableData'
 import './savedBriefings.css'
 import { isSameWater } from '../localMemory'
 import type { BriefingRequest } from '../types'
+import { usePreferences } from '../preferences'
 
 const emptyReality: Omit<RaceReality, 'recordedAt'> = {
   windSpeed: '',
@@ -111,6 +112,7 @@ function MiniGapChart({ values, unit, ariaLabel }: { values: number[]; unit: str
 }
 
 export function SavedBriefingsPage() {
+  const { t } = usePreferences()
   const navigate = useNavigate()
   const route = useLocation()
   const historyRequest = route.pathname === '/historique-plan-eau'
@@ -351,6 +353,7 @@ export function SavedBriefingsPage() {
                 {item.reality && <p className="history-note"><strong>Conditions observées :</strong> raf. {item.reality.gust || '—'} nd · pression {item.reality.pressure || '—'} hPa · nébulosité {item.reality.cloudCover || '—'} % · courant {item.reality.currentSpeed || '—'} nd / {item.reality.currentDirection || '—'}° · mer {item.reality.waveHeight || '—'} m · air/eau {item.reality.airTemperature || '—'} / {item.reality.waterTemperature || '—'} °C</p>}
                 {gap && <p className="history-gap">Écart final au modèle : {gap.speedGap == null ? '' : `${gap.speedGap >= 0 ? '+' : ''}${gap.speedGap.toFixed(1).replace('.0', '')} nd`}{gap.speedGap != null && gap.directionGap != null ? ' · ' : ''}{gap.directionGap == null ? '' : `${gap.directionGap >= 0 ? '+' : ''}${Math.round(gap.directionGap)}°`}</p>}
                 {item.reality?.notes && <p className="history-note"><strong>Retour coach :</strong> {item.reality.notes}</p>}
+                {item.debrief && <p className="history-note"><strong>{t('raceDebrief')} :</strong> {item.debrief.validatedAt ? t('debriefMemoryAdded') : t('debriefDraft')}</p>}
               </div>
 
               {editingReality && <div className="reality-form">
@@ -375,6 +378,7 @@ export function SavedBriefingsPage() {
                 <button type="button" className="primary" onClick={() => openBriefing(item)}><FolderOpen size={15} /> Ouvrir</button>
                 <button type="button" onClick={() => duplicateBriefing(item)}><Copy size={15} /> Dupliquer</button>
                 <button type="button" onClick={() => editReality(item)}><Gauge size={15} /> {item.reality ? 'Modifier réalité' : 'Ajouter réalité'}</button>
+                <button type="button" onClick={() => navigate(`/briefings/${item.id}/debrief`)}><ClipboardCheck size={15} /> {item.debrief ? t('openDebrief') : t('addDebrief')}</button>
                 <button type="button" onClick={() => downloadBriefing(item)}><Download size={15} /> Exporter</button>
                 <button type="button" onClick={() => void removeBriefing(item)}><Trash2 size={15} /> Supprimer</button>
               </div>
