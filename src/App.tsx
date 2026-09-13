@@ -8,7 +8,6 @@ import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
 import { DebriefPage } from './pages/DebriefPage'
 import { usePreferences } from './preferences'
-import { LocalizedDocument } from './components/LocalizedDocument'
 import { SimilarSituations } from './components/SimilarSituations'
 import type { BriefingRequest } from './types'
 import { useEffect, useState } from 'react'
@@ -51,7 +50,6 @@ export default function App() {
   const { t } = usePreferences()
   return (
     <div className="app-shell">
-      <LocalizedDocument />
       <ScrollToTop />
       <Header />
       <Routes>

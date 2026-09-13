@@ -23,7 +23,7 @@ export function forecastOscillation(item: SavedBriefing) {
   return Math.max(...directions.map((direction) => Math.abs(signedAngleDelta(reference, direction))))
 }
 
-export function buildDebriefComparison(item: SavedBriefing, debrief: RaceDebrief): DebriefComparison[] {
+export function buildDebriefComparison(item: SavedBriefing, debrief: RaceDebrief, windUnit = 'kn'): DebriefComparison[] {
   const forecast = item.weather?.race
   const speed = numeric(debrief.windSpeed)
   const direction = numeric(debrief.windDirection)
@@ -32,7 +32,7 @@ export function buildDebriefComparison(item: SavedBriefing, debrief: RaceDebrief
   const expectedLine = item.request.startLineBias
   const lineMatches = debrief.favouredLineSide && debrief.favouredLineSide === expectedLine
   return [
-    { key: 'wind', forecast: forecast ? `${forecast.speed.toFixed(1)} kn` : '—', actual: speed == null ? '—' : `${speed.toFixed(1)} kn`, verdict: speedGap == null ? 'unknown' : speedGap <= 2 ? 'good' : speedGap <= 4 ? 'partial' : 'gap' },
+    { key: 'wind', forecast: forecast ? `${forecast.speed.toFixed(1)} ${windUnit}` : '—', actual: speed == null ? '—' : `${speed.toFixed(1)} ${windUnit}`, verdict: speedGap == null ? 'unknown' : speedGap <= 2 ? 'good' : speedGap <= 4 ? 'partial' : 'gap' },
     { key: 'direction', forecast: forecast ? `${Math.round(forecast.direction)}°` : '—', actual: direction == null ? '—' : `${Math.round(direction)}°`, verdict: directionGap == null ? 'unknown' : directionGap <= 12 ? 'good' : directionGap <= 25 ? 'partial' : 'gap' },
     { key: 'rotation', forecast: forecastRotation(item) == null ? '—' : `${Math.round(forecastRotation(item)!)}°`, actual: debrief.actualRotation || '—', verdict: debrief.actualRotation ? 'partial' : 'unknown' },
     { key: 'oscillations', forecast: forecastOscillation(item) == null ? '—' : `${Math.round(forecastOscillation(item)!)}°`, actual: debrief.actualOscillations || '—', verdict: debrief.actualOscillations ? 'partial' : 'unknown' },
