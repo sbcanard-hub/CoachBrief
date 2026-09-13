@@ -22,6 +22,8 @@ import './resultsCalibration.css'
 import { usePreferences } from '../preferences'
 import { StartMode } from './StartMode'
 import { StartLineAnalysis } from '../components/StartLineAnalysis'
+import { IntelligentBriefing } from '../components/IntelligentBriefing'
+import { buildIntelligentBriefing } from '../intelligentBriefing'
 
 const mockHourlyForecast: WeatherHour[] = [
   { time: '09:00', speed: 7, gust: 10, direction: 45, temperature: 18 },
@@ -104,7 +106,7 @@ function calibrationDirectionText(value: number | null) {
 }
 
 export function ResultsPage() {
-  const { locale, temperature, pressure, distance, length } = usePreferences()
+  const { language, locale, temperature, pressure, distance, length } = usePreferences()
   const locationState = useLocation()
   const navigate = useNavigate()
   const { state } = locationState
@@ -180,6 +182,7 @@ export function ResultsPage() {
   const windRotationLabel = Math.abs(windRotation) < 2 ? 'Stable' : `${windRotation > 0 ? 'Droite' : 'Gauche'} · ${signed(windRotation, '°')}`
   const startMode = new URLSearchParams(locationState.search).get('mode') === 'depart'
   const startAdvice = buildStartModeAdvice(request, tacticalWeather, bernotRows)
+  const intelligentBriefing = buildIntelligentBriefing({ request, scenario: tacticalWeather, rows: bernotRows, observation: coachObservation, savedBriefings, localCorrectionApplied: useLocalCalibration, language, formatLength: (metres) => length(metres, 0) })
 
   function updateExpressReadings(readings: NonNullable<BriefingRequest['expressReadings']>) {
     if (!request) return
@@ -207,6 +210,7 @@ export function ResultsPage() {
     rows={bernotRows}
     advice={startAdvice}
     observation={coachObservation}
+    intelligentBriefing={intelligentBriefing}
     onReadingsChange={updateExpressReadings}
     onRequestChange={updateRequest}
     onBack={() => navigate('/resultats', { state: request, replace: true })}
@@ -333,6 +337,7 @@ export function ResultsPage() {
       <section className="coach-section" aria-labelledby="coach-title"><div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div><div className="recommendations">{recommendations.map((recommendation, index) => { const isOpen = openWhy === index; return <article className="recommendation" key={recommendation.title}><span className="recommendation-number">0{index + 1}</span><div className="recommendation-content"><h3>{recommendation.title}</h3><p>{recommendation.text}</p><button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}><HelpCircle size={15} /> Pourquoi <ChevronDown className={isOpen ? 'rotated' : ''} size={15} /></button><div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div></div></article> })}</div></section>
 
       <RecommendedTrajectory request={request} rows={bernotRows} weather={tacticalWeather} />
+      <IntelligentBriefing briefing={intelligentBriefing} />
 
       <p className="data-note">Source modèle : Open-Meteo · Observations externes : METAR AviationWeather · Relevé terrain : saisie du coach · {useLocalCalibration ? 'Correction locale historique appliquée sur cette vue · ' : ''}Les recommandations restent une aide au briefing à confronter aux conditions réelles.</p>
     </main>
