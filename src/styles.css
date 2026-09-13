@@ -38,6 +38,16 @@ form { display: grid; gap: 25px; }
 .form-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 14px; }
 .form-row-two { grid-template-columns: 1fr 1fr; }
 .field { display: grid; gap: 10px; }
+.course-axis-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.course-axis-field legend { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: #445e5a; font-size: 12px; font-weight: 600; }
+.course-axis-field > span { display: none; }
+.course-axis-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.course-axis-modes label { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 8px 5px; border: 1px solid #d7e1dd; background: #fff; color: #526a65; font-size: 9px; font-weight: 700; cursor: pointer; }
+.course-axis-modes label:has(input:checked) { border-color: #47716b; background: #edf5f2; color: #173b3a; }
+.course-axis-modes input { width: auto; min-height: 0; padding: 0; accent-color: #47716b; }
+.course-axis-field input[readonly] { background: #edf5f2; color: #173b3a; font-weight: 700; }
+.model-axis-status { line-height: 1.4; }
+.model-axis-status.is-warning { color: #9b542f; }
 .field > span { display: flex; align-items: center; gap: 8px; color: #445e5a; font-size: 12px; font-weight: 600; }
 .field input, .field select { width: 100%; min-width: 0; color: #173b3a; background: #f7f8f4; border: 1px solid #dde3de; padding: 14px 15px; outline: none; transition: border .2s, box-shadow .2s; border-radius: 0; }
 .field input::placeholder { color: #9aa7a2; }

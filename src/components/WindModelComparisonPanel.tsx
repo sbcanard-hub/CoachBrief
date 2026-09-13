@@ -244,8 +244,13 @@ export function WindModelComparisonPanel() {
   if (!request) return null
 
   function selectModel(model: WeatherModelKey) {
+    if (!request) return
     if (model === activeModel) return
-    navigate('/resultats', { replace: true, state: { ...request, weatherModel: model } })
+    const comparison = comparisons.find((item) => item.model.key === model)
+    const modelAxis = request.courseAxisMode === 'model_wind' && comparison?.direction != null
+      ? String(Math.round(comparison.direction)).padStart(3, '0')
+      : request.courseAxis
+    navigate('/resultats', { replace: true, state: { ...request, weatherModel: model, courseAxis: modelAxis } })
   }
 
   return <section className="wind-model-comparison" aria-labelledby="wind-model-comparison-title">

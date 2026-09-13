@@ -117,6 +117,8 @@ export function ResultsPage() {
   const [savedBriefings] = useState(() => loadSavedBriefings())
   const [useLocalCalibration, setUseLocalCalibration] = useState(false)
 
+  useEffect(() => { setRequest(state as BriefingRequest | null) }, [state])
+
   useLayoutEffect(() => {
     window.scrollTo(0, 0)
   }, [])
@@ -128,7 +130,20 @@ export function ResultsPage() {
     setWeatherError('')
     setUseLocalCalibration(false)
     fetchWeatherForBriefing(request)
-      .then((data) => { if (active) { setLiveWeather(data); setWeatherState('live') } })
+      .then((data) => {
+        if (!active) return
+        setLiveWeather(data)
+        setWeatherState('live')
+        if (request.courseAxisMode === 'model_wind') {
+          const modelAxis = String(Math.round(data.race.direction)).padStart(3, '0')
+          if (request.courseAxis !== modelAxis) {
+            const next = { ...request, courseAxis: modelAxis }
+            setRequest(next)
+            updateSavedBriefingRequest(next)
+            navigate(`${locationState.pathname}${locationState.search}`, { state: next, replace: true })
+          }
+        }
+      })
       .catch((error: unknown) => { if (active) { setLiveWeather(null); setWeatherState('fallback'); setWeatherError(error instanceof Error ? error.message : t('weatherUnavailable')) } })
     return () => { active = false }
   }, [request, t])
@@ -244,7 +259,7 @@ export function ResultsPage() {
       </section>
 
       <section className="tactical-overview" aria-label={t('tacticalCourseSettings')}>
-        <article><Compass /><div><small>{t('courseAxis')}</small><strong>{courseAxis}</strong></div></article>
+        <article><Compass /><div><small>{t('courseAxis')}</small><strong>{courseAxis}</strong><small>{t(request.courseAxisMode === 'model_wind' ? 'courseAxisSourceModel' : 'courseAxisSourceManual')}</small></div></article>
         <article><Navigation /><div><small>{t('favouredLine')}</small><strong>{startLineBias}</strong></div></article>
         <article><Wind /><div><small>{t('windwardMark')}</small><strong>{windwardOffset}</strong></div></article>
         <article><Flag /><div><small>{t('finish')}</small><strong>{finishOrientation}</strong></div></article>

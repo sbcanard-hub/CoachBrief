@@ -3,6 +3,7 @@ export type CourseType = 'Banane' | 'Trapèze' | 'Triangle'
 export type StartLineBias = 'Comité' | 'Neutre' | 'Pin'
 export type FinishOrientation = 'Sous le vent' | 'Travers' | 'Au vent'
 export type WeatherModelKey = 'best_match' | 'meteofrance_arome_france' | 'ecmwf_ifs' | 'icon_eu' | 'ncep_gfs_global'
+export type CourseAxisMode = 'manual' | 'model_wind'
 
 export type ExpressReading = {
   id: string
@@ -37,6 +38,10 @@ export type BriefingRequest = {
   boatClass: BoatClass
   courseType: CourseType
   courseAxis: string
+  /** Records whether the course axis was entered by the coach or derived from the selected forecast model. */
+  courseAxisMode?: CourseAxisMode
+  /** Preserves the coach's last manual value while model-wind mode updates courseAxis. */
+  manualCourseAxis?: string
   startLineBias: StartLineBias
   windwardOffset: string
   finishOrientation: FinishOrientation
