@@ -239,6 +239,8 @@ export function ResultsPage() {
         <article><Flag /><div><small>Arrivée</small><strong>{finishOrientation}</strong></div></article>
       </section>
 
+      <IntelligentBriefing briefing={intelligentBriefing} />
+
       <ExpressReading request={request} weather={effectiveWeather} onChange={updateExpressReadings} />
       <WindShiftRhythm readings={request?.expressReadings} />
 
@@ -337,7 +339,6 @@ export function ResultsPage() {
       <section className="coach-section" aria-labelledby="coach-title"><div className="coach-heading"><div><span className="step-label">L’essentiel pour le coach</span><h2 id="coach-title">Synthèse tactique</h2></div><span className="coach-badge">3 points calculés</span></div><div className="recommendations">{recommendations.map((recommendation, index) => { const isOpen = openWhy === index; return <article className="recommendation" key={recommendation.title}><span className="recommendation-number">0{index + 1}</span><div className="recommendation-content"><h3>{recommendation.title}</h3><p>{recommendation.text}</p><button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}><HelpCircle size={15} /> Pourquoi <ChevronDown className={isOpen ? 'rotated' : ''} size={15} /></button><div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div></div></article> })}</div></section>
 
       <RecommendedTrajectory request={request} rows={bernotRows} weather={tacticalWeather} />
-      <IntelligentBriefing briefing={intelligentBriefing} />
 
       <p className="data-note">Source modèle : Open-Meteo · Observations externes : METAR AviationWeather · Relevé terrain : saisie du coach · {useLocalCalibration ? 'Correction locale historique appliquée sur cette vue · ' : ''}Les recommandations restent une aide au briefing à confronter aux conditions réelles.</p>
     </main>
