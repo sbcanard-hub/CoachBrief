@@ -30,6 +30,10 @@ export type RaceReality = {
   waveHeight: string
   currentSpeed: string
   currentDirection: string
+  pressure?: string
+  cloudCover?: string
+  airTemperature?: string
+  waterTemperature?: string
   notes: string
 }
 

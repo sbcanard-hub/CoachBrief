@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Cloud, Copy, Download, FileUp, FolderOpen, Gauge, HardDrive, MapPin, Navigation, Radio, Sailboat, Save, Trash2, Waves, Wind } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { buildPlanCalibrations, buildSourceReliabilities, calibrationConfidence, signedAngleDelta } from '../calibration'
 import {
   briefingToJson,
@@ -17,6 +17,8 @@ import { firebaseCloudAdapter } from '../cloudSync'
 import { onFirebaseAuthStateChanged, type FirebaseAccount } from '../firebase'
 import { exportPortableCoachBriefData } from '../portableData'
 import './savedBriefings.css'
+import { isSameWater } from '../localMemory'
+import type { BriefingRequest } from '../types'
 
 const emptyReality: Omit<RaceReality, 'recordedAt'> = {
   windSpeed: '',
@@ -25,6 +27,10 @@ const emptyReality: Omit<RaceReality, 'recordedAt'> = {
   waveHeight: '',
   currentSpeed: '',
   currentDirection: '',
+  pressure: '',
+  cloudCover: '',
+  airTemperature: '',
+  waterTemperature: '',
   notes: '',
 }
 
@@ -106,6 +112,10 @@ function MiniGapChart({ values, unit, ariaLabel }: { values: number[]; unit: str
 
 export function SavedBriefingsPage() {
   const navigate = useNavigate()
+  const route = useLocation()
+  const historyRequest = route.pathname === '/historique-plan-eau'
+    ? (route.state as { water?: BriefingRequest } | null)?.water ?? null
+    : null
   const importRef = useRef<HTMLInputElement | null>(null)
   const cloudRequestRef = useRef(0)
   const [items, setItems] = useState(() => loadSavedBriefings())
@@ -116,8 +126,9 @@ export function SavedBriefingsPage() {
   const [status, setStatus] = useState('')
   const [editingRealityId, setEditingRealityId] = useState<string | null>(null)
   const [realityDraft, setRealityDraft] = useState<Omit<RaceReality, 'recordedAt'>>(emptyReality)
-  const calibrations = useMemo(() => buildPlanCalibrations(items), [items])
-  const sourceReliabilities = useMemo(() => buildSourceReliabilities(items), [items])
+  const visibleItems = useMemo(() => historyRequest ? items.filter((item) => isSameWater(item.request, historyRequest)) : items, [historyRequest, items])
+  const calibrations = useMemo(() => buildPlanCalibrations(visibleItems), [visibleItems])
+  const sourceReliabilities = useMemo(() => buildSourceReliabilities(visibleItems), [visibleItems])
 
   useEffect(() => onFirebaseAuthStateChanged((nextAccount) => {
     const requestId = ++cloudRequestRef.current
@@ -203,6 +214,10 @@ export function SavedBriefingsPage() {
       waveHeight: item.reality.waveHeight,
       currentSpeed: item.reality.currentSpeed,
       currentDirection: item.reality.currentDirection,
+      pressure: item.reality.pressure ?? '',
+      cloudCover: item.reality.cloudCover ?? '',
+      airTemperature: item.reality.airTemperature ?? '',
+      waterTemperature: item.reality.waterTemperature ?? '',
       notes: item.reality.notes,
     } : emptyReality)
   }
@@ -239,8 +254,8 @@ export function SavedBriefingsPage() {
       <section className="saved-briefings-hero">
         <div>
           <span className="step-label">Bibliothèque locale et cloud</span>
-          <h1>Mes briefings</h1>
-          <p>Retrouvez vos régates sauvegardées sur cet appareil et, lorsque vous êtes connecté, dans votre espace Firebase privé.</p>
+          <h1>{historyRequest ? 'Historique du plan d’eau' : 'Mes briefings'}</h1>
+          <p>{historyRequest ? `Anciens briefings, conditions observées, écarts et tendances récurrentes — ${historyRequest.location}. Les autres plans d’eau sont volontairement exclus.` : 'Retrouvez vos régates sauvegardées sur cet appareil et, lorsque vous êtes connecté, dans votre espace Firebase privé.'}</p>
         </div>
         <div className="saved-briefings-import">
           <input ref={importRef} type="file" accept=".json,application/json" hidden onChange={(event) => void importFile(event.target.files?.[0])} />
@@ -294,7 +309,7 @@ export function SavedBriefingsPage() {
         </article>)}</div>
       </section>}
 
-      {items.length === 0 ? (
+      {visibleItems.length === 0 ? (
         <section className="saved-briefings-empty">
           <FolderOpen size={28} />
           <h2>Aucun briefing enregistré</h2>
@@ -302,7 +317,7 @@ export function SavedBriefingsPage() {
         </section>
       ) : (
         <section className="saved-briefings-grid" aria-label="Briefings enregistrés">
-          {items.map((item) => {
+          {visibleItems.map((item) => {
             const raceWeather = item.weather?.race
             const gap = finalGap(item)
             const editingReality = editingRealityId === item.id
@@ -333,6 +348,7 @@ export function SavedBriefingsPage() {
                   <article><small>Relevé avant départ</small><strong>{windSummary(item.request.observedWindSpeed, item.request.observedWindDirection)}</strong><span>{item.request.observationTime ? `relevé ${item.request.observationTime}` : 'Pas de relevé coach'}</span></article>
                   <article className={item.reality ? 'has-reality' : ''}><small>Réalité de la manche</small><strong>{item.reality ? windSummary(item.reality.windSpeed, item.reality.windDirection) : 'À renseigner'}</strong><span>{item.reality ? `saisie ${formatSavedAt(item.reality.recordedAt)}` : 'Après la course'}</span></article>
                 </div>
+                {item.reality && <p className="history-note"><strong>Conditions observées :</strong> raf. {item.reality.gust || '—'} nd · pression {item.reality.pressure || '—'} hPa · nébulosité {item.reality.cloudCover || '—'} % · courant {item.reality.currentSpeed || '—'} nd / {item.reality.currentDirection || '—'}° · mer {item.reality.waveHeight || '—'} m · air/eau {item.reality.airTemperature || '—'} / {item.reality.waterTemperature || '—'} °C</p>}
                 {gap && <p className="history-gap">Écart final au modèle : {gap.speedGap == null ? '' : `${gap.speedGap >= 0 ? '+' : ''}${gap.speedGap.toFixed(1).replace('.0', '')} nd`}{gap.speedGap != null && gap.directionGap != null ? ' · ' : ''}{gap.directionGap == null ? '' : `${gap.directionGap >= 0 ? '+' : ''}${Math.round(gap.directionGap)}°`}</p>}
                 {item.reality?.notes && <p className="history-note"><strong>Retour coach :</strong> {item.reality.notes}</p>}
               </div>
@@ -346,6 +362,10 @@ export function SavedBriefingsPage() {
                   <label><span><Waves size={13} /> Vagues</span><div><input type="number" min="0" max="10" step="0.1" value={realityDraft.waveHeight} onChange={(event) => updateReality('waveHeight', event.target.value)} /><small>m</small></div></label>
                   <label><span><Navigation size={13} /> Courant</span><div><input type="number" min="0" max="8" step="0.1" value={realityDraft.currentSpeed} onChange={(event) => updateReality('currentSpeed', event.target.value)} /><small>nd</small></div></label>
                   <label><span><Navigation size={13} /> Dir. courant</span><div><input type="number" min="0" max="359" step="1" value={realityDraft.currentDirection} onChange={(event) => updateReality('currentDirection', event.target.value)} /><small>°</small></div></label>
+                  <label><span><Gauge size={13} /> Pression</span><div><input type="number" min="850" max="1100" step="1" value={realityDraft.pressure} onChange={(event) => updateReality('pressure', event.target.value)} /><small>hPa</small></div></label>
+                  <label><span><Cloud size={13} /> Nébulosité</span><div><input type="number" min="0" max="100" step="1" value={realityDraft.cloudCover} onChange={(event) => updateReality('cloudCover', event.target.value)} /><small>%</small></div></label>
+                  <label><span>Temp. air</span><div><input type="number" min="-30" max="60" step="0.1" value={realityDraft.airTemperature} onChange={(event) => updateReality('airTemperature', event.target.value)} /><small>°C</small></div></label>
+                  <label><span>Temp. eau</span><div><input type="number" min="-5" max="40" step="0.1" value={realityDraft.waterTemperature} onChange={(event) => updateReality('waterTemperature', event.target.value)} /><small>°C</small></div></label>
                 </div>
                 <label className="reality-notes"><span>Retour de manche</span><textarea rows={3} value={realityDraft.notes} onChange={(event) => updateReality('notes', event.target.value)} placeholder="ex. droite plus forte que prévu, rotation plus tardive, clapot court au centre…" /></label>
                 <div className="reality-form-actions"><button type="button" className="primary" onClick={() => persistReality(item)}><Save size={14} /> Enregistrer la réalité</button><button type="button" onClick={() => setEditingRealityId(null)}>Annuler</button></div>
