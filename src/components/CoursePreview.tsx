@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Layers3, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
+import { fetchElevations, isLandElevation } from '../elevation'
 import { courseToGpx, parseCourseGpx } from '../gpx'
 import type { GpxPoint } from '../gpx'
 import '../gpx.css'
@@ -10,10 +11,10 @@ import type { CourseType } from '../types'
 import { usePreferences, type Language } from '../preferences'
 
 const courseCopy = {
-  fr: { start: 'Départ', mark: 'Bouée', windward: 'au vent', reaching: 'reaching', lower: 'sous le vent', highReach: 'travers haut', lowReach: 'travers bas', finish: 'Arrivée', point: 'Point', restored: 'Parcours du briefing restauré', automatic: 'Tracé automatique', variant: 'Variante', moved: 'déplacé', updated: 'variante mise à jour', centre: 'Centre choisi du plan d’eau', committee: 'Comité / bateau coach', mapUnavailable: 'Cartographie indisponible.', recalculated: 'Tracé automatique recalculé', saved: 'enregistrée', loaded: 'chargée', deleted: 'supprimée', exported: 'GPX exporté', imported: 'points importés · enregistrez pour créer une variante', importFail: 'Import GPX impossible', preview: 'Prévisualisation du parcours', axis: 'Axe', drag: 'faites glisser les points pour ajuster le tracé', marker: 'Repère C = Comité / bateau coach', accuracy: 'précision GPS', variants: 'Variantes', stored: 'enregistrée(s)', choose: 'Choisir une variante de parcours', name: 'Nom de la nouvelle variante', save: 'Enregistrer', remove: 'Supprimer', variantsHelp: 'Les variantes sont mémorisées sur cet appareil pour ce plan d’eau et ce type de parcours. Une variante active est mise à jour automatiquement quand une bouée est déplacée.', import: 'Importer GPX', export: 'Exporter GPX', recalculate: 'Recalculer', example: 'Ex. Axe' },
-  en: { start: 'Start', mark: 'Mark', windward: 'windward', reaching: 'reach', lower: 'leeward', highReach: 'upper reach', lowReach: 'lower reach', finish: 'Finish', point: 'Point', restored: 'Briefing course restored', automatic: 'Automatic layout', variant: 'Variant', moved: 'moved', updated: 'variant updated', centre: 'Selected sailing-area centre', committee: 'Committee / coach boat', mapUnavailable: 'Mapping unavailable.', recalculated: 'Automatic layout recalculated', saved: 'saved', loaded: 'loaded', deleted: 'deleted', exported: 'GPX exported', imported: 'points imported · save to create a variant', importFail: 'Unable to import GPX', preview: 'Course preview', axis: 'Axis', drag: 'drag points to adjust the layout', marker: 'C marker = Committee / coach boat', accuracy: 'GPS accuracy', variants: 'Variants', stored: 'saved', choose: 'Choose a course variant', name: 'New variant name', save: 'Save', remove: 'Delete', variantsHelp: 'Variants are stored on this device for this sailing area and course type. The active variant is updated automatically when a mark is moved.', import: 'Import GPX', export: 'Export GPX', recalculate: 'Recalculate', example: 'e.g. Axis' },
-  it: { start: 'Partenza', mark: 'Boa', windward: 'al vento', reaching: 'lasco', lower: 'sottovento', highReach: 'traverso alto', lowReach: 'traverso basso', finish: 'Arrivo', point: 'Punto', restored: 'Percorso del briefing ripristinato', automatic: 'Tracciato automatico', variant: 'Variante', moved: 'spostata', updated: 'variante aggiornata', centre: 'Centro del campo di regata scelto', committee: 'Comitato / barca coach', mapUnavailable: 'Mappa non disponibile.', recalculated: 'Tracciato automatico ricalcolato', saved: 'salvata', loaded: 'caricata', deleted: 'eliminata', exported: 'GPX esportato', imported: 'punti importati · salva per creare una variante', importFail: 'Importazione GPX non riuscita', preview: 'Anteprima del percorso', axis: 'Asse', drag: 'trascina i punti per modificare il tracciato', marker: 'Indicatore C = Comitato / barca coach', accuracy: 'precisione GPS', variants: 'Varianti', stored: 'salvate', choose: 'Scegli una variante del percorso', name: 'Nome della nuova variante', save: 'Salva', remove: 'Elimina', variantsHelp: 'Le varianti sono memorizzate su questo dispositivo per il campo di regata e il tipo di percorso. La variante attiva si aggiorna automaticamente quando una boa viene spostata.', import: 'Importa GPX', export: 'Esporta GPX', recalculate: 'Ricalcola', example: 'Es. Asse' },
-  es: { start: 'Salida', mark: 'Boya', windward: 'barlovento', reaching: 'través', lower: 'sotavento', highReach: 'través alto', lowReach: 'través bajo', finish: 'Llegada', point: 'Punto', restored: 'Recorrido del briefing restaurado', automatic: 'Trazado automático', variant: 'Variante', moved: 'movida', updated: 'variante actualizada', centre: 'Centro elegido del campo de regatas', committee: 'Comité / barco del entrenador', mapUnavailable: 'Mapa no disponible.', recalculated: 'Trazado automático recalculado', saved: 'guardada', loaded: 'cargada', deleted: 'eliminada', exported: 'GPX exportado', imported: 'puntos importados · guarda para crear una variante', importFail: 'No se pudo importar el GPX', preview: 'Vista previa del recorrido', axis: 'Eje', drag: 'arrastra los puntos para ajustar el trazado', marker: 'Marca C = Comité / barco del entrenador', accuracy: 'precisión GPS', variants: 'Variantes', stored: 'guardadas', choose: 'Elegir una variante del recorrido', name: 'Nombre de la nueva variante', save: 'Guardar', remove: 'Eliminar', variantsHelp: 'Las variantes se guardan en este dispositivo para este campo de regatas y tipo de recorrido. La variante activa se actualiza automáticamente al mover una boya.', import: 'Importar GPX', export: 'Exportar GPX', recalculate: 'Recalcular', example: 'Ej. Eje' },
+  fr: { start: 'Départ', mark: 'Bouée', windward: 'au vent', reaching: 'reaching', lower: 'sous le vent', highReach: 'travers haut', lowReach: 'travers bas', finish: 'Arrivée', point: 'Point', restored: 'Parcours du briefing restauré', automatic: 'Tracé automatique', variant: 'Variante', moved: 'déplacé', updated: 'variante mise à jour', centre: 'Centre choisi du plan d’eau', committee: 'Comité / bateau coach', mapUnavailable: 'Cartographie indisponible.', recalculated: 'Tracé automatique recalculé', saved: 'enregistrée', loaded: 'chargée', deleted: 'supprimée', exported: 'GPX exporté', imported: 'points importés · enregistrez pour créer une variante', importFail: 'Import GPX impossible', preview: 'Prévisualisation du parcours', axis: 'Axe', drag: 'faites glisser les points pour ajuster le tracé', marker: 'Repère C = Comité / bateau coach', accuracy: 'précision GPS', variants: 'Variantes', stored: 'enregistrée(s)', choose: 'Choisir une variante de parcours', name: 'Nom de la nouvelle variante', save: 'Enregistrer', remove: 'Supprimer', variantsHelp: 'Les variantes sont mémorisées sur cet appareil pour ce plan d’eau et ce type de parcours. Une variante active est mise à jour automatiquement quand une bouée est déplacée.', import: 'Importer GPX', export: 'Exporter GPX', recalculate: 'Recalculer', example: 'Ex. Axe', checkingLand: 'Contrôle terre / mer…', onLand: 'sur terre', landRejected: 'ne peut pas être placée sur terre · position précédente restaurée', landCheckUnavailable: 'Contrôle terre / mer indisponible · déplacement annulé', landWarning: 'Parcours invalide : déplacez les points signalés hors de la terre', autoMoved: 'Parcours décalé vers l’eau en conservant son échelle' },
+  en: { start: 'Start', mark: 'Mark', windward: 'windward', reaching: 'reach', lower: 'leeward', highReach: 'upper reach', lowReach: 'lower reach', finish: 'Finish', point: 'Point', restored: 'Briefing course restored', automatic: 'Automatic layout', variant: 'Variant', moved: 'moved', updated: 'variant updated', centre: 'Selected sailing-area centre', committee: 'Committee / coach boat', mapUnavailable: 'Mapping unavailable.', recalculated: 'Automatic layout recalculated', saved: 'saved', loaded: 'loaded', deleted: 'deleted', exported: 'GPX exported', imported: 'points imported · save to create a variant', importFail: 'Unable to import GPX', preview: 'Course preview', axis: 'Axis', drag: 'drag points to adjust the layout', marker: 'C marker = Committee / coach boat', accuracy: 'GPS accuracy', variants: 'Variants', stored: 'saved', choose: 'Choose a course variant', name: 'New variant name', save: 'Save', remove: 'Delete', variantsHelp: 'Variants are stored on this device for this sailing area and course type. The active variant is updated automatically when a mark is moved.', import: 'Import GPX', export: 'Export GPX', recalculate: 'Recalculate', example: 'e.g. Axis', checkingLand: 'Checking land / water…', onLand: 'on land', landRejected: 'cannot be placed on land · previous position restored', landCheckUnavailable: 'Land / water check unavailable · move cancelled', landWarning: 'Invalid course: move the flagged points off land', autoMoved: 'Course shifted onto the water while preserving its scale' },
+  it: { start: 'Partenza', mark: 'Boa', windward: 'al vento', reaching: 'lasco', lower: 'sottovento', highReach: 'traverso alto', lowReach: 'traverso basso', finish: 'Arrivo', point: 'Punto', restored: 'Percorso del briefing ripristinato', automatic: 'Tracciato automatico', variant: 'Variante', moved: 'spostata', updated: 'variante aggiornata', centre: 'Centro del campo di regata scelto', committee: 'Comitato / barca coach', mapUnavailable: 'Mappa non disponibile.', recalculated: 'Tracciato automatico ricalcolato', saved: 'salvata', loaded: 'caricata', deleted: 'eliminata', exported: 'GPX esportato', imported: 'punti importati · salva per creare una variante', importFail: 'Importazione GPX non riuscita', preview: 'Anteprima del percorso', axis: 'Asse', drag: 'trascina i punti per modificare il tracciato', marker: 'Indicatore C = Comitato / barca coach', accuracy: 'precisione GPS', variants: 'Varianti', stored: 'salvate', choose: 'Scegli una variante del percorso', name: 'Nome della nuova variante', save: 'Salva', remove: 'Elimina', variantsHelp: 'Le varianti sono memorizzate su questo dispositivo per il campo di regata e il tipo di percorso. La variante attiva si aggiorna automaticamente quando una boa viene spostata.', import: 'Importa GPX', export: 'Esporta GPX', recalculate: 'Ricalcola', example: 'Es. Asse', checkingLand: 'Controllo terra / acqua…', onLand: 'a terra', landRejected: 'non può essere posizionata a terra · posizione precedente ripristinata', landCheckUnavailable: 'Controllo terra / acqua non disponibile · spostamento annullato', landWarning: 'Percorso non valido: sposta fuori dalla terra i punti segnalati', autoMoved: 'Percorso spostato sull’acqua mantenendo la scala' },
+  es: { start: 'Salida', mark: 'Boya', windward: 'barlovento', reaching: 'través', lower: 'sotavento', highReach: 'través alto', lowReach: 'través bajo', finish: 'Llegada', point: 'Punto', restored: 'Recorrido del briefing restaurado', automatic: 'Trazado automático', variant: 'Variante', moved: 'movida', updated: 'variante actualizada', centre: 'Centro elegido del campo de regatas', committee: 'Comité / barco del entrenador', mapUnavailable: 'Mapa no disponible.', recalculated: 'Trazado automático recalculado', saved: 'guardada', loaded: 'cargada', deleted: 'eliminada', exported: 'GPX exportado', imported: 'puntos importados · guarda para crear una variante', importFail: 'No se pudo importar el GPX', preview: 'Vista previa del recorrido', axis: 'Eje', drag: 'arrastra los puntos para ajustar el trazado', marker: 'Marca C = Comité / barco del entrenador', accuracy: 'precisión GPS', variants: 'Variantes', stored: 'guardadas', choose: 'Elegir una variante del recorrido', name: 'Nombre de la nueva variante', save: 'Guardar', remove: 'Eliminar', variantsHelp: 'Las variantes se guardan en este dispositivo para este campo de regatas y tipo de recorrido. La variante activa se actualiza automáticamente al mover una boya.', import: 'Importar GPX', export: 'Exportar GPX', recalculate: 'Recalcular', example: 'Ej. Eje', checkingLand: 'Comprobando tierra / agua…', onLand: 'en tierra', landRejected: 'no puede colocarse en tierra · posición anterior restaurada', landCheckUnavailable: 'Comprobación tierra / agua no disponible · movimiento cancelado', landWarning: 'Recorrido no válido: mueve fuera de tierra los puntos señalados', autoMoved: 'Recorrido desplazado al agua conservando su escala' },
 } as const
 
 type CoursePreviewProps = {
@@ -57,6 +58,27 @@ function destination(point: Point, bearing: number, distanceNm: number): Point {
   const lat2 = Math.asin(Math.sin(lat1) * Math.cos(angularDistance) + Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearingRad))
   const lon2 = lon1 + Math.atan2(Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(lat1), Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2))
   return { latitude: degrees(lat2), longitude: degrees(lon2) }
+}
+
+async function nearestWaterCourse(points: GpxPoint[]): Promise<GpxPoint[] | null> {
+  const candidates = [0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1, 1.5].flatMap((distanceNm) =>
+    Array.from({ length: 8 }, (_, index) => points.map((point) => ({
+      ...point,
+      ...destination(point, index * 45, distanceNm),
+    }))),
+  )
+  const elevations = await fetchElevations(candidates.flat())
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidateElevations = elevations.slice(index * points.length, (index + 1) * points.length)
+    if (candidateElevations.every((value) => value !== null && !isLandElevation(value))) return candidates[index]
+  }
+  return null
+}
+
+function sameLayout(left: GpxPoint[], right: GpxPoint[]) {
+  return left.length === right.length && left.every((point, index) =>
+    Math.abs(point.latitude - right[index].latitude) < 1e-7
+    && Math.abs(point.longitude - right[index].longitude) < 1e-7)
 }
 
 function lineAround(point: Point, courseBearing: number, halfWidthNm: number) {
@@ -177,6 +199,8 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
   const [variants, setVariants] = useState<CourseVariant[]>([])
   const [activeVariantId, setActiveVariantId] = useState('auto')
   const [variantName, setVariantName] = useState('')
+  const [landIndexes, setLandIndexes] = useState<number[]>([])
+  const [landCheckState, setLandCheckState] = useState<'checking' | 'ready' | 'unavailable'>('checking')
 
   useEffect(() => {
     const restored = consumeCourseRestore(storageKey)
@@ -217,6 +241,38 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
 
   useEffect(() => {
     let cancelled = false
+    setLandCheckState('checking')
+    void fetchElevations(points).then(async (elevations) => {
+      if (cancelled) return
+      if (elevations.every((value) => value === null)) {
+        setLandIndexes([])
+        setLandCheckState('unavailable')
+        return
+      }
+      const invalid = elevations.flatMap((value, index) => isLandElevation(value) ? [index] : [])
+      if (invalid.length && sameLayout(points, defaultCourse.points)) {
+        const shifted = await nearestWaterCourse(points)
+        if (cancelled) return
+        if (shifted) {
+          setLandIndexes([])
+          setGpxStatus(c.autoMoved)
+          setPoints(shifted)
+          return
+        }
+      }
+      setLandIndexes(invalid)
+      setLandCheckState('ready')
+    }).catch(() => {
+      if (!cancelled) {
+        setLandIndexes([])
+        setLandCheckState('unavailable')
+      }
+    })
+    return () => { cancelled = true }
+  }, [points, defaultCourse])
+
+  useEffect(() => {
+    let cancelled = false
     let map: any = null
 
     void loadLeaflet().then((leaflet) => {
@@ -241,18 +297,39 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
       leaflet.polyline([latLng(finishLine.left), latLng(finishLine.right)], { weight: 4, opacity: 0.8, dashArray: '7 6' }).addTo(map)
 
       points.forEach((point, index) => {
-        const marker = leaflet.marker(latLng(point), { draggable: true, title: point.name })
+        const isOnLand = landIndexes.includes(index)
+        const markerOptions: any = { draggable: true, title: point.name }
+        if (isOnLand) {
+          markerOptions.icon = leaflet.divIcon({
+            className: 'course-land-marker-icon',
+            html: '<span aria-hidden="true">!</span>',
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+          })
+        }
+        const marker = leaflet.marker(latLng(point), markerOptions)
           .bindTooltip(
-            index === 0 ? c.start : index === points.length - 1 ? c.finish : `${c.mark} ${index}`,
+            `${index === 0 ? c.start : index === points.length - 1 ? c.finish : `${c.mark} ${index}`}${isOnLand ? ` · ${c.onLand}` : ''}`,
             { permanent: true, direction: 'top', offset: [0, -12], className: 'course-point-label' },
           )
           .addTo(map)
 
-        marker.on('dragend', (event: any) => {
+        marker.on('dragend', async (event: any) => {
           const position = event.target.getLatLng()
-          const nextPoints = points.map((item, itemIndex) => itemIndex === index
-            ? { ...item, latitude: position.lat, longitude: position.lng }
-            : item)
+          const candidate = { ...point, latitude: position.lat, longitude: position.lng }
+          setGpxStatus(c.checkingLand)
+          const [elevation] = await fetchElevations([candidate])
+          if (elevation === null) {
+            event.target.setLatLng(latLng(point))
+            setGpxStatus(c.landCheckUnavailable)
+            return
+          }
+          if (isLandElevation(elevation)) {
+            event.target.setLatLng(latLng(point))
+            setGpxStatus(`${point.name} ${c.landRejected}`)
+            return
+          }
+          const nextPoints = points.map((item, itemIndex) => itemIndex === index ? candidate : item)
           setPoints(nextPoints)
           if (activeVariantId !== 'auto') {
             setVariants((current) => {
@@ -303,7 +380,7 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
       map?.remove()
       if (mapRef.current === map) mapRef.current = null
     }
-  }, [latitude, longitude, bearing, firstLegNm, points, routeOrder, activeVariantId, storageKey, committeeLatitude, committeeLongitude, committeeAccuracy])
+  }, [latitude, longitude, bearing, firstLegNm, points, routeOrder, activeVariantId, storageKey, committeeLatitude, committeeLongitude, committeeAccuracy, landIndexes])
 
   function resetCourse() {
     setPoints(defaultCourse.points)
@@ -400,6 +477,8 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
           <span>{routeSequence(points, routeOrder)}</span>
           <small>{c.axis}: {String(Math.round(bearing)).padStart(3, '0')}° · {c.drag}</small>
           {typeof committeeLatitude === 'number' && Number.isFinite(committeeLatitude) && typeof committeeLongitude === 'number' && Number.isFinite(committeeLongitude) && <small className="committee-course-summary">{c.marker}{committeeAccuracy ? ` · ${c.accuracy} ±${committeeAccuracy} m` : ''}</small>}
+          {landIndexes.length > 0 && <small className="course-land-warning" role="alert">{c.landWarning} : {landIndexes.map((index) => points[index]?.name).filter(Boolean).join(', ')}.</small>}
+          {landCheckState === 'unavailable' && <small className="course-land-check-unavailable" role="status">{c.landCheckUnavailable}.</small>}
         </div>
 
         <div className="course-variant-panel">
