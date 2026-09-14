@@ -261,3 +261,36 @@ footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; padding: 24
   outline: 3px solid rgba(24, 95, 134, .2);
   border-color: #185f86;
 }
+
+
+/* Analyse de trajectoire corrélée au parcours demandé. */
+.trajectory-detailed-layout { display: grid; gap: 20px; }
+.trajectory-detailed-layout .trajectory-figure { overflow-x: auto; }
+.trajectory-detailed-layout svg { min-width: 760px; }
+.trajectory-panel-title { fill: #173b3a; font: 700 13px 'Manrope', sans-serif; }
+.trajectory-zone-line { stroke: #c9d7d3; stroke-width: 1; stroke-dasharray: 4 5; }
+.trajectory-third-line { stroke: #7f9d97; stroke-width: 1.5; stroke-dasharray: 7 6; }
+.trajectory-lane-label, .trajectory-third-label { fill: #657b75; font: 600 10px 'Manrope', sans-serif; }
+.trajectory-lane-label.is-preferred { fill: #185f86; font-weight: 800; }
+.trajectory-third-label { paint-order: stroke; stroke: #f2f7f7; stroke-width: 4px; }
+.preferred-path, .full-course-route { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.preferred-path { stroke: #185f86; stroke-width: 7; }
+.preferred-path.is-neutral { stroke: #536b72; stroke-dasharray: 12 10; }
+.full-course-route { stroke: #185f86; stroke-width: 5; }
+.course-start-point { fill: #173b3a; }
+.course-mark-point { fill: #db6b45; stroke: #8b3f29; stroke-width: 2; }
+.course-finish-point { fill: #fff; stroke: #173b3a; stroke-width: 3; }
+.first-beat-analysis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.first-beat-analysis article { display: flex; gap: 12px; padding: 15px; border: 1px solid #dce3de; background: #f7f9f6; }
+.first-beat-analysis article > span { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border-radius: 50%; color: #fff; background: #185f86; font-size: 12px; font-weight: 800; }
+.first-beat-analysis div { display: grid; gap: 6px; }
+.first-beat-analysis strong { color: #173b3a; font-size: 12px; line-height: 1.4; }
+.first-beat-analysis p, .course-leg-analysis p { margin: 0; color: #5e726d; font-size: 11px; line-height: 1.5; }
+.course-leg-analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 8px; }
+.course-leg-analysis article { padding: 13px; border-left: 3px solid #db6b45; background: #f5f7f3; }
+.course-leg-analysis span { display: block; margin-bottom: 5px; color: #173b3a; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
+.trajectory-detailed-layout .trajectory-notes { padding: 18px 20px; }
+@media (max-width: 760px) {
+  .first-beat-analysis { grid-template-columns: 1fr; }
+  .trajectory-detailed-layout .trajectory-figure { margin-right: -8px; padding-bottom: 8px; }
+}
