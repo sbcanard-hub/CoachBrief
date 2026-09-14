@@ -369,3 +369,97 @@ footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; padding: 24
   background: #edf4f6;
   border-color: #587985;
 }
+
+
+/* Déplacement global du parcours — pavé compact utilisable au doigt. */
+.course-shift-panel {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 15px;
+  background: #f5f8f6;
+  border: 1px solid #d4dfda;
+  border-radius: 8px;
+}
+.course-shift-heading {
+  display: grid;
+  gap: 4px;
+}
+.course-shift-heading strong {
+  color: #173b3a;
+  font-size: 13px;
+}
+.course-shift-heading small {
+  color: #637772;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.course-shift-step {
+  display: grid;
+  gap: 4px;
+  color: #526964;
+  font-size: 10px;
+  font-weight: 700;
+}
+.course-shift-step select {
+  min-width: 86px;
+  min-height: 42px;
+  padding: 0 28px 0 10px;
+  color: #173b3a;
+  background: #fff;
+  border: 1px solid #aebfba;
+  border-radius: 6px;
+  font-weight: 700;
+}
+.course-shift-pad {
+  display: grid;
+  grid-template: repeat(3, 38px) / repeat(3, 38px);
+  gap: 3px;
+}
+.course-shift-pad button {
+  width: 38px;
+  min-height: 38px;
+  margin: 0;
+  padding: 0;
+  color: #fff;
+  background: #185f86;
+  border: 2px solid #124b6a;
+  border-radius: 6px;
+  font-size: 21px;
+  line-height: 1;
+}
+.course-shift-pad button:hover:not(:disabled) {
+  background: #124b6a;
+}
+.course-shift-pad button:focus-visible {
+  outline: 3px solid #ffd166;
+  outline-offset: 2px;
+}
+.course-shift-pad button:disabled {
+  opacity: .48;
+}
+.shift-north { grid-area: 1 / 2; }
+.shift-west { grid-area: 2 / 1; }
+.shift-centre {
+  grid-area: 2 / 2;
+  display: grid;
+  place-items: center;
+  color: #60746f;
+  background: #e4ebe7;
+  border-radius: 50%;
+  font-size: 18px;
+}
+.shift-east { grid-area: 2 / 3; }
+.shift-south { grid-area: 3 / 2; }
+@media (max-width: 650px) {
+  .course-shift-panel {
+    grid-template-columns: 1fr auto;
+  }
+  .course-shift-heading {
+    grid-column: 1 / -1;
+  }
+  .course-shift-pad button {
+    min-height: 38px;
+  }
+}
