@@ -74,7 +74,7 @@ export function TerrainAnalysisPanel({ terrain, request }: { terrain?: TerrainAn
     {(referenceImage || request?.terrainReferenceNotes) && <div className="terrain-reference-result">
       {referenceImage && <img src={referenceImage} alt={request?.terrainReferenceName || 'Référence locale du plan d’eau'} />}
       <div><strong>{request?.terrainReferenceName || 'Référence locale'}</strong>{request?.terrainReferenceEffect && <span>{request.terrainReferenceEffect}</span>}{request?.terrainReferenceNotes && <p>{request.terrainReferenceNotes}</p>}</div>
-    </div>
+    </div>}
     <small className="terrain-analysis-note">{c.note}</small>
   </section>
 }
