@@ -88,9 +88,9 @@ function buildDefaultCourse(center: Point, bearing: number, firstLegNm: number, 
   }
 
   if (courseType === 'Trapèze') {
-    const markTwo = destination(markOne, bearing + 110, firstLegNm * 0.58)
+    const markTwo = destination(markOne, bearing - 110, firstLegNm * 0.58)
     const markThree = destination(markTwo, bearing + 180, firstLegNm * 0.72)
-    const markFour = destination(markThree, bearing + 250, firstLegNm * 0.58)
+    const markFour = destination(markThree, bearing + 110, firstLegNm * 0.58)
     const finish = destination(markFour, bearing + 180, firstLegNm * 0.15)
     return {
       points: [

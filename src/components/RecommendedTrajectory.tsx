@@ -106,9 +106,9 @@ function fullCourse(courseType: BriefingRequest['courseType'], side: Side, label
     start: { x: 650, y: 445, label: labels.start }, finish: { x: 835, y: 445, label: labels.finish },
   }
   if (courseType === 'Trapèze') return {
-    marks: [{ x: 680, y: 70, label: `${labels.mark} 1` }, { x: 900, y: 165, label: `${labels.mark} 2` }, { x: 900, y: 365, label: `${labels.mark} 3` }, { x: 680, y: 365, label: `${labels.mark} 4` }] as DiagramPoint[],
-    route: `610,445 ${680 + offset},350 ${650 - offset},250 ${680 + offset},155 680,70 900,165 900,365 680,365 785,445`,
-    start: { x: 610, y: 445, label: labels.start }, finish: { x: 785, y: 445, label: labels.finish },
+    marks: [{ x: 840, y: 70, label: `${labels.mark} 1` }, { x: 620, y: 165, label: `${labels.mark} 2` }, { x: 620, y: 365, label: `${labels.mark} 3` }, { x: 840, y: 365, label: `${labels.mark} 4` }] as DiagramPoint[],
+    route: `840,445 ${900 + offset},350 ${810 - offset},250 ${900 + offset},155 840,70 620,165 620,365 840,365 735,445`,
+    start: { x: 840, y: 445, label: labels.start }, finish: { x: 735, y: 445, label: labels.finish },
   }
   return {
     marks: [{ x: 780, y: 70, label: `${labels.mark} 1` }, { x: 780, y: 385, label: `${labels.mark} 2` }] as DiagramPoint[],
