@@ -55,6 +55,12 @@ export type BriefingRequest = {
   observedCloudCover: string
   observedPressure: string
   observationNotes: string
+  /** Optional, user-provided local terrain reference; the compressed image remains on the current device. */
+  terrainReferenceId?: string
+  terrainReferenceName?: string
+  terrainReferenceNotes?: string
+  terrainReferenceSide?: 'Gauche' | 'Neutre' | 'Droite'
+  terrainReferenceEffect?: '' | 'devent' | 'canalisation' | 'acceleration' | 'thermique'
   /** Chronological on-water readings. The forecast remains stored separately. */
   expressReadings?: ExpressReading[]
 }
