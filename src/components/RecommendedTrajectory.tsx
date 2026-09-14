@@ -40,28 +40,138 @@ function buildTrajectoryAdvice(request: BriefingRequest | null, rows: BernotRow[
   }
 }
 
+type DiagramPoint = { x: number; y: number; label: string }
+
+const detailedCopy = {
+  fr: {
+    detailed: 'Analyse détaillée du parcours', firstBeat: 'Premier près · découpage tactique', requested: 'Parcours demandé',
+    lanes: ['Gauche', 'Centre gauche', 'Centre', 'Centre droit', 'Droite'],
+    thirds: ['1er tiers', '2e tiers', '3e tiers'], start: 'Départ', finish: 'Arrivée', mark: 'Bouée',
+    leg: 'Bord', recommended: 'Zone conseillée', keepOpen: 'Rester centré et valider la première bascule.',
+    phaseOpen: ['Sortir vite et garder les deux côtés accessibles.', 'Choisir le côté seulement sur un signal confirmé.', 'Revenir dans l’axe avant les laylines.'],
+    phaseSide: ['Construire une voie libre vers {side}.', 'Exploiter {side} sans atteindre le cadre trop tôt.', 'Revenir vers l’axe et poser la layline tardivement.'],
+    courses: {
+      Banane: ['Premier près : jouer les bascules par bords droits.', 'Vent arrière : protéger l’intérieur et l’air libre.', 'Deuxième près : réévaluer le côté avec les nouveaux relevés.', 'Dernier bord vers l’arrivée.'],
+      Triangle: ['Premier près : jouer les bascules par bords droits.', 'Premier reaching : vitesse et air libre.', 'Deuxième reaching : anticiper la marque suivante.', 'Dernier bord vers l’arrivée.'],
+      'Trapèze': ['Premier près : lecture détaillée en trois tiers.', 'Travers haut : vitesse, pression et contrôle de la layline.', 'Bord extérieur : gérer vent arrière et trafic.', 'Travers bas : préparer l’approche de l’arrivée.', 'Dernier bord vers l’arrivée.'],
+    },
+  },
+  en: {
+    detailed: 'Detailed course analysis', firstBeat: 'First beat · tactical breakdown', requested: 'Requested course',
+    lanes: ['Left', 'Centre-left', 'Centre', 'Centre-right', 'Right'],
+    thirds: ['First third', 'Second third', 'Final third'], start: 'Start', finish: 'Finish', mark: 'Mark',
+    leg: 'Leg', recommended: 'Recommended zone', keepOpen: 'Stay central and confirm the first shift.',
+    phaseOpen: ['Accelerate with both sides available.', 'Commit only on a confirmed signal.', 'Return to the axis before the laylines.'],
+    phaseSide: ['Build a clear lane towards {side}.', 'Use {side} without reaching the boundary too early.', 'Return towards the axis and approach the layline late.'],
+    courses: {
+      Banane: ['First beat: play the shifts with straight tacks.', 'Run: protect the inside and clear air.', 'Second beat: reassess the side with new readings.', 'Final leg to the finish.'],
+      Triangle: ['First beat: play the shifts with straight tacks.', 'First reach: speed and clear air.', 'Second reach: anticipate the next mark.', 'Final leg to the finish.'],
+      'Trapèze': ['First beat: detailed reading in three thirds.', 'Upper reach: speed, pressure and layline control.', 'Outer leg: manage downwind pressure and traffic.', 'Lower reach: prepare the finish approach.', 'Final leg to the finish.'],
+    },
+  },
+  it: {
+    detailed: 'Analisi dettagliata del percorso', firstBeat: 'Prima bolina · suddivisione tattica', requested: 'Percorso richiesto',
+    lanes: ['Sinistra', 'Centro sinistra', 'Centro', 'Centro destra', 'Destra'],
+    thirds: ['Primo terzo', 'Secondo terzo', 'Ultimo terzo'], start: 'Partenza', finish: 'Arrivo', mark: 'Boa',
+    leg: 'Lato', recommended: 'Zona consigliata', keepOpen: 'Resta al centro e conferma la prima rotazione.',
+    phaseOpen: ['Parti veloce mantenendo aperti entrambi i lati.', 'Scegli un lato solo con un segnale confermato.', 'Torna sull’asse prima delle layline.'],
+    phaseSide: ['Costruisci una corsia libera verso {side}.', 'Sfrutta {side} senza arrivare troppo presto al bordo.', 'Torna verso l’asse e prendi la layline tardi.'],
+    courses: {
+      Banane: ['Prima bolina: gioca le rotazioni con bordi rettilinei.', 'Poppa: proteggi l’interno e l’aria libera.', 'Seconda bolina: rivaluta il lato con i nuovi rilievi.', 'Ultimo lato verso l’arrivo.'],
+      Triangle: ['Prima bolina: gioca le rotazioni con bordi rettilinei.', 'Primo lasco: velocità e aria libera.', 'Secondo lasco: anticipa la boa seguente.', 'Ultimo lato verso l’arrivo.'],
+      'Trapèze': ['Prima bolina: lettura dettagliata in tre terzi.', 'Traverso alto: velocità, pressione e layline.', 'Lato esterno: gestisci poppa e traffico.', 'Traverso basso: prepara l’arrivo.', 'Ultimo lato verso l’arrivo.'],
+    },
+  },
+  es: {
+    detailed: 'Análisis detallado del recorrido', firstBeat: 'Primera ceñida · desglose táctico', requested: 'Recorrido solicitado',
+    lanes: ['Izquierda', 'Centro izquierda', 'Centro', 'Centro derecha', 'Derecha'],
+    thirds: ['Primer tercio', 'Segundo tercio', 'Último tercio'], start: 'Salida', finish: 'Llegada', mark: 'Boya',
+    leg: 'Tramo', recommended: 'Zona recomendada', keepOpen: 'Mantente centrado y confirma el primer role.',
+    phaseOpen: ['Sal con velocidad manteniendo abiertos ambos lados.', 'Elige lado solo con una señal confirmada.', 'Vuelve al eje antes de las laylines.'],
+    phaseSide: ['Construye una calle libre hacia {side}.', 'Aprovecha {side} sin llegar demasiado pronto al límite.', 'Vuelve hacia el eje y toma la layline tarde.'],
+    courses: {
+      Banane: ['Primera ceñida: juega los roles con bordos rectos.', 'Popa: protege el interior y el viento libre.', 'Segunda ceñida: reevalúa el lado con nuevas lecturas.', 'Último tramo hacia la llegada.'],
+      Triangle: ['Primera ceñida: juega los roles con bordos rectos.', 'Primer través: velocidad y viento libre.', 'Segundo través: anticipa la siguiente boya.', 'Último tramo hacia la llegada.'],
+      'Trapèze': ['Primera ceñida: lectura detallada en tres tercios.', 'Través alto: velocidad, presión y layline.', 'Tramo exterior: gestiona popa y tráfico.', 'Través bajo: prepara la llegada.', 'Último tramo hacia la llegada.'],
+    },
+  },
+} as const
+
+function fullCourse(courseType: BriefingRequest['courseType'], side: Side, labels: { start: string; finish: string; mark: string }) {
+  const offset = side === 'right' ? 34 : side === 'left' ? -34 : 0
+  const firstBeat = `650,445 ${720 + offset},350 ${690 - offset},250 ${720 + offset},155 720,70`
+  if (courseType === 'Triangle') return {
+    marks: [{ x: 720, y: 70, label: `${labels.mark} 1` }, { x: 915, y: 285, label: `${labels.mark} 2` }, { x: 650, y: 390, label: `${labels.mark} 3` }] as DiagramPoint[],
+    route: `650,445 ${firstBeat.split(' ').slice(1).join(' ')} 915,285 650,390 835,445`,
+    start: { x: 650, y: 445, label: labels.start }, finish: { x: 835, y: 445, label: labels.finish },
+  }
+  if (courseType === 'Trapèze') return {
+    marks: [{ x: 680, y: 70, label: `${labels.mark} 1` }, { x: 900, y: 165, label: `${labels.mark} 2` }, { x: 900, y: 365, label: `${labels.mark} 3` }, { x: 680, y: 365, label: `${labels.mark} 4` }] as DiagramPoint[],
+    route: `610,445 ${680 + offset},350 ${650 - offset},250 ${680 + offset},155 680,70 900,165 900,365 680,365 785,445`,
+    start: { x: 610, y: 445, label: labels.start }, finish: { x: 785, y: 445, label: labels.finish },
+  }
+  return {
+    marks: [{ x: 780, y: 70, label: `${labels.mark} 1` }, { x: 780, y: 385, label: `${labels.mark} 2` }] as DiagramPoint[],
+    route: `780,445 ${850 + offset},350 ${750 - offset},250 ${850 + offset},155 780,70 780,385 ${710 - offset},290 ${810 + offset},190 780,70 875,445`,
+    start: { x: 780, y: 445, label: labels.start }, finish: { x: 875, y: 445, label: labels.finish },
+  }
+}
+
 export function RecommendedTrajectory({ request, rows, weather, coherence }: { request: BriefingRequest | null; rows: BernotRow[]; weather: WeatherScenario; coherence?: TacticalCoherence }) {
-  const { t } = usePreferences()
+  const { t, language } = usePreferences()
   const advice = buildTrajectoryAdvice(request, rows, weather, t, coherence)
-  const right = advice.side === 'right'; const neutral = advice.side === 'neutral'
-  const upwindPath = neutral ? 'M 300 408 C 290 335, 310 265, 300 105' : right ? 'M 300 408 C 350 355, 425 308, 432 242 S 375 145, 300 105' : 'M 300 408 C 250 355, 175 308, 168 242 S 225 145, 300 105'
-  const downwindPath = neutral ? 'M 300 105 C 335 190, 265 300, 300 408' : right ? 'M 300 105 C 230 180, 220 280, 278 408' : 'M 300 105 C 370 180, 380 280, 322 408'
+  const c = detailedCopy[language]
+  const courseType = request?.courseType ?? 'Banane'
+  const right = advice.side === 'right'
+  const neutral = advice.side === 'neutral'
+  const preferredLane = neutral ? 2 : right ? 4 : 0
+  const laneX = [90, 190, 290, 390, 490]
+  const firstBeatPoints = neutral
+    ? `290,445 245,350 335,265 260,175 290,70`
+    : right
+      ? `290,445 385,350 310,280 475,185 405,125 290,70`
+      : `290,445 195,350 270,280 105,185 175,125 290,70`
+  const course = fullCourse(courseType, advice.side, c)
+  const sideLabel = c.lanes[preferredLane].toLowerCase()
+  const phases = neutral ? c.phaseOpen : c.phaseSide.map((item) => item.replace('{side}', sideLabel))
+  const legAdvice = c.courses[courseType]
 
   return <section className="trajectory-section" aria-labelledby="trajectory-title">
-    <div className="section-heading"><div><span className="section-number">03</span><div><span className="step-label">{t('calculatedTacticalReading')}</span><h2 id="trajectory-title">{t('recommendedTrajectory')}</h2></div></div><span className={`trajectory-status is-${advice.side}`}>{neutral ? t('openOption') : t('sidePreference', { side: t(right ? 'right' : 'left').toLowerCase() })}</span></div>
-    <div className="trajectory-layout">
-      <figure className="trajectory-figure"><svg viewBox="0 0 600 470" role="img" aria-labelledby="trajectory-svg-title trajectory-svg-desc">
-        <title id="trajectory-svg-title">{t('trajectoryDiagramTitle')}</title><desc id="trajectory-svg-desc">{advice.start}. {advice.firstLeg}. {advice.target}. {advice.tack}. {advice.downwind}. {advice.gate}.</desc>
-        <defs><marker id="trajectory-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker><pattern id="water-grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M 0 28 L 28 28 M 28 0 L 28 28" /></pattern></defs>
-        <rect className="trajectory-water" x="16" y="16" width="568" height="438" /><rect className="trajectory-grid" x="16" y="16" width="568" height="438" />
-        <path className="course-axis" d="M 300 410 L 300 102" /><path className="start-line" d="M 155 410 L 445 410" /><circle className="committee-mark" cx="445" cy="410" r="8" /><path className="pin-mark" d="M 147 418 L 155 397 L 163 418 Z" />
-        <path className="windward-mark" d="M 288 105 L 300 82 L 312 105 Z" /><path className="gate" d="M 250 422 L 350 422" /><circle className="gate-mark" cx="250" cy="422" r="6" /><circle className="gate-mark" cx="350" cy="422" r="6" />
-        <path className={`preferred-path${neutral ? ' is-neutral' : ''}`} d={upwindPath} markerEnd="url(#trajectory-arrow)" /><path className="downwind-path" d={downwindPath} markerEnd="url(#trajectory-arrow)" />
-        <circle className="decision-zone" cx={neutral ? 300 : right ? 432 : 168} cy="242" r="28" />
-        <text className="diagram-label" x="300" y="60" textAnchor="middle">{t('windwardMark')}</text><text className="diagram-label" x="145" y="445" textAnchor="middle">{t('pin')}</text><text className="diagram-label" x="455" y="445" textAnchor="middle">{t('committee')}</text>
-        <text className="diagram-note" x={neutral ? 325 : right ? 465 : 135} y="238" textAnchor={neutral || right ? 'start' : 'end'}>{t(neutral ? 'observeShift' : 'tackingZone')}</text><text className="diagram-note is-portant" x={right ? 195 : 405} y="310" textAnchor="middle">{t('downwindOption')}</text>
+    <div className="section-heading"><div><span className="section-number">03</span><div><span className="step-label">{c.detailed}</span><h2 id="trajectory-title">{t('recommendedTrajectory')}</h2></div></div><span className={`trajectory-status is-${advice.side}`}>{neutral ? t('openOption') : t('sidePreference', { side: t(right ? 'right' : 'left').toLowerCase() })}</span></div>
+    <div className="trajectory-detailed-layout">
+      <figure className="trajectory-figure"><svg viewBox="0 0 1000 510" role="img" aria-labelledby="trajectory-svg-title trajectory-svg-desc">
+        <title id="trajectory-svg-title">{t('trajectoryDiagramTitle')}</title><desc id="trajectory-svg-desc">{advice.start}. {advice.firstLeg}. {legAdvice.join(' ')}</desc>
+        <defs><marker id="trajectory-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
+        <rect className="trajectory-water" x="25" y="35" width="530" height="440" />
+        <text className="trajectory-panel-title" x="290" y="25" textAnchor="middle">{c.firstBeat}</text>
+        {[140, 240, 340, 440].map((x) => <line key={x} className="trajectory-zone-line" x1={x} y1="50" x2={x} y2="455" />)}
+        {[185, 315].map((y) => <line key={y} className="trajectory-third-line" x1="40" y1={y} x2="540" y2={y} />)}
+        {c.lanes.map((label, index) => <text key={label} className={`trajectory-lane-label${index === preferredLane ? ' is-preferred' : ''}`} x={laneX[index]} y="470" textAnchor="middle">{label}</text>)}
+        {c.thirds.map((label, index) => <text key={label} className="trajectory-third-label" x="48" y={[385, 250, 120][index]}>{label}</text>)}
+        <line className="start-line" x1="55" y1="445" x2="525" y2="445" />
+        <text className="diagram-label" x="290" y="438" textAnchor="middle">{c.start}</text>
+        <path className="windward-mark" d="M 278 76 L 290 53 L 302 76 Z" />
+        <text className="diagram-label" x="290" y="48" textAnchor="middle">{c.mark} 1</text>
+        <polyline className={`preferred-path${neutral ? ' is-neutral' : ''}`} points={firstBeatPoints} markerEnd="url(#trajectory-arrow)" />
+        <circle className="decision-zone" cx={laneX[preferredLane]} cy="250" r="24" />
+
+        <rect className="trajectory-water" x="580" y="35" width="395" height="440" />
+        <text className="trajectory-panel-title" x="778" y="25" textAnchor="middle">{c.requested} · {t(courseType === 'Banane' ? 'courseBanana' : courseType === 'Trapèze' ? 'courseTrapezoid' : 'courseTriangle')}</text>
+        <polyline className="full-course-route" points={course.route} markerEnd="url(#trajectory-arrow)" />
+        <circle className="course-start-point" cx={course.start.x} cy={course.start.y} r="7" />
+        <text className="diagram-label" x={course.start.x} y={course.start.y + 22} textAnchor="middle">{course.start.label}</text>
+        {course.marks.map((point) => <g key={point.label}><circle className="course-mark-point" cx={point.x} cy={point.y} r="8" /><text className="diagram-label" x={point.x} y={point.y - 14} textAnchor="middle">{point.label}</text></g>)}
+        <rect className="course-finish-point" x={course.finish.x - 7} y={course.finish.y - 7} width="14" height="14" />
+        <text className="diagram-label" x={course.finish.x} y={course.finish.y + 24} textAnchor="middle">{course.finish.label}</text>
       </svg></figure>
-      <div className="trajectory-notes" aria-label={t('trajectoryInstructions')}><strong>{advice.target}</strong><ul><li>{advice.start}</li><li>{advice.firstLeg}</li><li>{advice.tack}</li><li>{advice.downwind}</li><li>{advice.gate}</li></ul><p><span>{t('why')} :</span> {advice.rationale}</p></div>
+
+      <div className="first-beat-analysis">
+        {c.thirds.map((third, index) => <article key={third}><span>{index + 1}</span><div><strong>{third} · {c.recommended}: {neutral ? c.lanes[2] : index === 2 ? c.lanes[right ? 3 : 1] : c.lanes[preferredLane]}</strong><p>{phases[index]}</p></div></article>)}
+      </div>
+      <div className="course-leg-analysis">
+        {legAdvice.map((text, index) => <article key={text}><span>{c.leg} {index + 1}</span><p>{text}</p></article>)}
+      </div>
+      <div className="trajectory-notes"><strong>{advice.target}</strong><p><span>{t('why')} :</span> {advice.rationale}</p></div>
     </div>
     <p className="trajectory-disclaimer">{t('trajectoryDisclaimer')}</p>
   </section>
