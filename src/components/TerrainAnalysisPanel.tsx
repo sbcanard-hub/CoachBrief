@@ -1,6 +1,8 @@
 import { Compass, Gauge, Mountain, ThermometerSun, Waves, Wind } from 'lucide-react'
 import { usePreferences } from '../preferences'
 import type { TerrainAnalysis, TerrainLevel } from '../terrainAnalysis'
+import type { BriefingRequest } from '../types'
+import { terrainReferenceImage } from '../terrainReference'
 
 const copy = {
   fr: {
@@ -45,7 +47,7 @@ const copy = {
   },
 } as const
 
-export function TerrainAnalysisPanel({ terrain }: { terrain?: TerrainAnalysis }) {
+export function TerrainAnalysisPanel({ terrain, request }: { terrain?: TerrainAnalysis; request?: BriefingRequest | null }) {
   const { language } = usePreferences()
   if (!terrain?.available) return null
   const c = copy[language]
@@ -53,6 +55,7 @@ export function TerrainAnalysisPanel({ terrain }: { terrain?: TerrainAnalysis })
   const flow = c[terrain.coastalFlow]
   const side = c[terrain.preferredSide]
   const sideText = terrain.preferredSide === 'neutral' ? c.noSide : c.side.replace('{side}', side)
+  const referenceImage = terrainReferenceImage(request?.terrainReferenceId)
 
   return <section className="terrain-analysis" aria-labelledby="terrain-analysis-title">
     <div className="terrain-analysis-heading">
@@ -68,6 +71,10 @@ export function TerrainAnalysisPanel({ terrain }: { terrain?: TerrainAnalysis })
       <article><ThermometerSun size={17} /><small>{c.thermal}</small><strong>{level(terrain.thermalPotential)}</strong><span>{terrain.coastalFlow === 'onshore' ? flow : c.mixed}</span></article>
     </div>
     <p className="terrain-analysis-reading">{sideText}</p>
+    {(referenceImage || request?.terrainReferenceNotes) && <div className="terrain-reference-result">
+      {referenceImage && <img src={referenceImage} alt={request?.terrainReferenceName || 'Référence locale du plan d’eau'} />}
+      <div><strong>{request?.terrainReferenceName || 'Référence locale'}</strong>{request?.terrainReferenceEffect && <span>{request.terrainReferenceEffect}</span>}{request?.terrainReferenceNotes && <p>{request.terrainReferenceNotes}</p>}</div>
+    </div>
     <small className="terrain-analysis-note">{c.note}</small>
   </section>
 }
