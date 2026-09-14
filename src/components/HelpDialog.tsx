@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { CircleHelp, Search, X } from 'lucide-react'
+import { CircleHelp, Search, X } from 'lucide-react'\nimport { Link } from 'react-router-dom'
 import { usePreferences } from '../preferences'
-import type { TranslationKey } from '../i18n/fr'
+import type { TranslationKey } from '../i18n/fr'\nimport { legalFooterCopy } from '../pages/legalFooter'
 
 type HelpDialogProps = { open: boolean; onClose: () => void }
 type HelpItem = { category: TranslationKey; question: TranslationKey; answer: TranslationKey; keywords: TranslationKey }
@@ -34,7 +34,7 @@ function normalize(value: string, locale: string) {
 
 export function HelpDialog({ open, onClose }: HelpDialogProps) {
   const [query, setQuery] = useState('')
-  const { locale, t } = usePreferences()
+  const { language, locale, t } = usePreferences()
   const filteredItems = useMemo(() => {
     const normalizedQuery = normalize(query.trim(), locale)
     if (!normalizedQuery) return HELP_ITEMS
