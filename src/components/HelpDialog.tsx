@@ -23,7 +23,8 @@ const HELP_ITEMS: HelpItem[] = [
   item('printPdf', 'Pdf'), item('troubleshooting', 'OldData'), item('troubleshooting', 'Update'),
   item('helpNewTools', 'StartMode'), item('helpNewTools', 'ExpressReading'), item('helpNewTools', 'WindShifts'),
   item('helpNewTools', 'StartLine'), item('helpNewTools', 'WaterMemory'), item('helpNewTools', 'SmartBriefing'),
-  item('helpNewTools', 'Coherence'), item('helpNewTools', 'Trajectory'), item('helpNewTools', 'Debrief'),
+  item('helpNewTools', 'Coherence'), item('helpNewTools', 'Trajectory'), item('helpNewTools', 'Training'),
+  item('helpNewTools', 'Debrief'),
   item('helpTypicalJourney', 'Journey'),
 ]
 
