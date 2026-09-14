@@ -1,3 +1,4 @@
+import { fetchElevations } from './elevation'
 import type { BriefingRequest } from './types'
 import type { LiveWeatherData } from './weather'
 
@@ -71,18 +72,11 @@ export async function fetchTerrainSamples(latitude: number, longitude: number): 
     distanceKm,
     ...destinationPoint(latitude, longitude, bearing, distanceKm),
   })))
-  const latitudes = points.map((point) => point.latitude.toFixed(5)).join(',')
-  const longitudes = points.map((point) => point.longitude.toFixed(5)).join(',')
-  const response = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${encodeURIComponent(latitudes)}&longitude=${encodeURIComponent(longitudes)}`)
-  if (!response.ok) throw new Error('Relief indisponible pour ce plan d’eau')
-  const payload = await response.json() as { elevation?: unknown[] }
-  if (!Array.isArray(payload.elevation) || payload.elevation.length !== points.length) {
-    throw new Error('Profil de relief incomplet')
-  }
+  const elevations = await fetchElevations(points)
   return points.map((point, index) => ({
     bearing: point.bearing,
     distanceKm: point.distanceKm,
-    elevation: safeElevation(payload.elevation?.[index]),
+    elevation: safeElevation(elevations[index]),
   }))
 }
 
