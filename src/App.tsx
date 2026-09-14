@@ -1,5 +1,5 @@
 import { useLayoutEffect } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import { Header } from './components/Header'
 import { SiteLearningPanel } from './components/SiteLearningPanel'
 import { WindModelComparisonPanel } from './components/WindModelComparisonPanel'
@@ -8,6 +8,8 @@ import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
 import { DebriefPage } from './pages/DebriefPage'
 import { TrainingPage } from './pages/TrainingPage'
+import { LegalPage } from './pages/LegalPage'
+import { legalFooterCopy } from './pages/legalFooter'
 import { usePreferences } from './preferences'
 import { SimilarSituations } from './components/SimilarSituations'
 import type { BriefingRequest } from './types'
@@ -48,7 +50,8 @@ function ScrollToTop() {
 }
 
 export default function App() {
-  const { t } = usePreferences()
+  const { language, t } = usePreferences()
+  const legal = legalFooterCopy[language]
   return (
     <div className="app-shell">
       <ScrollToTop />
@@ -60,8 +63,18 @@ export default function App() {
         <Route path="/briefings/:id/debrief" element={<DebriefPage />} />
         <Route path="/entrainements" element={<TrainingPage />} />
         <Route path="/historique-plan-eau" element={<SavedBriefingsPage />} />
+        <Route path="/mentions-legales" element={<LegalPage document="legal" />} />
+        <Route path="/confidentialite" element={<LegalPage document="privacy" />} />
+        <Route path="/conditions-utilisation" element={<LegalPage document="terms" />} />
       </Routes>
-      <footer><span>CoachBrief © 2026</span><span>{t('footer')}</span></footer>
+      <footer className="site-footer">
+        <div><span>© 2026 CoachBrief — Sébastien Canard. {legal.rights}</span><span>{t('footer')}</span></div>
+        <nav aria-label={legal.navigation}>
+          <Link to="/mentions-legales">{legal.legal}</Link>
+          <Link to="/confidentialite">{legal.privacy}</Link>
+          <Link to="/conditions-utilisation">{legal.terms}</Link>
+        </nav>
+      </footer>
     </div>
   )
 }
