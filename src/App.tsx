@@ -14,6 +14,7 @@ import { AboutPage } from './pages/AboutPage'
 import { legalFooterCopy } from './pages/legalFooter'
 import { usePreferences } from './preferences'
 import { SimilarSituations } from './components/SimilarSituations'
+import { HistoricalRaces } from './components/HistoricalRaces'
 import type { BriefingRequest } from './types'
 import { useEffect, useState } from 'react'
 import { fetchWeatherForBriefing } from './weather'
@@ -38,6 +39,7 @@ function ResultsRoute() {
   return <>
     {!startMode && <WindModelComparisonPanel />}
     {!startMode && request && <SimilarSituations request={request} weather={memoryWeather} />}
+    {!startMode && request && <HistoricalRaces request={request} weather={memoryWeather} />}
     {!startMode && <SiteLearningPanel />}
     <ResultsPage />
   </>
