@@ -118,7 +118,8 @@ export function buildBernotRows(
   const observedDirectionGap = observation?.windDirectionDelta ?? 0
   const observedWindZoneVector = Math.abs(observedDirectionGap) >= 7 ? observedDirectionGap : windDelta
   const gapScore = terrainGapScore(observation)
-  const terrainEffectLabel = { devent: 'dévent', canalisation: 'canalisation', acceleration: 'accélération au cap', thermique: 'brise thermique' }[request?.terrainReferenceEffect || '']
+  const terrainEffectLabels: Record<string, string> = { devent: 'dévent', canalisation: 'canalisation', acceleration: 'accélération au cap', thermique: 'brise thermique' }
+  const terrainEffectLabel = terrainEffectLabels[request?.terrainReferenceEffect || '']
   const terrainReferenceNote = request?.terrainReferenceNotes || terrainEffectLabel
     ? ` Référence locale : ${[terrainEffectLabel, request?.terrainReferenceNotes].filter(Boolean).join(' · ')}.`
     : ''
