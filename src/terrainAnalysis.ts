@@ -59,7 +59,9 @@ function sector(samples: Sample[], bearing: number, width = 46) {
 }
 
 /**
- * Diagnostic mesoscale based on a 24-point elevation stencil.
+ * Micro-weather diagnostic based on an 80-point elevation stencil.
+ * Near-field samples receive more weight so a headland, small hill or bay opening
+ * close to the race area matters more than distant regional terrain.
  * It identifies exposure and blocking signals; it is intentionally not presented as CFD.
  */
 export async function fetchTerrainAnalysis(
@@ -73,8 +75,8 @@ export async function fetchTerrainAnalysis(
   cloudCover: number,
 ): Promise<TerrainAnalysis | undefined> {
   if (![latitude, longitude, windFrom, courseAxis, windSpeed].every(Number.isFinite)) return undefined
-  const bearings = Array.from({ length: 8 }, (_, index) => index * 45)
-  const radii = [2, 5, 10]
+  const bearings = Array.from({ length: 16 }, (_, index) => index * 22.5)
+  const radii = [0.25, 0.5, 1, 2, 5]
   const locations = [{ latitude, longitude, bearing: 0, radiusKm: 0 }, ...radii.flatMap((radiusKm) =>
     bearings.map((bearing) => ({ ...destination(latitude, longitude, bearing, radiusKm), bearing, radiusKm })),
   )]
@@ -112,7 +114,7 @@ export async function fetchTerrainAnalysis(
     return {
       available: true,
       sampleCount: samples.length,
-      radiusKm: 10,
+      radiusKm: 5,
       centreElevation: Math.round(centreElevation),
       maxElevation: Math.round(maxElevation),
       relief: Math.round(relief),
@@ -121,13 +123,13 @@ export async function fetchTerrainAnalysis(
       leftMean: Math.round(left.mean),
       rightMean: Math.round(right.mean),
       coastalFlow,
-      blockingRisk: level(blockingIndex, 45, 140),
-      leeRisk: level(obstacle * (offshore ? 1.25 : 1), 35, 120),
-      channelingRisk: level(Math.max(0, walls - corridor) + (alongshore ? 35 : 0), 45, 120),
+      blockingRisk: level(blockingIndex, 22, 85),
+      leeRisk: level(obstacle * (offshore ? 1.25 : 1), 18, 70),
+      channelingRisk: level(Math.max(0, walls - corridor) + (alongshore ? 25 : 0), 25, 75),
       thermalPotential: level(thermalIndex, .7, 1.8),
       preferredSide,
       sideDifference: Math.round(sideDifference),
-      confidence: samples.length >= 20 && relief >= 25 ? 'high' : samples.length >= 16 ? 'medium' : 'low',
+      confidence: samples.length >= 64 && relief >= 15 ? 'high' : samples.length >= 48 ? 'medium' : 'low',
     }
   } catch {
     return undefined
