@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
-import { CircleHelp, Search, X } from 'lucide-react'\nimport { Link } from 'react-router-dom'
+import { CircleHelp, Search, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { usePreferences } from '../preferences'
-import type { TranslationKey } from '../i18n/fr'\nimport { legalFooterCopy } from '../pages/legalFooter'
+import type { TranslationKey } from '../i18n/fr'
+import { legalFooterCopy } from '../pages/legalFooter'
 
 type HelpDialogProps = { open: boolean; onClose: () => void }
 type HelpItem = { category: TranslationKey; question: TranslationKey; answer: TranslationKey; keywords: TranslationKey }
@@ -66,6 +68,7 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
             <li><strong>{t('createBriefing')}</strong><span>{t('createHelp')}</span></li>
           </ol>
         </div>
+        <p><Link to="/a-propos" onClick={onClose}>{legalFooterCopy[language].about} →</Link></p>
       </section>
       <label className="help-search"><Search size={18} aria-hidden="true" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('helpSearch')} aria-label={t('helpSearchLabel')} autoComplete="off" />{query && <button type="button" onClick={() => setQuery('')} aria-label={t('clearSearch')}><X size={16} /></button>}</label>
       <p className="help-result-count" aria-live="polite">{query ? `${filteredItems.length} ${t(filteredItems.length > 1 ? 'answersFound' : 'answerFound')}` : `${HELP_ITEMS.length} ${t('commonQuestions')}`}</p>
