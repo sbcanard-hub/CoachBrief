@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { ArrowRight, CalendarDays, Clock3, CloudSun, Compass, Copy, Flag, Gauge, MapPin, Navigation, Sailboat, Waves, Wind } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { MapPicker } from '../components/MapPicker'
+import { TerrainReferenceInput } from '../components/TerrainReferenceInput'
 import type { BriefingRequest } from '../types'
 import { usePreferences } from '../preferences'
 import { fetchWeatherForBriefing } from '../weather'
@@ -35,6 +36,8 @@ const initialForm: BriefingRequest = {
   observedCloudCover: '',
   observedPressure: '',
   observationNotes: '',
+  terrainReferenceSide: 'Neutre',
+  terrainReferenceEffect: '',
 }
 
 type HomeNavigationState = {
@@ -104,6 +107,10 @@ export function HomePage() {
       return
     }
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function updateTerrainReference(patch: Partial<BriefingRequest>) {
+    setForm((current) => ({ ...current, ...patch }))
   }
 
   function setCourseAxisMode(mode: 'manual' | 'model_wind') {
@@ -179,6 +186,8 @@ export function HomePage() {
             onPointChange={updateMapPoint}
             onCommitteeChange={updateCommitteePoint}
           />
+
+          <TerrainReferenceInput request={form} onChange={updateTerrainReference} />
 
           <div className="form-row">
             <label className="field">
