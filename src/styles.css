@@ -337,3 +337,35 @@ footer { width: min(1180px, calc(100% - 48px)); margin: auto auto 0; padding: 24
 @media (max-width: 600px) {
   .terrain-reference-fields, .terrain-reference-result { grid-template-columns: 1fr; }
 }
+
+
+/* Validation terre / mer du parcours : symbole et motif, sans dépendre du rouge/vert. */
+.course-land-marker-icon span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: #173b3a;
+  background: #ffd166;
+  border: 3px solid #173b3a;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(255,255,255,.9);
+  font: 900 20px/1 'Manrope', sans-serif;
+}
+.course-land-warning,
+.course-land-check-unavailable {
+  display: block;
+  margin-top: 9px;
+  padding: 9px 11px;
+  color: #493a12;
+  background: repeating-linear-gradient(135deg, #fff4c7, #fff4c7 8px, #ffeaa0 8px, #ffeaa0 16px);
+  border: 2px dashed #765d13;
+  border-radius: 6px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.course-land-check-unavailable {
+  color: #344f59;
+  background: #edf4f6;
+  border-color: #587985;
+}

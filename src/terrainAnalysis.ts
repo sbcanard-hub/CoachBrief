@@ -1,3 +1,5 @@
+import { fetchElevations } from './elevation'
+
 export type TerrainLevel = 'low' | 'medium' | 'high'
 export type CoastalFlow = 'onshore' | 'offshore' | 'alongshore' | 'mixed'
 export type TerrainSide = 'left' | 'neutral' | 'right'
@@ -22,8 +24,6 @@ export type TerrainAnalysis = {
   sideDifference: number
   confidence: TerrainLevel
 }
-
-type ElevationResponse = { elevation?: Array<number | null> }
 
 type Sample = { bearing: number; radiusKm: number; elevation: number }
 
@@ -80,16 +80,12 @@ export async function fetchTerrainAnalysis(
   const locations = [{ latitude, longitude, bearing: 0, radiusKm: 0 }, ...radii.flatMap((radiusKm) =>
     bearings.map((bearing) => ({ ...destination(latitude, longitude, bearing, radiusKm), bearing, radiusKm })),
   )]
-  const params = new URLSearchParams({
-    latitude: locations.map((point) => point.latitude.toFixed(5)).join(','),
-    longitude: locations.map((point) => point.longitude.toFixed(5)).join(','),
-  })
   try {
-    const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params}`)
-    if (!response.ok) return undefined
-    const data = await response.json() as ElevationResponse
-    if (!Array.isArray(data.elevation) || data.elevation.length !== locations.length) return undefined
-    const elevations = data.elevation.map((value) => typeof value === 'number' && Number.isFinite(value) ? value : 0)
+    const rawElevations = await fetchElevations(locations)
+    const validCount = rawElevations.filter((value): value is number => value !== null).length
+    if (validCount < Math.ceil(locations.length * .8)) return undefined
+    const centreFallback = rawElevations[0] ?? 0
+    const elevations = rawElevations.map((value) => value ?? centreFallback)
     const centreElevation = elevations[0]
     const samples: Sample[] = locations.slice(1).map((point, index) => ({ bearing: point.bearing, radiusKm: point.radiusKm, elevation: elevations[index + 1] }))
     const upstream = sector(samples, windFrom)
