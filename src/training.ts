@@ -1,6 +1,8 @@
 import type { BoatClass } from './types'
 
 export type TrainingLocationMode = 'punctual' | 'continuous' | 'smart'
+export type TrainingEventCategory = 'weather' | 'tactics' | 'manoeuvre' | 'speed' | 'incident'
+export type TrainingEventImportance = 1 | 2 | 3
 
 export type TrainingGpsPoint = {
   latitude: number
@@ -27,6 +29,17 @@ export type TrainingBoatTrack = {
   points: TrainingGpsPoint[]
 }
 
+export type TrainingEvent = {
+  id: string
+  recordedAt: string
+  latitude?: number
+  longitude?: number
+  boatTrackId: 'group' | string
+  category: TrainingEventCategory
+  importance: TrainingEventImportance
+  annotation: string
+}
+
 export type TrainingSession = {
   id: string
   name: string
@@ -36,9 +49,11 @@ export type TrainingSession = {
   locationMode: TrainingLocationMode
   startedAt: string
   endedAt?: string
+  sessionNotes: string
   coachTrack: TrainingGpsPoint[]
   readings: TrainingReading[]
   boatTracks: TrainingBoatTrack[]
+  events: TrainingEvent[]
 }
 
 const STORAGE_KEY = 'coachbrief-training-sessions-v1'
@@ -46,7 +61,7 @@ const STORAGE_KEY = 'coachbrief-training-sessions-v1'
 export function loadTrainingSessions(): TrainingSession[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? parsed.map((session) => ({ ...session, sessionNotes: session.sessionNotes || '', events: Array.isArray(session.events) ? session.events : [] })) : []
   } catch {
     return []
   }
@@ -66,6 +81,7 @@ export function deleteTrainingSession(id: string) {
 
 export function importTrainingSessions(incoming: TrainingSession[], mode: 'merge' | 'replace' = 'merge') {
   const safeIncoming = incoming.filter((session) => session && typeof session.id === 'string' && Array.isArray(session.coachTrack) && Array.isArray(session.readings) && Array.isArray(session.boatTracks))
+    .map((session) => ({ ...session, sessionNotes: session.sessionNotes || '', events: Array.isArray(session.events) ? session.events : [] }))
   if (mode === 'replace') {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(safeIncoming))
     return
