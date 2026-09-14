@@ -517,20 +517,6 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
           {landCheckState === 'unavailable' && <small className="course-land-check-unavailable" role="status">{c.landCheckUnavailable}.</small>}
         </div>
 
-        <div className="course-variant-panel">
-          <div className="course-variant-title"><Layers3 size={14} /><strong>{c.variants}</strong><span>{variants.length} {c.stored}</span></div>
-          <div className="course-variant-controls">
-            <select value={activeVariantId} onChange={(event) => selectVariant(event.target.value)} aria-label={c.choose}>
-              <option value="auto">{c.automatic}</option>
-              {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
-            </select>
-            <input value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder={`${c.example} ${String(Math.round(bearing)).padStart(3, '0')}°`} aria-label={c.name} />
-            <button type="button" onClick={saveVariant}><Save size={14} /> {c.save}</button>
-            <button type="button" onClick={deleteActiveVariant} disabled={activeVariantId === 'auto'}><Trash2 size={14} /> {c.remove}</button>
-          </div>
-          <small>{c.variantsHelp}</small>
-        </div>
-
         <div className="course-shift-panel">
           <div className="course-shift-heading">
             <strong>{c.moveCourse}</strong>
@@ -551,6 +537,20 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
             <button type="button" className="shift-east" onClick={() => void moveWholeCourse(90, c.east)} disabled={isShiftingCourse} aria-label={c.east} title={c.east}>→</button>
             <button type="button" className="shift-south" onClick={() => void moveWholeCourse(180, c.south)} disabled={isShiftingCourse} aria-label={c.south} title={c.south}>↓</button>
           </div>
+        </div>
+
+        <div className="course-variant-panel">
+          <div className="course-variant-title"><Layers3 size={14} /><strong>{c.variants}</strong><span>{variants.length} {c.stored}</span></div>
+          <div className="course-variant-controls">
+            <select value={activeVariantId} onChange={(event) => selectVariant(event.target.value)} aria-label={c.choose}>
+              <option value="auto">{c.automatic}</option>
+              {variants.map((variant) => <option key={variant.id} value={variant.id}>{variant.name}</option>)}
+            </select>
+            <input value={variantName} onChange={(event) => setVariantName(event.target.value)} placeholder={`${c.example} ${String(Math.round(bearing)).padStart(3, '0')}°`} aria-label={c.name} />
+            <button type="button" onClick={saveVariant}><Save size={14} /> {c.save}</button>
+            <button type="button" onClick={deleteActiveVariant} disabled={activeVariantId === 'auto'}><Trash2 size={14} /> {c.remove}</button>
+          </div>
+          <small>{c.variantsHelp}</small>
         </div>
 
         <div className="course-preview-actions">
