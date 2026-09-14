@@ -242,7 +242,10 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
 
       points.forEach((point, index) => {
         const marker = leaflet.marker(latLng(point), { draggable: true, title: point.name })
-          .bindTooltip(`${index + 1}. ${point.name}`, { permanent: false })
+          .bindTooltip(
+            index === 0 ? c.start : index === points.length - 1 ? c.finish : `${c.mark} ${index}`,
+            { permanent: true, direction: 'top', offset: [0, -12], className: 'course-point-label' },
+          )
           .addTo(map)
 
         marker.on('dragend', (event: any) => {
