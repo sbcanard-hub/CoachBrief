@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Layers3, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
 import { fetchElevations, isLandElevation } from '../elevation'
+import { publishCourseAnalysisPosition } from '../courseAnalysisPosition'
 import { courseToGpx, parseCourseGpx } from '../gpx'
 import type { GpxPoint } from '../gpx'
 import '../gpx.css'
@@ -227,6 +228,18 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
   }, [defaultCourse, storageKey])
 
   const activeVariantName = activeVariantId === 'auto' ? c.automatic : variants.find((variant) => variant.id === activeVariantId)?.name || variantName || c.variant
+
+  useEffect(() => {
+    const start = points[routeOrder[0] ?? 0]
+    const firstMark = points[routeOrder[1] ?? 1]
+    if (!start || !firstMark) return
+    publishCourseAnalysisPosition({
+      originLatitude: latitude,
+      originLongitude: longitude,
+      latitude: (start.latitude + firstMark.latitude) / 2,
+      longitude: (start.longitude + firstMark.longitude) / 2,
+    })
+  }, [latitude, longitude, points, routeOrder])
 
   useEffect(() => {
     writeCurrentCourseSnapshot({
