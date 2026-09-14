@@ -8,6 +8,7 @@ import { bernotColumns, buildBernotRows, buildCoachRecommendations, buildStartMo
 import type { BernotRow, CoachRecommendation, WeatherScenario } from '../bernot'
 import { applyCalibrationToWeather, calibrationForSituation } from '../calibration'
 import { CourseSizingPanel } from '../components/CourseSizingPanel'
+import { TerrainAnalysisPanel } from '../components/TerrainAnalysisPanel'
 import { ExpressReading } from '../components/ExpressReading'
 import { WindShiftRhythm } from '../components/WindShiftRhythm'
 import { RecommendedTrajectory } from '../components/RecommendedTrajectory'
@@ -386,6 +387,8 @@ export function ResultsPage() {
       </section>
 
       <CourseSizingPanel boatClass={boatClass} courseType={courseType} windSpeed={raceWeather.speed} latitude={sourceLatitude} longitude={sourceLongitude} courseAxis={courseAxisValue} windwardOffset={windwardOffsetValue} />
+
+      <TerrainAnalysisPanel terrain={effectiveWeather?.terrain} />
 
       <section className="brief-section" aria-labelledby="evolution-title"><div className="section-heading"><div><span className="section-number">01</span><div><span className="step-label">{t('raceWindow')}</span><h2 id="evolution-title">{t('hourlyEvolution')}</h2></div></div><div className="legend"><span className="legend-average" /> {t('averageWind')} <span className="legend-gust" /> {t('gusts')}</div></div>
         <div className="forecast-scroll" tabIndex={0} aria-label={t('hourlyForecast')}><div className="forecast-table" style={{ gridTemplateColumns: `repeat(${forecast.length}, minmax(130px, 1fr))` }}>{forecast.map((hour) => { const race = isRaceHour(hour.time, raceTime); return <article className={`forecast-hour${race ? ' is-race' : ''}`} key={hour.time}><div className="forecast-time">{hour.time}{race && <span>{t('race')}</span>}</div><Navigation className="direction-arrow" size={27} aria-hidden="true" style={{ transform: `rotate(${hour.direction - 45}deg)` }} /><strong className="hour-speed">{Math.round(hour.speed)}<small> {t('windUnit')}</small></strong><span className="hour-gust">{t('gust').toLowerCase()} {Math.round(hour.gust)}</span><span className="hour-direction">{formatDegrees(hour.direction)} · {directionLabel(hour.direction)}</span><span className="hour-temperature">{Math.round(hour.temperature)}°</span></article> })}</div></div>
