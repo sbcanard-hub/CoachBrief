@@ -10,6 +10,7 @@ import { DebriefPage } from './pages/DebriefPage'
 import { TrainingPage } from './pages/TrainingPage'
 import { SailorJournalPage } from './pages/SailorJournalPage'
 import { LegalPage } from './pages/LegalPage'
+import { AboutPage } from './pages/AboutPage'
 import { legalFooterCopy } from './pages/legalFooter'
 import { usePreferences } from './preferences'
 import { SimilarSituations } from './components/SimilarSituations'
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="/entrainements" element={<TrainingPage />} />
         <Route path="/coureurs" element={<SailorJournalPage />} />
         <Route path="/historique-plan-eau" element={<SavedBriefingsPage />} />
+        <Route path="/a-propos" element={<AboutPage />} />
         <Route path="/mentions-legales" element={<LegalPage document="legal" />} />
         <Route path="/confidentialite" element={<LegalPage document="privacy" />} />
         <Route path="/conditions-utilisation" element={<LegalPage document="terms" />} />
@@ -72,6 +74,7 @@ export default function App() {
       <footer className="site-footer">
         <div><span>© 2026 CoachBrief — Sébastien Canard. {legal.rights}</span><span>{t('footer')}</span></div>
         <nav aria-label={legal.navigation}>
+          <Link to="/a-propos">{legal.about}</Link>
           <Link to="/mentions-legales">{legal.legal}</Link>
           <Link to="/confidentialite">{legal.privacy}</Link>
           <Link to="/conditions-utilisation">{legal.terms}</Link>
