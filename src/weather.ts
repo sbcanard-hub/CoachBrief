@@ -1,5 +1,6 @@
 import type { WeatherScenario } from './bernot'
 import type { BriefingRequest, WeatherModelKey } from './types'
+import { fetchTerrainAnalysis } from './terrainAnalysis'
 
 type GeoPlace = {
   name: string
@@ -151,6 +152,7 @@ export type LiveWeatherData = {
     cloudCover: number
   }
   pressureTrend: 'hausse' | 'baisse' | 'stable'
+  terrain?: import('./terrainAnalysis').TerrainAnalysis
   marine?: {
     waveHeight: number | null
     waveDirection: number | null
@@ -346,6 +348,12 @@ export async function fetchWeatherForBriefing(
   const pressureDelta = forecast.hourly.pressure_msl[raceIndex] - forecast.hourly.pressure_msl[previousIndex]
   const pressureTrend: LiveWeatherData['pressureTrend'] = pressureDelta > 0.7 ? 'hausse' : pressureDelta < -0.7 ? 'baisse' : 'stable'
   const marine = await fetchMarine(place.latitude, place.longitude, request.date, request.raceTime || request.startTime)
+  const terrain = await fetchTerrainAnalysis(
+    place.latitude, place.longitude,
+    forecast.hourly.wind_direction_10m[raceIndex], Number(request.courseAxis) || forecast.hourly.wind_direction_10m[raceIndex],
+    forecast.hourly.wind_speed_10m[raceIndex], forecast.hourly.temperature_2m[raceIndex], marine?.seaTemperature,
+    forecast.hourly.cloud_cover[raceIndex],
+  )
   const directions = indexes.map((index) => forecast.hourly.wind_direction_10m[index])
   const speeds = indexes.map((index) => forecast.hourly.wind_speed_10m[index])
   const scenario: WeatherScenario = {
@@ -355,6 +363,7 @@ export async function fetchWeatherForBriefing(
     maxWindSpeed: Math.max(...speeds, forecast.hourly.wind_speed_10m[raceIndex]), cloudCover: forecast.hourly.cloud_cover[raceIndex],
     waveHeight: marine?.waveHeight ?? 0, waveDirection: marine?.waveDirection ?? undefined,
     currentVelocity: marine?.currentVelocity ?? undefined, currentDirection: marine?.currentDirection ?? undefined,
+    terrain,
   }
 
   return {
@@ -366,6 +375,6 @@ export async function fetchWeatherForBriefing(
       humidity: forecast.hourly.relative_humidity_2m[raceIndex], dewPoint: forecast.hourly.dew_point_2m[raceIndex],
       pressure: forecast.hourly.pressure_msl[raceIndex], cloudCover: forecast.hourly.cloud_cover[raceIndex],
     },
-    pressureTrend, marine, scenario,
+    pressureTrend, marine, terrain, scenario,
   }
 }
