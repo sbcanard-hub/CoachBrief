@@ -2,6 +2,8 @@ import { exportCoachBriefData, importCoachBriefData } from './savedBriefings'
 import type { CoachBriefImportResult } from './savedBriefings'
 import { loadKnowledgePreferences, saveKnowledgePreferences } from './knowledgePreferences'
 import type { KnowledgePreferences } from './knowledgePreferences'
+import { importTrainingSessions, loadTrainingSessions } from './training'
+import type { TrainingSession } from './training'
 
 export type CoachBriefPortableBundle = {
   format: 'coachbrief-portable'
@@ -9,6 +11,7 @@ export type CoachBriefPortableBundle = {
   exportedAt: string
   data: ReturnType<typeof exportCoachBriefData>
   knowledgePreferences: KnowledgePreferences
+  trainingSessions?: TrainingSession[]
 }
 
 function isPortableBundle(value: unknown): value is CoachBriefPortableBundle {
@@ -28,6 +31,7 @@ export function exportPortableCoachBriefData(): CoachBriefPortableBundle {
     exportedAt: new Date().toISOString(),
     data: exportCoachBriefData(),
     knowledgePreferences: loadKnowledgePreferences(),
+    trainingSessions: loadTrainingSessions(),
   }
 }
 
@@ -42,5 +46,6 @@ export function importPortableCoachBriefData(text: string, mode: 'merge' | 'repl
   }
   const result = importCoachBriefData(JSON.stringify(parsed.data), mode)
   saveKnowledgePreferences(parsed.knowledgePreferences)
+  importTrainingSessions(parsed.trainingSessions || [], mode)
   return result
 }

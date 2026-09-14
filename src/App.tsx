@@ -7,6 +7,7 @@ import { HomePage } from './pages/HomePage'
 import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
 import { DebriefPage } from './pages/DebriefPage'
+import { TrainingPage } from './pages/TrainingPage'
 import { usePreferences } from './preferences'
 import { SimilarSituations } from './components/SimilarSituations'
 import type { BriefingRequest } from './types'
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/resultats" element={<ResultsRoute />} />
         <Route path="/briefings" element={<SavedBriefingsPage />} />
         <Route path="/briefings/:id/debrief" element={<DebriefPage />} />
+        <Route path="/entrainements" element={<TrainingPage />} />
         <Route path="/historique-plan-eau" element={<SavedBriefingsPage />} />
       </Routes>
       <footer><span>CoachBrief © 2026</span><span>{t('footer')}</span></footer>
