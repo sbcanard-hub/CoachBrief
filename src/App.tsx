@@ -8,6 +8,7 @@ import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
 import { DebriefPage } from './pages/DebriefPage'
 import { TrainingPage } from './pages/TrainingPage'
+import { SailorJournalPage } from './pages/SailorJournalPage'
 import { LegalPage } from './pages/LegalPage'
 import { legalFooterCopy } from './pages/legalFooter'
 import { usePreferences } from './preferences'
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="/briefings" element={<SavedBriefingsPage />} />
         <Route path="/briefings/:id/debrief" element={<DebriefPage />} />
         <Route path="/entrainements" element={<TrainingPage />} />
+        <Route path="/coureurs" element={<SailorJournalPage />} />
         <Route path="/historique-plan-eau" element={<SavedBriefingsPage />} />
         <Route path="/mentions-legales" element={<LegalPage document="legal" />} />
         <Route path="/confidentialite" element={<LegalPage document="privacy" />} />

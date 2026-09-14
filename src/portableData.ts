@@ -4,6 +4,8 @@ import { loadKnowledgePreferences, saveKnowledgePreferences } from './knowledgeP
 import type { KnowledgePreferences } from './knowledgePreferences'
 import { importTrainingSessions, loadTrainingSessions } from './training'
 import type { TrainingSession } from './training'
+import { importSailorJournal, loadSailorJournal } from './sailorJournal'
+import type { SailorJournalData } from './sailorJournal'
 
 export type CoachBriefPortableBundle = {
   format: 'coachbrief-portable'
@@ -12,6 +14,7 @@ export type CoachBriefPortableBundle = {
   data: ReturnType<typeof exportCoachBriefData>
   knowledgePreferences: KnowledgePreferences
   trainingSessions?: TrainingSession[]
+  sailorJournal?: SailorJournalData
 }
 
 function isPortableBundle(value: unknown): value is CoachBriefPortableBundle {
@@ -32,6 +35,7 @@ export function exportPortableCoachBriefData(): CoachBriefPortableBundle {
     data: exportCoachBriefData(),
     knowledgePreferences: loadKnowledgePreferences(),
     trainingSessions: loadTrainingSessions(),
+    sailorJournal: loadSailorJournal(),
   }
 }
 
@@ -47,5 +51,6 @@ export function importPortableCoachBriefData(text: string, mode: 'merge' | 'repl
   const result = importCoachBriefData(JSON.stringify(parsed.data), mode)
   saveKnowledgePreferences(parsed.knowledgePreferences)
   importTrainingSessions(parsed.trainingSessions || [], mode)
+  importSailorJournal(parsed.sailorJournal, mode)
   return result
 }
