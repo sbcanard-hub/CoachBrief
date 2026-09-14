@@ -118,6 +118,10 @@ export function buildBernotRows(
   const observedDirectionGap = observation?.windDirectionDelta ?? 0
   const observedWindZoneVector = Math.abs(observedDirectionGap) >= 7 ? observedDirectionGap : windDelta
   const gapScore = terrainGapScore(observation)
+  const terrainEffectLabel = { devent: 'dévent', canalisation: 'canalisation', acceleration: 'accélération au cap', thermique: 'brise thermique' }[request?.terrainReferenceEffect || '']
+  const terrainReferenceNote = request?.terrainReferenceNotes || terrainEffectLabel
+    ? ` Référence locale : ${[terrainEffectLabel, request?.terrainReferenceNotes].filter(Boolean).join(' · ')}.`
+    : ''
 
   const rows: Omit<BernotRow, 'priority'>[] = [
     {
@@ -154,22 +158,24 @@ export function buildBernotRows(
     },
     {
       factor: 'Relief / côte',
-      score: weather.terrain
+      score: (request?.terrainReferenceNotes || request?.terrainReferenceEffect ? 1.5 : 0) + (weather.terrain
         ? 4.5
           + (weather.terrain.blockingRisk === 'high' ? 3 : weather.terrain.blockingRisk === 'medium' ? 1.5 : 0)
           + (weather.terrain.channelingRisk === 'high' ? 2 : weather.terrain.channelingRisk === 'medium' ? 1 : 0)
           + (weather.terrain.thermalPotential === 'high' ? 1.5 : weather.terrain.thermalPotential === 'medium' ? .7 : 0)
-        : hasLocation ? 3 : 2,
-      zone: weather.terrain
+        : hasLocation ? 3 : 2),
+      zone: request?.terrainReferenceSide && request.terrainReferenceSide !== 'Neutre'
+        ? request.terrainReferenceSide
+        : weather.terrain
         ? weather.terrain.preferredSide === 'left' ? 'Gauche' : weather.terrain.preferredSide === 'right' ? 'Droite' : 'Centre'
         : observation?.windDirectionDelta != null && Math.abs(observation.windDirectionDelta) >= 10 ? zoneFromSigned(observation.windDirectionDelta) : 'Centre',
-      note: weather.terrain
+      note: (weather.terrain
         ? `Relief échantillonné sur ${weather.terrain.radiusKm} km (${weather.terrain.sampleCount} points) : maximum ${weather.terrain.maxElevation} m, obstacle au vent ${weather.terrain.upstreamMax} m. Écoulement ${weather.terrain.coastalFlow === 'onshore' ? 'mer vers terre' : weather.terrain.coastalFlow === 'offshore' ? 'terre vers mer' : weather.terrain.coastalFlow === 'alongshore' ? 'parallèle à la côte' : 'côtier complexe'} ; blocage ${weather.terrain.blockingRisk === 'high' ? 'fort' : weather.terrain.blockingRisk === 'medium' ? 'modéré' : 'faible'}, dévent ${weather.terrain.leeRisk === 'high' ? 'fort' : weather.terrain.leeRisk === 'medium' ? 'possible' : 'faible'}, canalisation ${weather.terrain.channelingRisk === 'high' ? 'forte' : weather.terrain.channelingRisk === 'medium' ? 'possible' : 'faible'}. ${weather.terrain.preferredSide === 'neutral' ? 'Pas de dissymétrie latérale assez nette.' : `Le relief est plus fermé à ${weather.terrain.preferredSide === 'right' ? 'gauche' : 'droite'} : avantage opposé à confirmer sur l’eau.`}`
         : observation?.windDirectionDelta != null && Math.abs(observation.windDirectionDelta) >= 10
           ? `Écart direction terrain/modèle de ${Math.abs(Math.round(observation.windDirectionDelta))}° : effet local ou timing du modèle à vérifier sur ${request?.location}.`
           : hasLocation
             ? `Relief indisponible pour ${request?.location} : analyse locale à confirmer par les relevés.`
-            : 'Lieu non renseigné : effet de côte non évalué.',
+            : 'Lieu non renseigné : effet de côte non évalué.') + terrainReferenceNote,
     },
     {
       factor: 'Nuages',
