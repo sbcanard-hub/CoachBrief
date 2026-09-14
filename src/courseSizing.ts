@@ -16,14 +16,15 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function estimatedUpwindVmg(boatClass: BoatClass, windSpeed: number) {
-  if (boatClass === 'Optimist') return clamp(1.5 + windSpeed * 0.12, 1.9, 3.6)
-  if (boatClass === '420') return clamp(3.0 + windSpeed * 0.20, 3.6, 6.1)
-  return clamp(2.7 + windSpeed * 0.18, 3.2, 5.6)
+  // Conservative coach estimates: especially in very light air, theoretical VMG
+  // otherwise produces first beats that are too long for a practical course.
+  if (boatClass === 'Optimist') return clamp(1.35 + windSpeed * 0.12, 1.65, 3.3)
+  if (boatClass === '420') return clamp(2.7 + windSpeed * 0.18, 3.1, 5.6)
+  return clamp(2.4 + windSpeed * 0.16, 2.8, 5.1)
 }
 
-function targetFirstLegMinutes(boatClass: BoatClass) {
-  if (boatClass === '420') return 11
-  return 12
+function targetFirstLegMinutes(_boatClass: BoatClass) {
+  return 9
 }
 
 function courseNote(courseType: CourseType) {
