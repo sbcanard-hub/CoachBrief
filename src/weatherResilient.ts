@@ -107,13 +107,33 @@ async function fetchWithTimeout(url: string, timeoutMs = 6500) {
   }
 }
 
-async function resolveCoordinates(request: BriefingRequest) {
+function hasUsableCoordinates(request: BriefingRequest) {
+  if (!request.latitude.trim() || !request.longitude.trim()) return false
   const latitude = Number(request.latitude)
   const longitude = Number(request.longitude)
-  if (Number.isFinite(latitude) && Number.isFinite(longitude) && request.latitude !== '' && request.longitude !== '') {
-    return { latitude, longitude, name: request.location || 'Point du plan d’eau' }
+  return Number.isFinite(latitude)
+    && Number.isFinite(longitude)
+    && latitude >= -90
+    && latitude <= 90
+    && longitude >= -180
+    && longitude <= 180
+}
+
+function sanitizeCoordinates(request: BriefingRequest): BriefingRequest {
+  if (hasUsableCoordinates(request)) return request
+  return { ...request, latitude: '', longitude: '' }
+}
+
+async function resolveCoordinates(request: BriefingRequest) {
+  const safeRequest = sanitizeCoordinates(request)
+  if (hasUsableCoordinates(safeRequest)) {
+    return {
+      latitude: Number(safeRequest.latitude),
+      longitude: Number(safeRequest.longitude),
+      name: safeRequest.location || 'Point du plan d’eau',
+    }
   }
-  const params = new URLSearchParams({ name: request.location.trim(), count: '1', language: 'fr', format: 'json' })
+  const params = new URLSearchParams({ name: safeRequest.location.trim(), count: '1', language: 'fr', format: 'json' })
   const response = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?${params}`)
   if (!response.ok) throw new Error('Lieu introuvable')
   const data = await response.json() as { results?: Array<{ name: string; latitude: number; longitude: number }> }
@@ -123,13 +143,14 @@ async function resolveCoordinates(request: BriefingRequest) {
 }
 
 async function fetchHistoricalWeather(request: BriefingRequest): Promise<LiveWeatherData> {
-  const place = await resolveCoordinates(request)
+  const safeRequest = sanitizeCoordinates(request)
+  const place = await resolveCoordinates(safeRequest)
   const params = new URLSearchParams({
     latitude: String(place.latitude),
     longitude: String(place.longitude),
     hourly: 'temperature_2m,relative_humidity_2m,dew_point_2m,pressure_msl,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
-    start_date: request.date,
-    end_date: request.date,
+    start_date: safeRequest.date,
+    end_date: safeRequest.date,
     timezone: 'auto',
     wind_speed_unit: 'kn',
   })
@@ -148,16 +169,16 @@ async function fetchHistoricalWeather(request: BriefingRequest): Promise<LiveWea
       if (data.hourly?.time?.length) { forecast = data; break }
     } catch { /* try next historical source */ }
   }
-  if (!forecast?.hourly?.time?.length) throw new Error(`Données historiques indisponibles pour le ${request.date}`)
+  if (!forecast?.hourly?.time?.length) throw new Error(`Données historiques indisponibles pour le ${safeRequest.date}`)
 
   const h = forecast.hourly
-  const startMinutes = minutesFromClock(request.startTime, 0)
-  const endMinutes = minutesFromClock(request.endTime, 24 * 60 - 1)
+  const startMinutes = minutesFromClock(safeRequest.startTime, 0)
+  const endMinutes = minutesFromClock(safeRequest.endTime, 24 * 60 - 1)
   const selectedIndexes = h.time.map((time, index) => ({ index, minute: minutesFromIso(time) }))
     .filter(({ minute }) => minute >= startMinutes && minute <= endMinutes)
     .map(({ index }) => index)
   const indexes = selectedIndexes.length ? selectedIndexes : h.time.map((_, index) => index)
-  const raceIndex = nearestIndex(h.time, request.raceTime || request.startTime)
+  const raceIndex = nearestIndex(h.time, safeRequest.raceTime || safeRequest.startTime)
   const previousIndex = Math.max(0, raceIndex - 2)
   const pressureDelta = h.pressure_msl[raceIndex] - h.pressure_msl[previousIndex]
   const pressureTrend: LiveWeatherData['pressureTrend'] = pressureDelta > 0.7 ? 'hausse' : pressureDelta < -0.7 ? 'baisse' : 'stable'
@@ -165,7 +186,7 @@ async function fetchHistoricalWeather(request: BriefingRequest): Promise<LiveWea
   const speeds = indexes.map((index) => h.wind_speed_10m[index])
 
   return {
-    placeName: `${request.location || place.name} · historique`,
+    placeName: `${safeRequest.location || place.name} · historique`,
     latitude: place.latitude,
     longitude: place.longitude,
     timezone: forecast.timezone,
@@ -204,7 +225,7 @@ function errorText(error: unknown) {
   return error instanceof Error ? error.message : String(error)
 }
 
-async function fetchLiveWeather(request: BriefingRequest): Promise<LiveWeatherData> {
+async function tryModels(request: BriefingRequest) {
   const preferredModel = request.weatherModel ?? 'best_match'
   const attempted = new Set<WeatherModelKey>()
   const failures: string[] = []
@@ -226,26 +247,44 @@ async function fetchLiveWeather(request: BriefingRequest): Promise<LiveWeatherDa
     failures.push(`${fallbackModels[index]}: ${errorText(result.reason)}`)
   }
 
-  throw new Error(`Aucune source de prévision disponible pour le ${request.date}. ${failures.join(' · ')}`)
+  throw new Error(failures.join(' · '))
+}
+
+async function fetchLiveWeather(request: BriefingRequest): Promise<LiveWeatherData> {
+  const safeRequest = sanitizeCoordinates(request)
+  try {
+    return await tryModels(safeRequest)
+  } catch (firstError) {
+    if (hasUsableCoordinates(safeRequest) && safeRequest.location.trim()) {
+      const geocodedRequest = { ...safeRequest, latitude: '', longitude: '' }
+      try {
+        return await tryModels(geocodedRequest)
+      } catch (geocodedError) {
+        throw new Error(`Aucune source de prévision disponible pour le ${safeRequest.date}. Point cartographique: ${errorText(firstError)} · Repli sur le lieu: ${errorText(geocodedError)}`)
+      }
+    }
+    throw new Error(`Aucune source de prévision disponible pour le ${safeRequest.date}. ${errorText(firstError)}`)
+  }
 }
 
 export async function fetchWeatherForBriefingResilient(request: BriefingRequest): Promise<LiveWeatherData> {
-  const offsetDays = weatherDateOffsetDays(request.date)
+  const safeRequest = sanitizeCoordinates(request)
+  const offsetDays = weatherDateOffsetDays(safeRequest.date)
   if (offsetDays == null) throw new Error('Date de briefing invalide')
 
-  if (offsetDays < 0) return fetchHistoricalWeather(request)
+  if (offsetDays < 0) return fetchHistoricalWeather(safeRequest)
 
   if (offsetDays > MAX_FORECAST_DAYS) {
-    const target = parseDateOnly(request.date)
+    const target = parseDateOnly(safeRequest.date)
     const availableFrom = target ? forecastHorizonStartLabel(target) : 'J-16'
-    throw new Error(`La prévision numérique pour le ${request.date} n’est pas encore disponible. Elle entrera dans l’horizon de prévision vers le ${availableFrom} (J-${MAX_FORECAST_DAYS}).`)
+    throw new Error(`La prévision numérique pour le ${safeRequest.date} n’est pas encore disponible. Elle entrera dans l’horizon de prévision vers le ${availableFrom} (J-${MAX_FORECAST_DAYS}).`)
   }
 
   try {
-    return await fetchLiveWeather(request)
+    return await fetchLiveWeather(safeRequest)
   } catch (liveError) {
     if (offsetDays === 0) {
-      try { return await fetchHistoricalWeather(request) } catch { /* keep the live diagnostic */ }
+      try { return await fetchHistoricalWeather(safeRequest) } catch { /* keep the live diagnostic */ }
     }
     throw liveError
   }
