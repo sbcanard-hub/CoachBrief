@@ -126,7 +126,6 @@ export function HomePage() {
     })
   }
 
-  // The form always keeps its reference values (metres and hPa); only the control's presentation changes.
   function displayedReference(value: string | undefined, kind: 'length' | 'pressure') {
     if (!value || units === 'metric') return value || ''
     const converted = kind === 'length' ? Number(value) * 3.28084 : Number(value) * 0.0295299831
@@ -149,7 +148,7 @@ export function HomePage() {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const submittedCourseType = new FormData(event.currentTarget).get('courseType')
-    const courseType = submittedCourseType === 'Trapèze' || submittedCourseType === 'Triangle' ? submittedCourseType : 'Banane'
+    const courseType = submittedCourseType === 'Trapèze' || submittedCourseType === 'Triangle' || submittedCourseType === 'IODA' ? submittedCourseType : 'Banane'
     const nextRequest: BriefingRequest = { ...form, courseType }
     if (navigation?.editing) updateSavedBriefingRequest(nextRequest)
     navigate('/resultats', { state: nextRequest })
@@ -224,6 +223,7 @@ export function HomePage() {
                 <option value="Banane">{t('courseBanana')}</option>
                 <option value="Trapèze">{t('courseTrapezoid')}</option>
                 <option value="Triangle">{t('courseTriangle')}</option>
+                <option value="IODA">IODA · Optimist</option>
               </select>
             </label>
           </div>
