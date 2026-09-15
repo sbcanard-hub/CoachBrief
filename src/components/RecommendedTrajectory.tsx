@@ -107,6 +107,8 @@ function fullCourse(courseType: TrajectoryCourseType, side: Side, labels: { star
   if (courseType === 'IODA') {
     const chosenGateX = side === 'right' ? 690 : side === 'left' ? 610 : 650
     const otherGateX = chosenGateX === 690 ? 610 : 690
+    const finishX = 675
+    const finishY = 220
     return {
       marks: [
         { x: 840, y: 70, label: `${labels.mark} 1` },
@@ -114,10 +116,10 @@ function fullCourse(courseType: TrajectoryCourseType, side: Side, labels: { star
         { x: 610, y: 365, label: '3S' },
         { x: 690, y: 365, label: '3P' },
       ],
-      route: `840,445 ${900 + offset},350 ${810 - offset},250 ${900 + offset},155 840,70 620,165 ${chosenGateX},365 820,150`,
-      alternateRoute: `620,165 ${otherGateX},365 820,150`,
+      route: `840,445 ${900 + offset},350 ${810 - offset},250 ${900 + offset},155 840,70 620,165 ${chosenGateX},365 ${finishX},${finishY}`,
+      alternateRoute: `620,165 ${otherGateX},365 ${finishX},${finishY}`,
       start: { x: 840, y: 445, label: labels.start },
-      finish: { x: 820, y: 150, label: labels.finish },
+      finish: { x: finishX, y: finishY, label: labels.finish },
     }
   }
   if (courseType === 'Triangle') return {
