@@ -21,18 +21,12 @@ import { LocalEffectsPanel } from './components/LocalEffectsPanel'
 import { ResultsTabNavigation, ResultsTabPanel, type ResultsTab } from './components/ResultsTabs'
 import type { BriefingRequest } from './types'
 import { useEffect, useState } from 'react'
-import { fetchWeatherForBriefingResilient } from './weatherResilient'
-
-const WEATHER_LOADING_TIMEOUT_MS = 45_000
+import { fetchWeatherForBriefing } from './weather'
 
 function ResultsRoute() {
   const location = useLocation()
-  const { language } = usePreferences()
   const request = location.state as BriefingRequest | null
-  const [memoryWeather, setMemoryWeather] = useState<Awaited<ReturnType<typeof fetchWeatherForBriefingResilient>> | null>(null)
-  const [memoryWeatherState, setMemoryWeatherState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  const [memoryWeatherError, setMemoryWeatherError] = useState('')
-  const [weatherRetry, setWeatherRetry] = useState(0)
+  const [memoryWeather, setMemoryWeather] = useState<Awaited<ReturnType<typeof fetchWeatherForBriefing>> | null>(null)
   const [activeTab, setActiveTab] = useState<ResultsTab>('forecast')
   const startMode = new URLSearchParams(location.search).get('mode') === 'depart'
 
@@ -43,54 +37,15 @@ function ResultsRoute() {
 
   useEffect(() => {
     let active = true
-    if (!request) {
-      setMemoryWeather(null)
-      setMemoryWeatherState('idle')
-      setMemoryWeatherError('')
-      return
-    }
-
-    setMemoryWeather(null)
-    setMemoryWeatherState('loading')
-    setMemoryWeatherError('')
-
-    const timeout = new Promise<never>((_, reject) => {
-      window.setTimeout(() => reject(new Error('Délai météo dépassé')), WEATHER_LOADING_TIMEOUT_MS)
-    })
-
-    Promise.race([fetchWeatherForBriefingResilient(request), timeout])
-      .then((weather) => {
-        if (!active) return
-        setMemoryWeather(weather)
-        setMemoryWeatherState('ready')
-      })
-      .catch((error: unknown) => {
-        if (!active) return
-        setMemoryWeather(null)
-        setMemoryWeatherState('error')
-        setMemoryWeatherError(error instanceof Error ? error.message : 'Prévision indisponible')
-      })
-
+    if (!request) return
+    fetchWeatherForBriefing(request).then((weather) => { if (active) setMemoryWeather(weather) }).catch(() => { if (active) setMemoryWeather(null) })
     return () => { active = false }
-  }, [request, weatherRetry])
-
-  const weatherFailureCopy = {
-    fr: ['Prévision indisponible', 'La récupération météo n’a pas abouti. Les autres onglets restent utilisables.', 'Réessayer'],
-    en: ['Forecast unavailable', 'Weather loading did not complete. The other tabs remain available.', 'Retry'],
-    it: ['Previsione non disponibile', 'Il caricamento meteo non è riuscito. Le altre schede restano utilizzabili.', 'Riprova'],
-    es: ['Previsión no disponible', 'La carga meteorológica no se completó. Las demás pestañas siguen disponibles.', 'Reintentar'],
-  }[language]
+  }, [request])
 
   return <>
     {!startMode && <ResultsTabNavigation activeTab={activeTab} onChange={setActiveTab} />}
     {!startMode && <ResultsTabPanel tab="forecast" activeTab={activeTab}>
-      {request && memoryWeatherState !== 'error' && <ForecastPanel request={request} weather={memoryWeather} />}
-      {memoryWeatherState === 'error' && <section className="forecast-panel" role="alert">
-        <h2>{weatherFailureCopy[0]}</h2>
-        <p>{weatherFailureCopy[1]}</p>
-        {memoryWeatherError && <p><small>{memoryWeatherError}</small></p>}
-        <button type="button" onClick={() => setWeatherRetry((value) => value + 1)}>{weatherFailureCopy[2]}</button>
-      </section>}
+      {request && <ForecastPanel request={request} weather={memoryWeather} />}
       <ThermalQuadrantPanel weather={memoryWeather} />
     </ResultsTabPanel>}
     {!startMode && <ResultsTabPanel tab="weather" activeTab={activeTab}>
