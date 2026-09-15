@@ -1,18 +1,19 @@
 import type { ReactNode } from 'react'
-import { CloudSun, Compass, History, LayoutDashboard, Map } from 'lucide-react'
+import { CloudSun, Compass, History, LayoutDashboard, Map, SunMedium } from 'lucide-react'
 import { usePreferences, type Language } from '../preferences'
 import './resultsTabs.css'
 
-export type ResultsTab = 'summary' | 'course' | 'weather' | 'tactics' | 'history'
+export type ResultsTab = 'forecast' | 'summary' | 'course' | 'weather' | 'tactics' | 'history'
 
 const labels: Record<Language, Record<ResultsTab, string>> = {
-  fr: { summary: 'Synthèse', course: 'Parcours', weather: 'Météo', tactics: 'Tactique', history: 'Historique' },
-  en: { summary: 'Summary', course: 'Course', weather: 'Weather', tactics: 'Tactics', history: 'History' },
-  it: { summary: 'Sintesi', course: 'Percorso', weather: 'Meteo', tactics: 'Tattica', history: 'Storico' },
-  es: { summary: 'Resumen', course: 'Recorrido', weather: 'Meteo', tactics: 'Táctica', history: 'Historial' },
+  fr: { forecast: 'Prévision', summary: 'Synthèse', course: 'Parcours', weather: 'Météo', tactics: 'Tactique', history: 'Historique' },
+  en: { forecast: 'Forecast', summary: 'Summary', course: 'Course', weather: 'Weather', tactics: 'Tactics', history: 'History' },
+  it: { forecast: 'Previsione', summary: 'Sintesi', course: 'Percorso', weather: 'Meteo', tactics: 'Tattica', history: 'Storico' },
+  es: { forecast: 'Previsión', summary: 'Resumen', course: 'Recorrido', weather: 'Meteo', tactics: 'Táctica', history: 'Historial' },
 }
 
 const tabs = [
+  { id: 'forecast' as const, icon: SunMedium },
   { id: 'summary' as const, icon: LayoutDashboard },
   { id: 'course' as const, icon: Map },
   { id: 'weather' as const, icon: CloudSun },
