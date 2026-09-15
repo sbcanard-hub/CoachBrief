@@ -52,8 +52,6 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
   const bearing = normalize(axis + windwardOffset)
 
   const layout = useMemo(() => {
-    // Geometry follows the IODA outer-loop shape: first beat on the right side,
-    // outer reach to mark 2, run to the 3S/3P gate, then a second beat to finish.
     const startCentre = destination({ latitude, longitude }, bearing + 180, firstLegNm * 0.42)
     const mark1 = destination(startCentre, bearing, firstLegNm)
     const mark2 = destination(mark1, bearing + 225, firstLegNm * 0.72)
@@ -61,7 +59,6 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
     const gateHalfWidth = Math.max(0.025, Math.min(0.055, firstLegNm * 0.09))
     const gate3S = destination(gateCentre, bearing - 90, gateHalfWidth)
     const gate3P = destination(gateCentre, bearing + 90, gateHalfWidth)
-    // Official IODA finish is at the end of the second windward leg, near mark 2.
     const finishCentre = destination(gateCentre, bearing, firstLegNm * 0.72)
     const startLine = lineAround(startCentre, bearing, Math.max(0.04, Math.min(0.09, firstLegNm * 0.13)))
     const finishLine = lineAround(finishCentre, bearing, Math.max(0.03, Math.min(0.075, firstLegNm * 0.1)))
@@ -84,7 +81,7 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
     const storageKey = `coachbrief:course-variants:v1:IODA:${latitude.toFixed(3)}:${longitude.toFixed(3)}`
     writeCurrentCourseSnapshot({
       storageKey,
-      courseType: 'IODA',
+      courseType: 'Trapèze',
       bearing,
       points: [
         { name: c.start, ...layout.startCentre },
@@ -113,7 +110,6 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
       leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map)
       const ll = (p: Point): [number, number] => [p.latitude, p.longitude]
 
-      // Two possible paths through the leeward gate are shown so the analysis does not invent a single mandatory gate mark.
       leaflet.polyline([ll(layout.startCentre), ll(layout.mark1), ll(layout.mark2), ll(layout.gate3S), ll(layout.finishCentre)], { weight: 4, opacity: .86 }).addTo(map)
       leaflet.polyline([ll(layout.mark2), ll(layout.gate3P), ll(layout.finishCentre)], { weight: 3, opacity: .5, dashArray: '7 6' }).addTo(map)
       leaflet.polyline([ll(layout.startLine.left), ll(layout.startLine.right)], { weight: 5, opacity: .95 }).addTo(map)
