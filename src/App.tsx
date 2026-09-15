@@ -5,6 +5,7 @@ import { SiteLearningPanel } from './components/SiteLearningPanel'
 import { WindModelComparisonPanel } from './components/WindModelComparisonPanel'
 import { ForecastPanel } from './components/ForecastPanel'
 import { ThermalQuadrantPanel } from './components/ThermalQuadrantPanel'
+import { RaceRoundsPanel } from './components/RaceRoundsPanel'
 import { HomePage } from './pages/HomePage'
 import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
@@ -43,6 +44,7 @@ function ResultsRoute() {
   }, [request])
 
   return <>
+    {!startMode && request && <RaceRoundsPanel request={request} />}
     {!startMode && <ResultsTabNavigation activeTab={activeTab} onChange={setActiveTab} />}
     {!startMode && <ResultsTabPanel tab="forecast" activeTab={activeTab}>
       {request && <ForecastPanel request={request} weather={memoryWeather} />}
