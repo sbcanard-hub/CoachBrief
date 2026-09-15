@@ -21,6 +21,7 @@ const initialForm: BriefingRequest = {
   raceTime: '',
   boatClass: 'Optimist',
   courseType: 'Banane',
+  iodaCourse: false,
   courseAxis: '080',
   courseAxisMode: 'manual',
   manualCourseAxis: '080',
@@ -110,6 +111,12 @@ export function HomePage() {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  function updateCourseChoice(value: string) {
+    setForm((current) => value === 'IODA'
+      ? { ...current, courseType: 'Trapèze', iodaCourse: true, boatClass: 'Optimist' }
+      : { ...current, courseType: value === 'Triangle' ? 'Triangle' : value === 'Trapèze' ? 'Trapèze' : 'Banane', iodaCourse: false })
+  }
+
   function updateTerrainReference(patch: Partial<BriefingRequest>) {
     setForm((current) => ({ ...current, ...patch }))
   }
@@ -147,9 +154,7 @@ export function HomePage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const submittedCourseType = new FormData(event.currentTarget).get('courseType')
-    const courseType = submittedCourseType === 'Trapèze' || submittedCourseType === 'Triangle' || submittedCourseType === 'IODA' ? submittedCourseType : 'Banane'
-    const nextRequest: BriefingRequest = { ...form, courseType }
+    const nextRequest: BriefingRequest = { ...form }
     if (navigation?.editing) updateSavedBriefingRequest(nextRequest)
     navigate('/resultats', { state: nextRequest })
   }
@@ -219,7 +224,7 @@ export function HomePage() {
             </label>
             <label className="field">
               <span><Flag size={16} /> {t('course')}</span>
-              <select name="courseType" value={form.courseType} onChange={(e) => updateField('courseType', e.target.value)}>
+              <select name="courseType" value={form.iodaCourse ? 'IODA' : form.courseType} onChange={(e) => updateCourseChoice(e.target.value)}>
                 <option value="Banane">{t('courseBanana')}</option>
                 <option value="Trapèze">{t('courseTrapezoid')}</option>
                 <option value="Triangle">{t('courseTriangle')}</option>
