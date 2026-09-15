@@ -7,6 +7,14 @@ import '../geolocation.css'
 
 type Point = { latitude: number; longitude: number }
 type Mark = Point & { name: string }
+type IodaPoints = {
+  startCentre: Point
+  mark1: Point
+  mark2: Point
+  gate3S: Point
+  gate3P: Point
+  finishCentre: Point
+}
 
 type Props = {
   latitude: number
@@ -38,20 +46,24 @@ function lineAround(point: Point, bearing: number, halfWidthNm: number) {
   return { left: destination(point, bearing - 90, halfWidthNm), right: destination(point, bearing + 90, halfWidthNm) }
 }
 
+function midpoint(a: Point, b: Point): Point {
+  return { latitude: (a.latitude + b.latitude) / 2, longitude: (a.longitude + b.longitude) / 2 }
+}
+
 export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, firstLegNm, committeeLatitude, committeeLongitude, committeeAccuracy = '' }: Props) {
   const { language } = usePreferences()
   const c = useMemo(() => ({
-    fr: { title: 'Parcours IODA officiel', sequence: 'Départ → 1 (bâbord) → 2 (bâbord) → porte 3S/3P → arrivée', start: 'Départ', finish: 'Arrivée', mark1: '1 · au vent', mark2: '2 · extérieur', gateS: '3S · porte', gateP: '3P · porte', gate: 'Porte 3S/3P', official: 'Trapèze extérieur IODA · arrivée au terme du second près', committee: 'Comité / bateau coach', note: 'Le tracé et l’analyse utilisent la même géométrie IODA.' },
-    en: { title: 'Official IODA course', sequence: 'Start → 1 (port) → 2 (port) → 3S/3P gate → finish', start: 'Start', finish: 'Finish', mark1: '1 · windward', mark2: '2 · outer', gateS: '3S · gate', gateP: '3P · gate', gate: '3S/3P gate', official: 'IODA outer-loop trapezoid · finish at the end of the second windward leg', committee: 'Committee / coach boat', note: 'The layout and course analysis use the same IODA geometry.' },
-    it: { title: 'Percorso IODA ufficiale', sequence: 'Partenza → 1 (sinistra) → 2 (sinistra) → cancello 3S/3P → arrivo', start: 'Partenza', finish: 'Arrivo', mark1: '1 · bolina', mark2: '2 · esterna', gateS: '3S · cancello', gateP: '3P · cancello', gate: 'Cancello 3S/3P', official: 'Trapezio esterno IODA · arrivo al termine della seconda bolina', committee: 'Comitato / barca coach', note: 'Tracciato e analisi usano la stessa geometria IODA.' },
-    es: { title: 'Recorrido IODA oficial', sequence: 'Salida → 1 (babor) → 2 (babor) → puerta 3S/3P → llegada', start: 'Salida', finish: 'Llegada', mark1: '1 · barlovento', mark2: '2 · exterior', gateS: '3S · puerta', gateP: '3P · puerta', gate: 'Puerta 3S/3P', official: 'Trapecio exterior IODA · llegada al final de la segunda ceñida', committee: 'Comité / barco del entrenador', note: 'El trazado y el análisis usan la misma geometría IODA.' },
+    fr: { title: 'Parcours IODA officiel', sequence: 'Départ → 1 (bâbord) → 2 (bâbord) → porte 3S/3P → arrivée', start: 'Départ', finish: 'Arrivée', mark1: '1 · au vent', mark2: '2 · extérieur', gateS: '3S · porte', gateP: '3P · porte', gate: 'Porte 3S/3P', official: 'Trapèze extérieur IODA · arrivée au terme du second près', committee: 'Comité / bateau coach', note: 'Le tracé et l’analyse utilisent la même géométrie IODA.', dragHint: 'Touchez puis faites glisser le départ, les bouées, la porte ou l’arrivée pour ajuster le parcours.', moved: 'déplacé · parcours IODA mis à jour' },
+    en: { title: 'Official IODA course', sequence: 'Start → 1 (port) → 2 (port) → 3S/3P gate → finish', start: 'Start', finish: 'Finish', mark1: '1 · windward', mark2: '2 · outer', gateS: '3S · gate', gateP: '3P · gate', gate: '3S/3P gate', official: 'IODA outer-loop trapezoid · finish at the end of the second windward leg', committee: 'Committee / coach boat', note: 'The layout and course analysis use the same IODA geometry.', dragHint: 'Touch and drag the start, marks, gate or finish to adjust the course.', moved: 'moved · IODA course updated' },
+    it: { title: 'Percorso IODA ufficiale', sequence: 'Partenza → 1 (sinistra) → 2 (sinistra) → cancello 3S/3P → arrivo', start: 'Partenza', finish: 'Arrivo', mark1: '1 · bolina', mark2: '2 · esterna', gateS: '3S · cancello', gateP: '3P · cancello', gate: 'Cancello 3S/3P', official: 'Trapezio esterno IODA · arrivo al termine della seconda bolina', committee: 'Comitato / barca coach', note: 'Tracciato e analisi usano la stessa geometria IODA.', dragHint: 'Tocca e trascina partenza, boe, cancello o arrivo per regolare il percorso.', moved: 'spostato · percorso IODA aggiornato' },
+    es: { title: 'Recorrido IODA oficial', sequence: 'Salida → 1 (babor) → 2 (babor) → puerta 3S/3P → llegada', start: 'Salida', finish: 'Llegada', mark1: '1 · barlovento', mark2: '2 · exterior', gateS: '3S · puerta', gateP: '3P · puerta', gate: 'Puerta 3S/3P', official: 'Trapecio exterior IODA · llegada al final de la segunda ceñida', committee: 'Comité / barco del entrenador', note: 'El trazado y el análisis usan la misma geometría IODA.', dragHint: 'Toca y arrastra la salida, las balizas, la puerta o la llegada para ajustar el recorrido.', moved: 'movido · recorrido IODA actualizado' },
   }[language]), [language])
   const mapElement = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const [status, setStatus] = useState('')
   const bearing = normalize(axis + windwardOffset)
 
-  const layout = useMemo(() => {
+  const defaultPoints = useMemo<IodaPoints>(() => {
     const startCentre = destination({ latitude, longitude }, bearing + 180, firstLegNm * 0.42)
     const mark1 = destination(startCentre, bearing, firstLegNm)
     const mark2 = destination(mark1, bearing + 225, firstLegNm * 0.72)
@@ -60,13 +72,21 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
     const gate3S = destination(gateCentre, bearing - 90, gateHalfWidth)
     const gate3P = destination(gateCentre, bearing + 90, gateHalfWidth)
     const finishCentre = destination(gateCentre, bearing, firstLegNm * 0.72)
-    const startLine = lineAround(startCentre, bearing, Math.max(0.04, Math.min(0.09, firstLegNm * 0.13)))
-    const finishLine = lineAround(finishCentre, bearing, Math.max(0.03, Math.min(0.075, firstLegNm * 0.1)))
+    return { startCentre, mark1, mark2, gate3S, gate3P, finishCentre }
+  }, [latitude, longitude, bearing, firstLegNm])
+
+  const [points, setPoints] = useState<IodaPoints>(defaultPoints)
+  useEffect(() => { setPoints(defaultPoints) }, [defaultPoints])
+
+  const layout = useMemo(() => {
+    const gateCentre = midpoint(points.gate3S, points.gate3P)
+    const startLine = lineAround(points.startCentre, bearing, Math.max(0.04, Math.min(0.09, firstLegNm * 0.13)))
+    const finishLine = lineAround(points.finishCentre, bearing, Math.max(0.03, Math.min(0.075, firstLegNm * 0.1)))
     const marks: Mark[] = [
-      { name: c.mark1, ...mark1 }, { name: c.mark2, ...mark2 }, { name: c.gateS, ...gate3S }, { name: c.gateP, ...gate3P },
+      { name: c.mark1, ...points.mark1 }, { name: c.mark2, ...points.mark2 }, { name: c.gateS, ...points.gate3S }, { name: c.gateP, ...points.gate3P },
     ]
-    return { startCentre, mark1, mark2, gateCentre, gate3S, gate3P, finishCentre, startLine, finishLine, marks }
-  }, [latitude, longitude, bearing, firstLegNm, c.mark1, c.mark2, c.gateS, c.gateP])
+    return { ...points, gateCentre, startLine, finishLine, marks }
+  }, [points, bearing, firstLegNm, c.mark1, c.mark2, c.gateS, c.gateP])
 
   useEffect(() => {
     publishCourseAnalysisPosition({
@@ -112,7 +132,6 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
       if (cancelled || !mapElement.current) return
 
       const activeContainer = mapElement.current as HTMLDivElement & { _leaflet_id?: number }
-
       if (mapRef.current) {
         try { mapRef.current.remove() } catch { /* stale Leaflet instance */ }
         mapRef.current = null
@@ -132,9 +151,30 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
       leaflet.polyline([ll(layout.startLine.left), ll(layout.startLine.right)], { weight: 5, opacity: .95 }).addTo(map)
       leaflet.polyline([ll(layout.finishLine.left), ll(layout.finishLine.right)], { weight: 4, opacity: .85, dashArray: '7 6' }).addTo(map)
 
-      layout.marks.forEach((mark) => leaflet.circleMarker(ll(mark), { radius: 7, weight: 3, fillOpacity: .9 }).bindTooltip(mark.name, { permanent: true, direction: 'top' }).addTo(map))
-      leaflet.circleMarker(ll(layout.startCentre), { radius: 6, weight: 3, fillOpacity: .9 }).bindTooltip(c.start, { permanent: true, direction: 'bottom' }).addTo(map)
-      leaflet.circleMarker(ll(layout.finishCentre), { radius: 6, weight: 3, fillOpacity: .9 }).bindTooltip(c.finish, { permanent: true, direction: 'right' }).addTo(map)
+      const dragIcon = leaflet.divIcon({
+        className: 'course-drag-marker-icon',
+        html: '<span style="display:block;width:22px;height:22px;border:3px solid #164f50;border-radius:50%;background:#fff;box-shadow:0 2px 7px rgba(0,0,0,.28);box-sizing:border-box"></span>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      })
+
+      const addDraggable = (key: keyof IodaPoints, point: Point, label: string, direction: string) => {
+        const marker = leaflet.marker(ll(point), { draggable: true, title: label, icon: dragIcon })
+          .bindTooltip(label, { permanent: true, direction, offset: [0, -12], className: 'course-point-label' })
+          .addTo(map)
+        marker.on('dragend', (event: any) => {
+          const position = event.target.getLatLng()
+          setPoints((current) => ({ ...current, [key]: { latitude: position.lat, longitude: position.lng } }))
+          setStatus(`${label} ${c.moved}`)
+        })
+      }
+
+      addDraggable('startCentre', layout.startCentre, c.start, 'bottom')
+      addDraggable('mark1', layout.mark1, c.mark1, 'top')
+      addDraggable('mark2', layout.mark2, c.mark2, 'top')
+      addDraggable('gate3S', layout.gate3S, c.gateS, 'top')
+      addDraggable('gate3P', layout.gate3P, c.gateP, 'top')
+      addDraggable('finishCentre', layout.finishCentre, c.finish, 'right')
 
       const hasCommittee = typeof committeeLatitude === 'number' && Number.isFinite(committeeLatitude) && typeof committeeLongitude === 'number' && Number.isFinite(committeeLongitude)
       if (hasCommittee) leaflet.circleMarker([committeeLatitude!, committeeLongitude!], { radius: 8, weight: 3, fillOpacity: .9 }).bindTooltip(`${c.committee}${committeeAccuracy ? ` · ±${committeeAccuracy} m` : ''}`, { permanent: true, direction: 'top' }).addTo(map)
@@ -186,6 +226,7 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
     <div className="course-preview-heading"><div><strong>{c.title}</strong><small>{c.official}</small></div></div>
     <p className="course-route-sequence"><strong>{c.sequence}</strong></p>
     <div ref={mapElement} className="course-map" aria-label={c.title} style={{ minHeight: 360, width: '100%' }} />
+    <small>{c.dragHint}</small><br />
     <small>{c.note}</small>
     {status && <p className="gpx-status">{status}</p>}
   </div>
