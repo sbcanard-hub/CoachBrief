@@ -24,6 +24,9 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Diagnostiquer Open-Meteo au 17 septembre
+        run: node scripts/diagnose_openmeteo_20260917.mjs
+
       - name: Installer les dépendances
         run: npm ci
 
