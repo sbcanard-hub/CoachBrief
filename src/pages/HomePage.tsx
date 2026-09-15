@@ -6,6 +6,7 @@ import { TerrainReferenceInput } from '../components/TerrainReferenceInput'
 import type { BriefingRequest } from '../types'
 import { usePreferences } from '../preferences'
 import { fetchWeatherForBriefing } from '../weather'
+import { updateSavedBriefingRequest } from '../savedBriefings'
 
 const initialForm: BriefingRequest = {
   location: '',
@@ -147,7 +148,11 @@ export function HomePage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    navigate('/resultats', { state: form })
+    const submittedCourseType = new FormData(event.currentTarget).get('courseType')
+    const courseType = submittedCourseType === 'Trapèze' || submittedCourseType === 'Triangle' ? submittedCourseType : 'Banane'
+    const nextRequest: BriefingRequest = { ...form, courseType }
+    if (navigation?.editing) updateSavedBriefingRequest(nextRequest)
+    navigate('/resultats', { state: nextRequest })
   }
 
   return (
