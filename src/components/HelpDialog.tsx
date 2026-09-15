@@ -17,7 +17,7 @@ const item = (category: TranslationKey, id: string): HelpItem => ({
 
 const HELP_ITEMS: HelpItem[] = [
   item('gettingStarted', 'Create'),
-  item('briefings', 'Find'), item('briefings', 'LocalCloud'),
+  item('briefings', 'Find'), item('briefings', 'Edit'), item('briefings', 'LocalCloud'),
   item('syncing', 'SendCloud'), item('syncing', 'RestoreDevice'), item('syncing', 'AutoSync'), item('syncing', 'Missing'),
   item('backup', 'BackupDifference'), item('backup', 'Restore'),
   item('weatherSources', 'Weather'), item('weatherSources', 'Confidence'),

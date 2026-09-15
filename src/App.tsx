@@ -51,7 +51,7 @@ function ResultsRoute() {
       {request && <HistoricalRaces request={request} weather={memoryWeather} />}
       <SiteLearningPanel />
     </ResultsTabPanel>}
-    <ResultsPage activeTab={activeTab} />
+    <ResultsPage key={`${location.key}:${request?.courseType ?? 'none'}`} activeTab={activeTab} />
   </>
 }
 

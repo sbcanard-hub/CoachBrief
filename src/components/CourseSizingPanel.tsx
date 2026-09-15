@@ -65,7 +65,7 @@ export function CourseSizingPanel({ boatClass, courseType, windSpeed, latitude, 
           <small className="course-sizing-disclaimer">{c.disclaimer}</small>
         </div>
 
-        {hasPoint ? <CoursePreview
+        {hasPoint ? <CoursePreview key={`${courseType}:${latitude}:${longitude}`}
           latitude={latitude}
           longitude={longitude}
           axis={courseAxis}
