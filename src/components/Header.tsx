@@ -11,7 +11,6 @@ import type { BriefingRequest } from '../types'
 import { DataBackupActions } from './DataBackupActions'
 import { AuthControl } from './AuthControl'
 import { HelpDialog } from './HelpDialog'
-import { LocalEffectsPanel } from './LocalEffectsPanel'
 import { SourceConfidencePanel } from './SourceConfidencePanel'
 import { SettingsDialog } from './SettingsDialog'
 import { usePreferences } from '../preferences'
@@ -158,7 +157,6 @@ export function Header() {
     <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     {request && <>
       <div className="header-confidence-wrap"><SourceConfidencePanel reliability={sourceReliability} /></div>
-      <LocalEffectsPanel request={request} />
     </>}
   </>
 }
