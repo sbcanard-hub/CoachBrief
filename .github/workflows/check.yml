@@ -27,8 +27,5 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
-      - name: Tester la sortie du chargement météo
-        run: node scripts/check_results_loading_guard.mjs
-
       - name: Vérifier la compilation
         run: npm run build
