@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadLeaflet } from '../leafletLoader'
 import { publishCourseAnalysisPosition } from '../courseAnalysisPosition'
+import { writeCurrentCourseSnapshot } from '../savedBriefings'
 import { usePreferences } from '../preferences'
 import '../geolocation.css'
 
@@ -33,10 +34,6 @@ function destination(point: Point, bearing: number, distanceNm: number): Point {
   return { latitude: degrees(lat2), longitude: degrees(lon2) }
 }
 
-function midpoint(a: Point, b: Point): Point {
-  return { latitude: (a.latitude + b.latitude) / 2, longitude: (a.longitude + b.longitude) / 2 }
-}
-
 function lineAround(point: Point, bearing: number, halfWidthNm: number) {
   return { left: destination(point, bearing - 90, halfWidthNm), right: destination(point, bearing + 90, halfWidthNm) }
 }
@@ -44,10 +41,10 @@ function lineAround(point: Point, bearing: number, halfWidthNm: number) {
 export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, firstLegNm, committeeLatitude, committeeLongitude, committeeAccuracy = '' }: Props) {
   const { language } = usePreferences()
   const c = {
-    fr: { title: 'Parcours IODA officiel', sequence: 'Départ → 1 (bâbord) → 2 (bâbord) → porte 3S/3P → arrivée', start: 'Départ', finish: 'Arrivée', mark1: '1 · au vent', mark2: '2 · extérieur', gateS: '3S · porte', gateP: '3P · porte', official: 'Trapèze extérieur IODA · arrivée au terme du second près', committee: 'Comité / bateau coach', note: 'Le tracé et l’analyse utilisent la même géométrie IODA.' },
-    en: { title: 'Official IODA course', sequence: 'Start → 1 (port) → 2 (port) → 3S/3P gate → finish', start: 'Start', finish: 'Finish', mark1: '1 · windward', mark2: '2 · outer', gateS: '3S · gate', gateP: '3P · gate', official: 'IODA outer-loop trapezoid · finish at the end of the second windward leg', committee: 'Committee / coach boat', note: 'The layout and course analysis use the same IODA geometry.' },
-    it: { title: 'Percorso IODA ufficiale', sequence: 'Partenza → 1 (sinistra) → 2 (sinistra) → cancello 3S/3P → arrivo', start: 'Partenza', finish: 'Arrivo', mark1: '1 · bolina', mark2: '2 · esterna', gateS: '3S · cancello', gateP: '3P · cancello', official: 'Trapezio esterno IODA · arrivo al termine della seconda bolina', committee: 'Comitato / barca coach', note: 'Tracciato e analisi usano la stessa geometria IODA.' },
-    es: { title: 'Recorrido IODA oficial', sequence: 'Salida → 1 (babor) → 2 (babor) → puerta 3S/3P → llegada', start: 'Salida', finish: 'Llegada', mark1: '1 · barlovento', mark2: '2 · exterior', gateS: '3S · puerta', gateP: '3P · puerta', official: 'Trapecio exterior IODA · llegada al final de la segunda ceñida', committee: 'Comité / barco del entrenador', note: 'El trazado y el análisis usan la misma geometría IODA.' },
+    fr: { title: 'Parcours IODA officiel', sequence: 'Départ → 1 (bâbord) → 2 (bâbord) → porte 3S/3P → arrivée', start: 'Départ', finish: 'Arrivée', mark1: '1 · au vent', mark2: '2 · extérieur', gateS: '3S · porte', gateP: '3P · porte', gate: 'Porte 3S/3P', official: 'Trapèze extérieur IODA · arrivée au terme du second près', committee: 'Comité / bateau coach', note: 'Le tracé et l’analyse utilisent la même géométrie IODA.' },
+    en: { title: 'Official IODA course', sequence: 'Start → 1 (port) → 2 (port) → 3S/3P gate → finish', start: 'Start', finish: 'Finish', mark1: '1 · windward', mark2: '2 · outer', gateS: '3S · gate', gateP: '3P · gate', gate: '3S/3P gate', official: 'IODA outer-loop trapezoid · finish at the end of the second windward leg', committee: 'Committee / coach boat', note: 'The layout and course analysis use the same IODA geometry.' },
+    it: { title: 'Percorso IODA ufficiale', sequence: 'Partenza → 1 (sinistra) → 2 (sinistra) → cancello 3S/3P → arrivo', start: 'Partenza', finish: 'Arrivo', mark1: '1 · bolina', mark2: '2 · esterna', gateS: '3S · cancello', gateP: '3P · cancello', gate: 'Cancello 3S/3P', official: 'Trapezio esterno IODA · arrivo al termine della seconda bolina', committee: 'Comitato / barca coach', note: 'Tracciato e analisi usano la stessa geometria IODA.' },
+    es: { title: 'Recorrido IODA oficial', sequence: 'Salida → 1 (babor) → 2 (babor) → puerta 3S/3P → llegada', start: 'Salida', finish: 'Llegada', mark1: '1 · barlovento', mark2: '2 · exterior', gateS: '3S · puerta', gateP: '3P · puerta', gate: 'Puerta 3S/3P', official: 'Trapecio exterior IODA · llegada al final de la segunda ceñida', committee: 'Comité / barco del entrenador', note: 'El trazado y el análisis usan la misma geometría IODA.' },
   }[language]
   const mapElement = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
@@ -82,6 +79,28 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
       longitude: (layout.startCentre.longitude + layout.mark1.longitude) / 2,
     })
   }, [latitude, longitude, layout])
+
+  useEffect(() => {
+    const storageKey = `coachbrief:course-variants:v1:IODA:${latitude.toFixed(3)}:${longitude.toFixed(3)}`
+    writeCurrentCourseSnapshot({
+      storageKey,
+      courseType: 'IODA',
+      bearing,
+      points: [
+        { name: c.start, ...layout.startCentre },
+        { name: c.mark1, ...layout.mark1 },
+        { name: c.mark2, ...layout.mark2 },
+        { name: c.gateS, ...layout.gate3S },
+        { name: c.gateP, ...layout.gate3P },
+        { name: c.gate, ...layout.gateCentre },
+        { name: c.finish, ...layout.finishCentre },
+      ],
+      routeOrder: [0, 1, 2, 5, 6],
+      variants: [],
+      activeVariantId: 'auto',
+      activeVariantName: 'IODA officiel',
+    })
+  }, [latitude, longitude, bearing, layout, c])
 
   useEffect(() => {
     let cancelled = false
