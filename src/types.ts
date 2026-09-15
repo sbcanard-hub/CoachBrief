@@ -1,5 +1,5 @@
 export type BoatClass = 'Optimist' | '420' | 'ILCA'
-export type CourseType = 'Banane' | 'Trapèze' | 'Triangle'
+export type CourseType = 'Banane' | 'Trapèze' | 'Triangle' | 'IODA'
 export type StartLineBias = 'Comité' | 'Neutre' | 'Pin'
 export type FinishOrientation = 'Sous le vent' | 'Travers' | 'Au vent'
 export type WeatherModelKey = 'best_match' | 'meteofrance_arome_france' | 'ecmwf_ifs' | 'icon_eu' | 'ncep_gfs_global'
