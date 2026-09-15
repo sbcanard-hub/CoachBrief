@@ -1,0 +1,39 @@
+.thermal-quadrants{margin-top:18px;padding:16px;border:1px solid rgba(127,127,127,.25);border-radius:16px;background:rgba(255,255,255,.5)}
+.thermal-quadrants__heading{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
+.thermal-quadrants__heading>strong{font-size:1rem}
+.thermal-quadrants__heading span{font-size:.88rem}
+.thermal-quadrants__scene{display:block;width:100%;height:auto;border-radius:14px;overflow:hidden;background:#dceff8}
+.thermal-quadrants__sea-bg{fill:url(#thermal-sea-gradient)}
+.thermal-quadrants__land-bg{fill:url(#thermal-land-gradient)}
+.thermal-quadrants__coast{fill:none;stroke:#718068;stroke-width:3}
+.thermal-quadrants__terrain-label{font-size:26px;font-weight:900;letter-spacing:.12em;paint-order:stroke;stroke:#fff;stroke-width:5px;stroke-linejoin:round}
+.thermal-quadrants__terrain-label--land{fill:#5b4a2f}
+.thermal-quadrants__terrain-label--sea{fill:#1f4f75}
+.thermal-quadrants__ring{fill:rgba(255,255,255,.16);stroke:#173b3a;stroke-width:3;opacity:.82}
+.thermal-quadrants__zone{stroke:rgba(0,0,0,.18);stroke-width:1.5;transition:opacity .2s,filter .2s}
+.thermal-quadrants__zone--fav{fill:rgba(53,140,101,.52)}
+.thermal-quadrants__zone--bad{fill:rgba(201,89,73,.48)}
+.thermal-quadrants__zone:not(.is-active){opacity:.6}
+.thermal-quadrants__zone.is-active{opacity:1;filter:drop-shadow(0 0 7px rgba(0,0,0,.2));stroke-width:4}
+.thermal-quadrants__axis{stroke:#173b3a;stroke-width:3}
+.thermal-quadrants__arrow{fill:#173b3a}
+.thermal-quadrants__axis-label{font-size:12px;font-weight:800;fill:#173b3a;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+.thermal-quadrants__q{font-size:34px;font-weight:900;fill:#173b3a;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:rgba(255,255,255,.78);stroke-width:3px;stroke-linejoin:round}
+.thermal-quadrants__hub{fill:#fff;stroke:#173b3a;stroke-width:2}
+.thermal-quadrants__cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.thermal-quadrants__cards article{padding:12px;border-radius:12px;border:1px solid rgba(127,127,127,.22);display:grid;gap:5px;background:rgba(127,127,127,.04)}
+.thermal-quadrants__cards article.is-active{outline:3px solid currentColor;outline-offset:1px}
+.thermal-quadrants__cards strong{font-size:.88rem}
+.thermal-quadrants__cards span{font-size:.83rem;line-height:1.4;opacity:.82}
+.thermal-quadrants__legend{display:block;margin-top:10px;opacity:.68}
+.thermal-quadrants__diagnostic{margin:10px 16px 0;padding:11px 13px;border-radius:12px;background:rgba(127,127,127,.07);display:grid;gap:4px;font-size:.82rem;line-height:1.4}
+.thermal-quadrants__diagnostic span{opacity:.78}
+@media(max-width:720px){
+  .thermal-quadrants{padding:12px}
+  .thermal-quadrants__heading{align-items:flex-start;flex-direction:column}
+  .thermal-quadrants__scene{margin-inline:-2px;width:calc(100% + 4px)}
+  .thermal-quadrants__terrain-label{font-size:22px;letter-spacing:.08em}
+  .thermal-quadrants__q{font-size:30px}
+  .thermal-quadrants__cards{grid-template-columns:1fr}
+  .thermal-quadrants__diagnostic{margin:8px 0 0}
+}
