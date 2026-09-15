@@ -81,7 +81,7 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
     const storageKey = `coachbrief:course-variants:v1:IODA:${latitude.toFixed(3)}:${longitude.toFixed(3)}`
     writeCurrentCourseSnapshot({
       storageKey,
-      courseType: 'Trapèze',
+      courseType: 'IODA',
       bearing,
       points: [
         { name: c.start, ...layout.startCentre },
@@ -103,6 +103,8 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
     let cancelled = false
     let map: any = null
     let refresh: EventListener | null = null
+    let resizeObserver: ResizeObserver | null = null
+
     void loadLeaflet().then((leaflet) => {
       if (cancelled || !mapElement.current) return
       mapRef.current?.remove()
@@ -115,32 +117,53 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
       leaflet.polyline([ll(layout.startLine.left), ll(layout.startLine.right)], { weight: 5, opacity: .95 }).addTo(map)
       leaflet.polyline([ll(layout.finishLine.left), ll(layout.finishLine.right)], { weight: 4, opacity: .85, dashArray: '7 6' }).addTo(map)
 
-      layout.marks.forEach((mark) => leaflet.marker(ll(mark), { title: mark.name }).bindTooltip(mark.name, { permanent: true, direction: 'top' }).addTo(map))
-      leaflet.circleMarker(ll(layout.startCentre), { radius: 5, weight: 2, fillOpacity: .75 }).bindTooltip(c.start, { permanent: true, direction: 'bottom' }).addTo(map)
-      leaflet.circleMarker(ll(layout.finishCentre), { radius: 5, weight: 2, fillOpacity: .75 }).bindTooltip(c.finish, { permanent: true, direction: 'right' }).addTo(map)
+      layout.marks.forEach((mark) => leaflet.circleMarker(ll(mark), { radius: 7, weight: 3, fillOpacity: .9 }).bindTooltip(mark.name, { permanent: true, direction: 'top' }).addTo(map))
+      leaflet.circleMarker(ll(layout.startCentre), { radius: 6, weight: 3, fillOpacity: .9 }).bindTooltip(c.start, { permanent: true, direction: 'bottom' }).addTo(map)
+      leaflet.circleMarker(ll(layout.finishCentre), { radius: 6, weight: 3, fillOpacity: .9 }).bindTooltip(c.finish, { permanent: true, direction: 'right' }).addTo(map)
 
       const hasCommittee = typeof committeeLatitude === 'number' && Number.isFinite(committeeLatitude) && typeof committeeLongitude === 'number' && Number.isFinite(committeeLongitude)
-      if (hasCommittee) leaflet.marker([committeeLatitude!, committeeLongitude!], { title: c.committee }).bindTooltip(`${c.committee}${committeeAccuracy ? ` · ±${committeeAccuracy} m` : ''}`).addTo(map)
+      if (hasCommittee) leaflet.circleMarker([committeeLatitude!, committeeLongitude!], { radius: 8, weight: 3, fillOpacity: .9 }).bindTooltip(`${c.committee}${committeeAccuracy ? ` · ±${committeeAccuracy} m` : ''}`, { permanent: true, direction: 'top' }).addTo(map)
 
       const bounds = [layout.startLine.left, layout.startLine.right, layout.finishLine.left, layout.finishLine.right, ...layout.marks].map(ll)
+      const refreshMap = () => {
+        if (!map || !mapElement.current) return
+        const { width, height } = mapElement.current.getBoundingClientRect()
+        if (width < 40 || height < 40) return
+        map.invalidateSize(false)
+        map.fitBounds(bounds, { padding: [32, 32] })
+      }
+
       map.fitBounds(bounds, { padding: [32, 32] })
       mapRef.current = map
       refresh = ((event: CustomEvent<{ tab?: string }>) => {
         if (event.detail?.tab !== 'course') return
-        map.invalidateSize(false)
-        map.fitBounds(bounds, { padding: [32, 32] })
+        window.requestAnimationFrame(refreshMap)
+        window.setTimeout(refreshMap, 180)
       }) as EventListener
       window.addEventListener('coachbrief:results-tab-shown', refresh)
-      window.requestAnimationFrame(() => map.invalidateSize(false))
-      window.setTimeout(() => map.invalidateSize(false), 250)
+
+      if ('ResizeObserver' in window && mapElement.current) {
+        resizeObserver = new ResizeObserver(() => window.requestAnimationFrame(refreshMap))
+        resizeObserver.observe(mapElement.current)
+      }
+
+      window.requestAnimationFrame(refreshMap)
+      window.setTimeout(refreshMap, 250)
+      window.setTimeout(refreshMap, 700)
     }).catch((error: unknown) => setStatus(error instanceof Error ? error.message : 'Map unavailable'))
-    return () => { cancelled = true; if (refresh) window.removeEventListener('coachbrief:results-tab-shown', refresh); map?.remove() }
+
+    return () => {
+      cancelled = true
+      if (refresh) window.removeEventListener('coachbrief:results-tab-shown', refresh)
+      resizeObserver?.disconnect()
+      map?.remove()
+    }
   }, [layout, committeeLatitude, committeeLongitude, committeeAccuracy, c])
 
   return <div className="course-preview">
     <div className="course-preview-heading"><div><strong>{c.title}</strong><small>{c.official}</small></div></div>
     <p className="course-route-sequence"><strong>{c.sequence}</strong></p>
-    <div ref={mapElement} className="course-map" aria-label={c.title} />
+    <div ref={mapElement} className="course-map" aria-label={c.title} style={{ minHeight: 360, width: '100%' }} />
     <small>{c.note}</small>
     {status && <p className="gpx-status">{status}</p>}
   </div>
