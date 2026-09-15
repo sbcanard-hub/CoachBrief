@@ -21,13 +21,13 @@ import { LocalEffectsPanel } from './components/LocalEffectsPanel'
 import { ResultsTabNavigation, ResultsTabPanel, type ResultsTab } from './components/ResultsTabs'
 import type { BriefingRequest } from './types'
 import { useEffect, useState } from 'react'
-import { fetchWeatherForBriefing } from './weather'
+import { fetchWeatherForBriefingResilient } from './weatherResilient'
 
 function ResultsRoute() {
   const location = useLocation()
   const { language } = usePreferences()
   const request = location.state as BriefingRequest | null
-  const [memoryWeather, setMemoryWeather] = useState<Awaited<ReturnType<typeof fetchWeatherForBriefing>> | null>(null)
+  const [memoryWeather, setMemoryWeather] = useState<Awaited<ReturnType<typeof fetchWeatherForBriefingResilient>> | null>(null)
   const [memoryWeatherState, setMemoryWeatherState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [memoryWeatherError, setMemoryWeatherError] = useState('')
   const [weatherRetry, setWeatherRetry] = useState(0)
@@ -56,16 +56,7 @@ function ResultsRoute() {
       window.setTimeout(() => reject(new Error('Délai météo dépassé')), 20000)
     })
 
-    const loadWeather = async () => {
-      try {
-        return await fetchWeatherForBriefing(request)
-      } catch (primaryError) {
-        if (!request.weatherModel || request.weatherModel === 'best_match') throw primaryError
-        return fetchWeatherForBriefing(request, 'best_match')
-      }
-    }
-
-    Promise.race([loadWeather(), timeout])
+    Promise.race([fetchWeatherForBriefingResilient(request), timeout])
       .then((weather) => {
         if (!active) return
         setMemoryWeather(weather)
