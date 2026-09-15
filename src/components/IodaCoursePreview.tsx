@@ -40,12 +40,12 @@ function lineAround(point: Point, bearing: number, halfWidthNm: number) {
 
 export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, firstLegNm, committeeLatitude, committeeLongitude, committeeAccuracy = '' }: Props) {
   const { language } = usePreferences()
-  const c = {
+  const c = useMemo(() => ({
     fr: { title: 'Parcours IODA officiel', sequence: 'Départ → 1 (bâbord) → 2 (bâbord) → porte 3S/3P → arrivée', start: 'Départ', finish: 'Arrivée', mark1: '1 · au vent', mark2: '2 · extérieur', gateS: '3S · porte', gateP: '3P · porte', gate: 'Porte 3S/3P', official: 'Trapèze extérieur IODA · arrivée au terme du second près', committee: 'Comité / bateau coach', note: 'Le tracé et l’analyse utilisent la même géométrie IODA.' },
     en: { title: 'Official IODA course', sequence: 'Start → 1 (port) → 2 (port) → 3S/3P gate → finish', start: 'Start', finish: 'Finish', mark1: '1 · windward', mark2: '2 · outer', gateS: '3S · gate', gateP: '3P · gate', gate: '3S/3P gate', official: 'IODA outer-loop trapezoid · finish at the end of the second windward leg', committee: 'Committee / coach boat', note: 'The layout and course analysis use the same IODA geometry.' },
     it: { title: 'Percorso IODA ufficiale', sequence: 'Partenza → 1 (sinistra) → 2 (sinistra) → cancello 3S/3P → arrivo', start: 'Partenza', finish: 'Arrivo', mark1: '1 · bolina', mark2: '2 · esterna', gateS: '3S · cancello', gateP: '3P · cancello', gate: 'Cancello 3S/3P', official: 'Trapezio esterno IODA · arrivo al termine della seconda bolina', committee: 'Comitato / barca coach', note: 'Tracciato e analisi usano la stessa geometria IODA.' },
     es: { title: 'Recorrido IODA oficial', sequence: 'Salida → 1 (babor) → 2 (babor) → puerta 3S/3P → llegada', start: 'Salida', finish: 'Llegada', mark1: '1 · barlovento', mark2: '2 · exterior', gateS: '3S · puerta', gateP: '3P · puerta', gate: 'Puerta 3S/3P', official: 'Trapecio exterior IODA · llegada al final de la segunda ceñida', committee: 'Comité / barco del entrenador', note: 'El trazado y el análisis usan la misma geometría IODA.' },
-  }[language]
+  }[language]), [language])
   const mapElement = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const [status, setStatus] = useState('')
@@ -104,11 +104,26 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
     let map: any = null
     let refresh: EventListener | null = null
     let resizeObserver: ResizeObserver | null = null
+    const container = mapElement.current
+
+    if (!container) return
 
     void loadLeaflet().then((leaflet) => {
       if (cancelled || !mapElement.current) return
-      mapRef.current?.remove()
-      map = leaflet.map(mapElement.current, { zoomControl: true, attributionControl: true })
+
+      const activeContainer = mapElement.current as HTMLDivElement & { _leaflet_id?: number }
+
+      if (mapRef.current) {
+        try { mapRef.current.remove() } catch { /* stale Leaflet instance */ }
+        mapRef.current = null
+      }
+      if (activeContainer._leaflet_id) delete activeContainer._leaflet_id
+      activeContainer.replaceChildren()
+
+      map = leaflet.map(activeContainer, { zoomControl: true, attributionControl: true })
+      mapRef.current = map
+      setStatus('')
+
       leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map)
       const ll = (p: Point): [number, number] => [p.latitude, p.longitude]
 
@@ -134,7 +149,6 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
       }
 
       map.fitBounds(bounds, { padding: [32, 32] })
-      mapRef.current = map
       refresh = ((event: CustomEvent<{ tab?: string }>) => {
         if (event.detail?.tab !== 'course') return
         window.requestAnimationFrame(refreshMap)
@@ -142,21 +156,29 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
       }) as EventListener
       window.addEventListener('coachbrief:results-tab-shown', refresh)
 
-      if ('ResizeObserver' in window && mapElement.current) {
+      if ('ResizeObserver' in window) {
         resizeObserver = new ResizeObserver(() => window.requestAnimationFrame(refreshMap))
-        resizeObserver.observe(mapElement.current)
+        resizeObserver.observe(activeContainer)
       }
 
       window.requestAnimationFrame(refreshMap)
       window.setTimeout(refreshMap, 250)
       window.setTimeout(refreshMap, 700)
-    }).catch((error: unknown) => setStatus(error instanceof Error ? error.message : 'Map unavailable'))
+    }).catch((error: unknown) => {
+      if (!cancelled) setStatus(error instanceof Error ? error.message : 'Map unavailable')
+    })
 
     return () => {
       cancelled = true
       if (refresh) window.removeEventListener('coachbrief:results-tab-shown', refresh)
       resizeObserver?.disconnect()
-      map?.remove()
+      if (map) {
+        try { map.remove() } catch { /* already removed */ }
+      }
+      if (mapRef.current === map) mapRef.current = null
+      const staleContainer = container as HTMLDivElement & { _leaflet_id?: number }
+      if (staleContainer._leaflet_id) delete staleContainer._leaflet_id
+      staleContainer.replaceChildren()
     }
   }, [layout, committeeLatitude, committeeLongitude, committeeAccuracy, c])
 
