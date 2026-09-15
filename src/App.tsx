@@ -44,7 +44,6 @@ function ResultsRoute() {
   }, [request])
 
   return <>
-    {!startMode && request && <RaceRoundsPanel request={request} />}
     {!startMode && <ResultsTabNavigation activeTab={activeTab} onChange={setActiveTab} />}
     {!startMode && <ResultsTabPanel tab="forecast" activeTab={activeTab}>
       {request && <ForecastPanel request={request} weather={memoryWeather} />}
@@ -53,6 +52,9 @@ function ResultsRoute() {
     {!startMode && <ResultsTabPanel tab="weather" activeTab={activeTab}>
       <WindModelComparisonPanel />
       {request && <LocalEffectsPanel request={request} />}
+    </ResultsTabPanel>}
+    {!startMode && <ResultsTabPanel tab="rounds" activeTab={activeTab}>
+      {request && <RaceRoundsPanel request={request} />}
     </ResultsTabPanel>}
     {!startMode && <ResultsTabPanel tab="history" activeTab={activeTab}>
       {request && <SimilarSituations request={request} weather={memoryWeather} />}
