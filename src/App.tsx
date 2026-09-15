@@ -57,7 +57,7 @@ function ResultsRoute() {
       {request && <HistoricalRaces request={request} weather={memoryWeather} />}
       <SiteLearningPanel />
     </ResultsTabPanel>}
-    <ResultsPage key={`${location.key}:${request?.courseType ?? 'none'}`} activeTab={activeTab} />
+    <ResultsPage key={`${location.key}:${request?.iodaCourse ? 'IODA' : request?.courseType ?? 'none'}`} activeTab={activeTab} />
   </>
 }
 
