@@ -3,6 +3,8 @@ import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import { Header } from './components/Header'
 import { SiteLearningPanel } from './components/SiteLearningPanel'
 import { WindModelComparisonPanel } from './components/WindModelComparisonPanel'
+import { ForecastPanel } from './components/ForecastPanel'
+import { ThermalQuadrantPanel } from './components/ThermalQuadrantPanel'
 import { HomePage } from './pages/HomePage'
 import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
@@ -25,12 +27,12 @@ function ResultsRoute() {
   const location = useLocation()
   const request = location.state as BriefingRequest | null
   const [memoryWeather, setMemoryWeather] = useState<Awaited<ReturnType<typeof fetchWeatherForBriefing>> | null>(null)
-  const [activeTab, setActiveTab] = useState<ResultsTab>('summary')
+  const [activeTab, setActiveTab] = useState<ResultsTab>('forecast')
   const startMode = new URLSearchParams(location.search).get('mode') === 'depart'
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0)
-    setActiveTab('summary')
+    setActiveTab('forecast')
   }, [location.key])
 
   useEffect(() => {
@@ -42,6 +44,10 @@ function ResultsRoute() {
 
   return <>
     {!startMode && <ResultsTabNavigation activeTab={activeTab} onChange={setActiveTab} />}
+    {!startMode && <ResultsTabPanel tab="forecast" activeTab={activeTab}>
+      {request && <ForecastPanel request={request} weather={memoryWeather} />}
+      <ThermalQuadrantPanel weather={memoryWeather} />
+    </ResultsTabPanel>}
     {!startMode && <ResultsTabPanel tab="weather" activeTab={activeTab}>
       <WindModelComparisonPanel />
       {request && <LocalEffectsPanel request={request} />}
@@ -51,7 +57,7 @@ function ResultsRoute() {
       {request && <HistoricalRaces request={request} weather={memoryWeather} />}
       <SiteLearningPanel />
     </ResultsTabPanel>}
-    <ResultsPage key={`${location.key}:${request?.courseType ?? 'none'}`} activeTab={activeTab} />
+    <ResultsPage key={`${location.key}:${request?.iodaCourse ? 'IODA' : request?.courseType ?? 'none'}`} activeTab={activeTab} />
   </>
 }
 

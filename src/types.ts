@@ -1,5 +1,5 @@
 export type BoatClass = 'Optimist' | '420' | 'ILCA'
-export type CourseType = 'Banane' | 'Trapèze' | 'Triangle'
+export type CourseType = 'Banane' | 'Trapèze' | 'Triangle' | 'IODA'
 export type StartLineBias = 'Comité' | 'Neutre' | 'Pin'
 export type FinishOrientation = 'Sous le vent' | 'Travers' | 'Au vent'
 export type WeatherModelKey = 'best_match' | 'meteofrance_arome_france' | 'ecmwf_ifs' | 'icon_eu' | 'ncep_gfs_global'
@@ -37,6 +37,8 @@ export type BriefingRequest = {
   raceTime: string
   boatClass: BoatClass
   courseType: CourseType
+  /** Legacy compatibility for briefings saved before IODA became a first-class course type. */
+  iodaCourse?: boolean
   courseAxis: string
   /** Records whether the course axis was entered by the coach or derived from the selected forecast model. */
   courseAxisMode?: CourseAxisMode
