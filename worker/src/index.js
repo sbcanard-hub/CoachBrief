@@ -1,7 +1,18 @@
-const ALLOWED_HOSTS = new Set([
+const TRACE_HOSTS = new Set([
   'app.metasail.fr',
   'live.tractrac.com',
 ])
+
+const OPEN_METEO_HOSTS = new Set([
+  'api.open-meteo.com',
+  'marine-api.open-meteo.com',
+  'geocoding-api.open-meteo.com',
+  'elevation-api.open-meteo.com',
+  'historical-forecast-api.open-meteo.com',
+  'archive-api.open-meteo.com',
+])
+
+const ALLOWED_HOSTS = new Set([...TRACE_HOSTS, ...OPEN_METEO_HOSTS])
 
 const ALLOWED_ORIGINS = new Set([
   'https://sbcanard-hub.github.io',
@@ -42,11 +53,15 @@ function parseAllowedUrl(value) {
     throw new Error('URL invalide')
   }
   if (target.protocol !== 'https:' || !ALLOWED_HOSTS.has(target.hostname.toLowerCase())) {
-    throw new Error('Seuls les liens publics MetaSail et TracTrac sont autorisés')
+    throw new Error('Destination non autorisée par le relais CoachBrief')
   }
   target.username = ''
   target.password = ''
   return target
+}
+
+function cacheTtlFor(target) {
+  return OPEN_METEO_HOSTS.has(target.hostname.toLowerCase()) ? 120 : 3600
 }
 
 async function fetchAllowed(target) {
@@ -55,12 +70,12 @@ async function fetchAllowed(target) {
     const upstream = await fetch(current, {
       redirect: 'manual',
       headers: {
-        'Accept': 'application/gpx+xml, application/xml, application/json, text/html;q=0.9, */*;q=0.5',
+        'Accept': 'application/json, application/gpx+xml, application/xml, text/html;q=0.9, */*;q=0.5',
         'User-Agent': 'CoachBrief/1.0 (+https://sbcanard-hub.github.io/CoachBrief/)',
       },
       cf: {
         cacheEverything: true,
-        cacheTtl: 3600,
+        cacheTtl: cacheTtlFor(current),
       },
     })
 
@@ -72,10 +87,10 @@ async function fetchAllowed(target) {
     }
 
     const announcedSize = Number(upstream.headers.get('Content-Length') || 0)
-    if (announcedSize > MAX_BYTES) throw new Error('La trace dépasse la limite de 5 Mo')
+    if (announcedSize > MAX_BYTES) throw new Error('La réponse dépasse la limite de 5 Mo')
 
     const body = await upstream.arrayBuffer()
-    if (body.byteLength > MAX_BYTES) throw new Error('La trace dépasse la limite de 5 Mo')
+    if (body.byteLength > MAX_BYTES) throw new Error('La réponse dépasse la limite de 5 Mo')
 
     return { upstream, body, finalUrl: current.href }
   }
@@ -91,7 +106,7 @@ export default {
     }
 
     if (request.method === 'GET' && url.pathname === '/health') {
-      return json(request, { ok: true, service: 'coachbrief-trace-relay' })
+      return json(request, { ok: true, service: 'coachbrief-relay', weather: true })
     }
 
     if (request.method !== 'POST' || url.pathname !== '/fetch') {
@@ -114,12 +129,13 @@ export default {
       const target = parseAllowedUrl(payload?.url)
       const { upstream, body, finalUrl } = await fetchAllowed(target)
       const contentType = upstream.headers.get('Content-Type') || 'application/octet-stream'
+      const isWeather = OPEN_METEO_HOSTS.has(target.hostname.toLowerCase())
       return new Response(body, {
         status: upstream.status,
         headers: {
           ...corsHeaders(request),
           'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=300',
+          'Cache-Control': `public, max-age=${isWeather ? 120 : 300}`,
           'X-CoachBrief-Source': target.hostname,
           'X-CoachBrief-Final-Url': finalUrl,
         },
