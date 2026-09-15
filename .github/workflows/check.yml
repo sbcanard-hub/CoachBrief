@@ -24,6 +24,31 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Diagnostiquer Open-Meteo CoachBrief
+        run: |
+          node --input-type=module <<'NODE'
+          const models = ['best_match','meteofrance_arome_france','ecmwf_ifs','icon_eu','ncep_gfs_global']
+          const hourly = 'temperature_2m,relative_humidity_2m,dew_point_2m,pressure_msl,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m'
+          for (const model of models) {
+            const params = new URLSearchParams({
+              latitude: '43.58',
+              longitude: '7.12',
+              hourly,
+              start_date: '2026-09-16',
+              end_date: '2026-09-16',
+              timezone: 'auto',
+              wind_speed_unit: 'kn',
+              models: model,
+            })
+            const url = `https://api.open-meteo.com/v1/forecast?${params}`
+            const response = await fetch(url)
+            const body = await response.text()
+            console.log('\nMODEL', model, 'STATUS', response.status)
+            console.log(url)
+            console.log(body.slice(0, 1500))
+          }
+          NODE
+
       - name: Installer les dépendances
         run: npm ci
 
