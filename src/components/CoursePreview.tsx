@@ -289,6 +289,7 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
   useEffect(() => {
     let cancelled = false
     let map: any = null
+    let refreshVisibleMap: EventListener | null = null
 
     void loadLeaflet().then((leaflet) => {
       if (cancelled || !elementRef.current || points.length < 2) return
@@ -384,6 +385,12 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
       if (committeePoint) bounds.push([committeePoint.latitude, committeePoint.longitude])
       map.fitBounds(bounds, { padding: [32, 32] })
       mapRef.current = map
+      refreshVisibleMap = ((event: CustomEvent<{ tab?: string }>) => {
+        if (event.detail?.tab !== 'course') return
+        map?.invalidateSize(false)
+        map?.fitBounds(bounds, { padding: [32, 32] })
+      }) as EventListener
+      window.addEventListener('coachbrief:results-tab-shown', refreshVisibleMap)
       window.requestAnimationFrame(() => map?.invalidateSize(false))
       window.setTimeout(() => map?.invalidateSize(false), 250)
     }).catch((error: unknown) => {
@@ -392,6 +399,7 @@ export function CoursePreview({ latitude, longitude, axis, windwardOffset, first
 
     return () => {
       cancelled = true
+      if (refreshVisibleMap) window.removeEventListener('coachbrief:results-tab-shown', refreshVisibleMap)
       map?.remove()
       if (mapRef.current === map) mapRef.current = null
     }
