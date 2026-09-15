@@ -3,8 +3,6 @@ import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import { Header } from './components/Header'
 import { SiteLearningPanel } from './components/SiteLearningPanel'
 import { WindModelComparisonPanel } from './components/WindModelComparisonPanel'
-import { ForecastPanel } from './components/ForecastPanel'
-import { ThermalQuadrantPanel } from './components/ThermalQuadrantPanel'
 import { HomePage } from './pages/HomePage'
 import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
@@ -27,70 +25,23 @@ function ResultsRoute() {
   const location = useLocation()
   const request = location.state as BriefingRequest | null
   const [memoryWeather, setMemoryWeather] = useState<Awaited<ReturnType<typeof fetchWeatherForBriefing>> | null>(null)
-  const [weatherStatus, setWeatherStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  const [weatherError, setWeatherError] = useState('')
-  const [weatherRetry, setWeatherRetry] = useState(0)
-  const [activeTab, setActiveTab] = useState<ResultsTab>('forecast')
+  const [activeTab, setActiveTab] = useState<ResultsTab>('summary')
   const startMode = new URLSearchParams(location.search).get('mode') === 'depart'
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0)
-    setActiveTab('forecast')
+    setActiveTab('summary')
   }, [location.key])
 
   useEffect(() => {
     let active = true
-    if (!request) {
-      setWeatherStatus('idle')
-      setMemoryWeather(null)
-      setWeatherError('')
-      return
-    }
-
-    setWeatherStatus('loading')
-    setMemoryWeather(null)
-    setWeatherError('')
-
-    const timeout = window.setTimeout(() => {
-      if (!active) return
-      active = false
-      setWeatherStatus('error')
-      setWeatherError('Le chargement météo prend trop de temps. Réessaie dans quelques instants.')
-    }, 60000)
-
-    fetchWeatherForBriefing(request)
-      .then((weather) => {
-        if (!active) return
-        window.clearTimeout(timeout)
-        setMemoryWeather(weather)
-        setWeatherStatus('ready')
-      })
-      .catch((error) => {
-        if (!active) return
-        window.clearTimeout(timeout)
-        setMemoryWeather(null)
-        setWeatherStatus('error')
-        setWeatherError(error instanceof Error ? error.message : 'La récupération météo a échoué.')
-      })
-
-    return () => {
-      active = false
-      window.clearTimeout(timeout)
-    }
-  }, [request, weatherRetry])
+    if (!request) return
+    fetchWeatherForBriefing(request).then((weather) => { if (active) setMemoryWeather(weather) }).catch(() => { if (active) setMemoryWeather(null) })
+    return () => { active = false }
+  }, [request])
 
   return <>
     {!startMode && <ResultsTabNavigation activeTab={activeTab} onChange={setActiveTab} />}
-    {!startMode && <ResultsTabPanel tab="forecast" activeTab={activeTab}>
-      {request && weatherStatus === 'loading' && <section className="forecast-panel"><p>Chargement…</p></section>}
-      {request && weatherStatus === 'error' && <section className="forecast-panel">
-        <h2>Prévision indisponible</h2>
-        <p>{weatherError || 'La récupération météo n’a pas abouti.'}</p>
-        <button type="button" className="button button--primary" onClick={() => setWeatherRetry((value) => value + 1)}>Réessayer</button>
-      </section>}
-      {request && weatherStatus === 'ready' && memoryWeather && <ForecastPanel request={request} weather={memoryWeather} />}
-      {weatherStatus === 'ready' && <ThermalQuadrantPanel weather={memoryWeather} />}
-    </ResultsTabPanel>}
     {!startMode && <ResultsTabPanel tab="weather" activeTab={activeTab}>
       <WindModelComparisonPanel />
       {request && <LocalEffectsPanel request={request} />}
@@ -100,7 +51,7 @@ function ResultsRoute() {
       {request && <HistoricalRaces request={request} weather={memoryWeather} />}
       <SiteLearningPanel />
     </ResultsTabPanel>}
-    <ResultsPage key={`${location.key}:${request?.iodaCourse ? 'IODA' : request?.courseType ?? 'none'}`} activeTab={activeTab} />
+    <ResultsPage key={`${location.key}:${request?.courseType ?? 'none'}`} activeTab={activeTab} />
   </>
 }
 

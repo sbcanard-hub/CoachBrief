@@ -164,47 +164,6 @@ export type LiveWeatherData = {
   scenario: WeatherScenario
 }
 
-const RETRYABLE_OPEN_METEO_STATUS = new Set([429, 502, 503, 504])
-
-function wait(ms: number) {
-  return new Promise<void>((resolve) => window.setTimeout(resolve, ms))
-}
-
-async function fetchOpenMeteo(url: string, attempts = 3) {
-  let lastResponse: Response | null = null
-  let lastError: unknown = null
-
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url, { cache: 'no-store' })
-      lastResponse = response
-      if (response.ok || !RETRYABLE_OPEN_METEO_STATUS.has(response.status) || attempt === attempts - 1) return response
-
-      const retryAfterSeconds = Number(response.headers.get('Retry-After'))
-      const delay = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
-        ? Math.min(retryAfterSeconds * 1000, 5000)
-        : 700 * (attempt + 1)
-      await wait(delay)
-    } catch (error) {
-      lastError = error
-      if (attempt === attempts - 1) throw error
-      await wait(700 * (attempt + 1))
-    }
-  }
-
-  if (lastResponse) return lastResponse
-  throw lastError instanceof Error ? lastError : new Error('Connexion Open-Meteo impossible')
-}
-
-async function responseDiagnostic(response: Response) {
-  let detail = ''
-  try {
-    const text = await response.clone().text()
-    if (text) detail = ` · ${text.replace(/\s+/g, ' ').slice(0, 140)}`
-  } catch { /* diagnostic optional */ }
-  return `HTTP ${response.status}${detail}`
-}
-
 function simplifyLocation(location: string) {
   return location
     .replace(/^baie\s+d['’]*/i, '')
@@ -219,7 +178,7 @@ async function geocode(location: string) {
   for (const name of candidates) {
     if (name.length < 2) continue
     const params = new URLSearchParams({ name, count: '1', language: 'fr', format: 'json' })
-    const response = await fetchOpenMeteo(`https://geocoding-api.open-meteo.com/v1/search?${params}`, 3)
+    const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`)
     if (!response.ok) continue
     const data = await response.json() as GeocodingResponse
     const result = data.results?.[0]
@@ -231,9 +190,7 @@ async function geocode(location: string) {
 async function resolvePlace(request: BriefingRequest): Promise<GeoPlace> {
   const latitude = Number(request.latitude)
   const longitude = Number(request.longitude)
-  const validLatitude = Number.isFinite(latitude) && latitude >= -90 && latitude <= 90
-  const validLongitude = Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
-  if (validLatitude && validLongitude && request.latitude !== '' && request.longitude !== '') {
+  if (Number.isFinite(latitude) && Number.isFinite(longitude) && request.latitude !== '' && request.longitude !== '') {
     return { name: request.location || 'Point du plan d’eau', latitude, longitude }
   }
   return geocode(request.location)
@@ -295,7 +252,7 @@ async function fetchMarine(latitude: number, longitude: number, date: string, ra
     start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn', cell_selection: 'sea',
   })
   try {
-    const response = await fetchOpenMeteo(`https://marine-api.open-meteo.com/v1/marine?${params}`, 2)
+    const response = await fetch(`https://marine-api.open-meteo.com/v1/marine?${params}`)
     if (!response.ok) return undefined
     const data = await response.json() as MarineResponse
     if (!data.hourly?.time.length) return undefined
@@ -318,10 +275,8 @@ export async function fetchWindModelComparisons(
 ): Promise<WindModelComparison[]> {
   if (!request.date || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return []
   const raceTime = request.raceTime || request.startTime
-  const results: WindModelComparison[] = []
 
-  for (let index = 0; index < WEATHER_MODELS.length; index += 1) {
-    const model = WEATHER_MODELS[index]
+  return Promise.all(WEATHER_MODELS.map(async (model): Promise<WindModelComparison> => {
     const params = new URLSearchParams({
       latitude: String(latitude),
       longitude: String(longitude),
@@ -334,49 +289,26 @@ export async function fetchWindModelComparisons(
     })
 
     try {
-      const response = await fetchOpenMeteo(`https://api.open-meteo.com/v1/forecast?${params}`, 3)
+      const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
       if (!response.ok) {
-        results.push({
-          model,
-          available: false,
-          speed: null,
-          gust: null,
-          direction: null,
-          timezone: null,
-          error: await responseDiagnostic(response),
-        })
-      } else {
-        const forecast = await response.json() as WindForecastResponse
-        if (!forecast.hourly?.time.length) {
-          results.push({ model, available: false, speed: null, gust: null, direction: null, timezone: forecast.timezone ?? null, error: 'Pas de donnée à l’heure de la manche.' })
-        } else {
-          const raceIndex = nearestIndex(forecast.hourly.time, raceTime)
-          const speed = safeNumber(forecast.hourly.wind_speed_10m[raceIndex])
-          const gust = safeNumber(forecast.hourly.wind_gusts_10m[raceIndex])
-          const direction = safeNumber(forecast.hourly.wind_direction_10m[raceIndex])
-          if (speed == null || direction == null) {
-            results.push({ model, available: false, speed, gust, direction, timezone: forecast.timezone ?? null, error: 'Vent incomplet pour cette échéance.' })
-          } else {
-            results.push({ model, available: true, speed, gust, direction, timezone: forecast.timezone ?? null })
-          }
-        }
+        return { model, available: false, speed: null, gust: null, direction: null, timezone: null, error: 'Indisponible pour cette échéance ou cette zone.' }
       }
-    } catch (error) {
-      results.push({
-        model,
-        available: false,
-        speed: null,
-        gust: null,
-        direction: null,
-        timezone: null,
-        error: error instanceof Error ? error.message : 'Connexion au modèle impossible.',
-      })
+      const forecast = await response.json() as WindForecastResponse
+      if (!forecast.hourly?.time.length) {
+        return { model, available: false, speed: null, gust: null, direction: null, timezone: forecast.timezone ?? null, error: 'Pas de donnée à l’heure de la manche.' }
+      }
+      const raceIndex = nearestIndex(forecast.hourly.time, raceTime)
+      const speed = safeNumber(forecast.hourly.wind_speed_10m[raceIndex])
+      const gust = safeNumber(forecast.hourly.wind_gusts_10m[raceIndex])
+      const direction = safeNumber(forecast.hourly.wind_direction_10m[raceIndex])
+      if (speed == null || direction == null) {
+        return { model, available: false, speed, gust, direction, timezone: forecast.timezone ?? null, error: 'Vent incomplet pour cette échéance.' }
+      }
+      return { model, available: true, speed, gust, direction, timezone: forecast.timezone ?? null }
+    } catch {
+      return { model, available: false, speed: null, gust: null, direction: null, timezone: null, error: 'Connexion au modèle impossible.' }
     }
-
-    if (index < WEATHER_MODELS.length - 1) await wait(180)
-  }
-
-  return results
+  }))
 }
 
 export async function fetchWeatherForBriefing(
@@ -393,11 +325,8 @@ export async function fetchWeatherForBriefing(
     start_date: request.date, end_date: request.date, timezone: 'auto', wind_speed_unit: 'kn', models: selectedModel.key,
   })
 
-  const response = await fetchOpenMeteo(`https://api.open-meteo.com/v1/forecast?${params}`, 4)
-  if (!response.ok) {
-    const diagnostic = await responseDiagnostic(response)
-    throw new Error(`${selectedModel.shortLabel} indisponible · ${diagnostic}`)
-  }
+  const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
+  if (!response.ok) throw new Error(`${selectedModel.shortLabel} indisponible pour cette date`)
   const forecast = await response.json() as ForecastResponse
   if (!forecast.hourly?.time.length) throw new Error(`Aucune prévision horaire ${selectedModel.shortLabel}`)
 

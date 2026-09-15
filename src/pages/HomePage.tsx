@@ -21,7 +21,6 @@ const initialForm: BriefingRequest = {
   raceTime: '',
   boatClass: 'Optimist',
   courseType: 'Banane',
-  iodaCourse: false,
   courseAxis: '080',
   courseAxisMode: 'manual',
   manualCourseAxis: '080',
@@ -111,12 +110,6 @@ export function HomePage() {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
-  function updateCourseChoice(value: string) {
-    setForm((current) => value === 'IODA'
-      ? { ...current, courseType: 'Trapèze', iodaCourse: true, boatClass: 'Optimist' }
-      : { ...current, courseType: value === 'Triangle' ? 'Triangle' : value === 'Trapèze' ? 'Trapèze' : 'Banane', iodaCourse: false })
-  }
-
   function updateTerrainReference(patch: Partial<BriefingRequest>) {
     setForm((current) => ({ ...current, ...patch }))
   }
@@ -133,6 +126,7 @@ export function HomePage() {
     })
   }
 
+  // The form always keeps its reference values (metres and hPa); only the control's presentation changes.
   function displayedReference(value: string | undefined, kind: 'length' | 'pressure') {
     if (!value || units === 'metric') return value || ''
     const converted = kind === 'length' ? Number(value) * 3.28084 : Number(value) * 0.0295299831
@@ -154,7 +148,9 @@ export function HomePage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const nextRequest: BriefingRequest = { ...form }
+    const submittedCourseType = new FormData(event.currentTarget).get('courseType')
+    const courseType = submittedCourseType === 'Trapèze' || submittedCourseType === 'Triangle' ? submittedCourseType : 'Banane'
+    const nextRequest: BriefingRequest = { ...form, courseType }
     if (navigation?.editing) updateSavedBriefingRequest(nextRequest)
     navigate('/resultats', { state: nextRequest })
   }
@@ -224,11 +220,10 @@ export function HomePage() {
             </label>
             <label className="field">
               <span><Flag size={16} /> {t('course')}</span>
-              <select name="courseType" value={form.iodaCourse ? 'IODA' : form.courseType} onChange={(e) => updateCourseChoice(e.target.value)}>
+              <select name="courseType" value={form.courseType} onChange={(e) => updateField('courseType', e.target.value)}>
                 <option value="Banane">{t('courseBanana')}</option>
                 <option value="Trapèze">{t('courseTrapezoid')}</option>
                 <option value="Triangle">{t('courseTriangle')}</option>
-                <option value="IODA">IODA · Optimist</option>
               </select>
             </label>
           </div>

@@ -3,7 +3,6 @@ import { fetchElevations } from './elevation'
 export type TerrainLevel = 'low' | 'medium' | 'high'
 export type CoastalFlow = 'onshore' | 'offshore' | 'alongshore' | 'mixed'
 export type TerrainSide = 'left' | 'neutral' | 'right'
-export type ThermalQuadrant = 'Q1' | 'Q2' | 'Q3' | 'Q4'
 
 export type TerrainAnalysis = {
   available: boolean
@@ -24,11 +23,6 @@ export type TerrainAnalysis = {
   preferredSide: TerrainSide
   sideDifference: number
   confidence: TerrainLevel
-  seaBearing?: number
-  coastlineBearing?: number
-  windSeaAngle?: number
-  coastContrast?: number
-  thermalQuadrant?: ThermalQuadrant
 }
 
 type Sample = { bearing: number; radiusKm: number; elevation: number }
@@ -62,27 +56,6 @@ function sector(samples: Sample[], bearing: number, width = 46) {
     max: selected.length ? Math.max(...selected.map((sample) => sample.elevation)) : 0,
     landFraction: selected.length ? selected.filter((sample) => sample.elevation > 3).length / selected.length : 0,
   }
-}
-
-function coastlineOrientation(samples: Sample[], bearings: number[]) {
-  const sectors = bearings.map((bearing) => ({ bearing, landFraction: sector(samples, bearing, 24).landFraction }))
-  const sea = sectors.reduce((best, current) => current.landFraction < best.landFraction ? current : best)
-  const land = sectors.reduce((best, current) => current.landFraction > best.landFraction ? current : best)
-  const contrast = land.landFraction - sea.landFraction
-  if (contrast < .3) return null
-  return {
-    seaBearing: normalize(sea.bearing),
-    coastlineBearing: normalize(sea.bearing + 90),
-    contrast,
-  }
-}
-
-function thermalQuadrantFromGeometry(windFrom: number, seaBearing: number): { quadrant: ThermalQuadrant; angle: number } {
-  const angle = angleDistance(windFrom, seaBearing)
-  if (angle <= 45) return { quadrant: 'Q4', angle }
-  if (angle < 90) return { quadrant: 'Q3', angle }
-  if (angle < 135) return { quadrant: 'Q1', angle }
-  return { quadrant: 'Q2', angle }
 }
 
 /**
@@ -133,8 +106,6 @@ export async function fetchTerrainAnalysis(
     const corridor = Math.min(left.mean, right.mean)
     const walls = Math.max(left.mean, right.mean)
     const thermalIndex = seaTemperature == null ? 0 : Math.max(0, airTemperature - seaTemperature) * Math.max(0, 1 - cloudCover / 100) * Math.max(.35, 1 - windSpeed / 20)
-    const coast = coastlineOrientation(samples, bearings)
-    const quadrant = coast ? thermalQuadrantFromGeometry(windFrom, coast.seaBearing) : null
 
     return {
       available: true,
@@ -155,15 +126,6 @@ export async function fetchTerrainAnalysis(
       preferredSide,
       sideDifference: Math.round(sideDifference),
       confidence: samples.length >= 64 && relief >= 15 ? 'high' : samples.length >= 48 ? 'medium' : 'low',
-      ...(coast ? {
-        seaBearing: Math.round(coast.seaBearing),
-        coastlineBearing: Math.round(coast.coastlineBearing),
-        coastContrast: Number(coast.contrast.toFixed(2)),
-      } : {}),
-      ...(quadrant ? {
-        thermalQuadrant: quadrant.quadrant,
-        windSeaAngle: Math.round(quadrant.angle),
-      } : {}),
     }
   } catch {
     return undefined

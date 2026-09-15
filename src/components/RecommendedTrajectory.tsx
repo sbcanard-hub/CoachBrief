@@ -5,11 +5,12 @@ import { usePreferences } from '../preferences'
 import type { TranslationKey } from '../i18n/fr'
 
 type Side = 'left' | 'neutral' | 'right'
-type TrajectoryCourseType = BriefingRequest['courseType'] | 'IODA'
 type TrajectoryAdvice = { side: Side; start: string; firstLeg: string; target: string; tack: string; downwind: string; gate: string; rationale: string }
 const zoneValue = { Gauche: -2, 'Centre G.': -1, Centre: 0, 'Centre D.': 1, Droite: 2 } as const
 
 function buildTrajectoryAdvice(request: BriefingRequest | null, rows: BernotRow[], weather: WeatherScenario, t: (key: TranslationKey, variables?: Record<string, string | number>) => string, coherence?: TacticalCoherence): TrajectoryAdvice {
+  // The highest-ranked piles deliberately carry the most weight: this drawing
+  // visualises the Bernot hierarchy rather than creating a separate forecast.
   const tacticalRows = rows.filter((row) => row.factor !== 'Adversaires')
   const weightedSide = tacticalRows.reduce((total, row) => total + zoneValue[row.zone] * (8 - row.priority), 0)
   const directionalWeight = tacticalRows.reduce((total, row) => total + Math.abs(zoneValue[row.zone]) * (8 - row.priority), 0)
@@ -40,7 +41,6 @@ function buildTrajectoryAdvice(request: BriefingRequest | null, rows: BernotRow[
 }
 
 type DiagramPoint = { x: number; y: number; label: string }
-type FullCourse = { marks: DiagramPoint[]; route: string; alternateRoute?: string; start: DiagramPoint; finish: DiagramPoint }
 
 const detailedCopy = {
   fr: {
@@ -54,7 +54,6 @@ const detailedCopy = {
       Banane: ['Premier près : jouer les bascules par bords droits.', 'Vent arrière : protéger l’intérieur et l’air libre.', 'Deuxième près : réévaluer le côté avec les nouveaux relevés.', 'Dernier bord vers l’arrivée.'],
       Triangle: ['Premier près : jouer les bascules par bords droits.', 'Premier reaching : vitesse et air libre.', 'Deuxième reaching : anticiper la marque suivante.', 'Dernier bord vers l’arrivée.'],
       'Trapèze': ['Premier près : lecture détaillée en trois tiers.', 'Travers haut : vitesse, pression et contrôle de la layline.', 'Bord extérieur : gérer vent arrière et trafic.', 'Travers bas : préparer l’approche de l’arrivée.', 'Dernier bord vers l’arrivée.'],
-      IODA: ['Premier près vers 1 : construire le côté conseillé sans atteindre la layline trop tôt.', '1 → 2 : priorité à la vitesse et à l’air libre sur le bord extérieur.', '2 → porte 3S/3P : préparer le choix de porte selon pression, trafic et côté tactique.', 'Porte → arrivée : second près, réévaluer le côté avec les derniers relevés et poser la layline tardivement.'],
     },
   },
   en: {
@@ -68,7 +67,6 @@ const detailedCopy = {
       Banane: ['First beat: play the shifts with straight tacks.', 'Run: protect the inside and clear air.', 'Second beat: reassess the side with new readings.', 'Final leg to the finish.'],
       Triangle: ['First beat: play the shifts with straight tacks.', 'First reach: speed and clear air.', 'Second reach: anticipate the next mark.', 'Final leg to the finish.'],
       'Trapèze': ['First beat: detailed reading in three thirds.', 'Upper reach: speed, pressure and layline control.', 'Outer leg: manage downwind pressure and traffic.', 'Lower reach: prepare the finish approach.', 'Final leg to the finish.'],
-      IODA: ['First beat to 1: build towards the recommended side without reaching the layline too early.', '1 → 2: prioritise speed and clear air on the outer leg.', '2 → 3S/3P gate: prepare the gate choice from pressure, traffic and tactical side.', 'Gate → finish: second beat, reassess the side with the latest readings and take the layline late.'],
     },
   },
   it: {
@@ -82,7 +80,6 @@ const detailedCopy = {
       Banane: ['Prima bolina: gioca le rotazioni con bordi rettilinei.', 'Poppa: proteggi l’interno e l’aria libera.', 'Seconda bolina: rivaluta il lato con i nuovi rilievi.', 'Ultimo lato verso l’arrivo.'],
       Triangle: ['Prima bolina: gioca le rotazioni con bordi rettilinei.', 'Primo lasco: velocità e aria libera.', 'Secondo lasco: anticipa la boa seguente.', 'Ultimo lato verso l’arrivo.'],
       'Trapèze': ['Prima bolina: lettura dettagliata in tre terzi.', 'Traverso alto: velocità, pressione e layline.', 'Lato esterno: gestisci poppa e traffico.', 'Traverso basso: prepara l’arrivo.', 'Ultimo lato verso l’arrivo.'],
-      IODA: ['Prima bolina verso 1: costruisci il lato consigliato senza raggiungere troppo presto la layline.', '1 → 2: privilegia velocità e aria libera sul lato esterno.', '2 → cancello 3S/3P: prepara la scelta del cancello in base a pressione, traffico e lato tattico.', 'Cancello → arrivo: seconda bolina, rivaluta il lato con gli ultimi rilievi e prendi la layline tardi.'],
     },
   },
   es: {
@@ -96,44 +93,25 @@ const detailedCopy = {
       Banane: ['Primera ceñida: juega los roles con bordos rectos.', 'Popa: protege el interior y el viento libre.', 'Segunda ceñida: reevalúa el lado con nuevas lecturas.', 'Último tramo hacia la llegada.'],
       Triangle: ['Primera ceñida: juega los roles con bordos rectos.', 'Primer través: velocidad y viento libre.', 'Segundo través: anticipa la siguiente boya.', 'Último tramo hacia la llegada.'],
       'Trapèze': ['Primera ceñida: lectura detallada en tres tercios.', 'Través alto: velocidad, presión y layline.', 'Tramo exterior: gestiona popa y tráfico.', 'Través bajo: prepara la llegada.', 'Último tramo hacia la llegada.'],
-      IODA: ['Primera ceñida a 1: construye hacia el lado recomendado sin llegar demasiado pronto a la layline.', '1 → 2: prioriza velocidad y viento libre en el tramo exterior.', '2 → puerta 3S/3P: prepara la elección según presión, tráfico y lado táctico.', 'Puerta → llegada: segunda ceñida, reevalúa el lado con las últimas lecturas y toma la layline tarde.'],
     },
   },
 } as const
 
-function fullCourse(courseType: TrajectoryCourseType, side: Side, labels: { start: string; finish: string; mark: string }): FullCourse {
+function fullCourse(courseType: BriefingRequest['courseType'], side: Side, labels: { start: string; finish: string; mark: string }) {
   const offset = side === 'right' ? 34 : side === 'left' ? -34 : 0
   const firstBeat = `650,445 ${720 + offset},350 ${690 - offset},250 ${720 + offset},155 720,70`
-  if (courseType === 'IODA') {
-    const chosenGateX = side === 'right' ? 690 : side === 'left' ? 610 : 650
-    const otherGateX = chosenGateX === 690 ? 610 : 690
-    const finishX = 675
-    const finishY = 220
-    return {
-      marks: [
-        { x: 840, y: 70, label: `${labels.mark} 1` },
-        { x: 620, y: 165, label: `${labels.mark} 2` },
-        { x: 610, y: 365, label: '3S' },
-        { x: 690, y: 365, label: '3P' },
-      ],
-      route: `840,445 ${900 + offset},350 ${810 - offset},250 ${900 + offset},155 840,70 620,165 ${chosenGateX},365 ${finishX},${finishY}`,
-      alternateRoute: `620,165 ${otherGateX},365 ${finishX},${finishY}`,
-      start: { x: 840, y: 445, label: labels.start },
-      finish: { x: finishX, y: finishY, label: labels.finish },
-    }
-  }
   if (courseType === 'Triangle') return {
-    marks: [{ x: 720, y: 70, label: `${labels.mark} 1` }, { x: 915, y: 285, label: `${labels.mark} 2` }, { x: 650, y: 390, label: `${labels.mark} 3` }],
+    marks: [{ x: 720, y: 70, label: `${labels.mark} 1` }, { x: 915, y: 285, label: `${labels.mark} 2` }, { x: 650, y: 390, label: `${labels.mark} 3` }] as DiagramPoint[],
     route: `650,445 ${firstBeat.split(' ').slice(1).join(' ')} 915,285 650,390 835,445`,
     start: { x: 650, y: 445, label: labels.start }, finish: { x: 835, y: 445, label: labels.finish },
   }
   if (courseType === 'Trapèze') return {
-    marks: [{ x: 840, y: 70, label: `${labels.mark} 1` }, { x: 620, y: 165, label: `${labels.mark} 2` }, { x: 620, y: 365, label: `${labels.mark} 3` }, { x: 840, y: 365, label: `${labels.mark} 4` }],
+    marks: [{ x: 840, y: 70, label: `${labels.mark} 1` }, { x: 620, y: 165, label: `${labels.mark} 2` }, { x: 620, y: 365, label: `${labels.mark} 3` }, { x: 840, y: 365, label: `${labels.mark} 4` }] as DiagramPoint[],
     route: `840,445 ${900 + offset},350 ${810 - offset},250 ${900 + offset},155 840,70 620,165 620,365 840,365 735,445`,
     start: { x: 840, y: 445, label: labels.start }, finish: { x: 735, y: 445, label: labels.finish },
   }
   return {
-    marks: [{ x: 780, y: 70, label: `${labels.mark} 1` }, { x: 780, y: 385, label: `${labels.mark} 2` }],
+    marks: [{ x: 780, y: 70, label: `${labels.mark} 1` }, { x: 780, y: 385, label: `${labels.mark} 2` }] as DiagramPoint[],
     route: `780,445 ${850 + offset},350 ${750 - offset},250 ${850 + offset},155 780,70 780,385 ${710 - offset},290 ${810 + offset},190 780,70 875,445`,
     start: { x: 780, y: 445, label: labels.start }, finish: { x: 875, y: 445, label: labels.finish },
   }
@@ -143,8 +121,7 @@ export function RecommendedTrajectory({ request, rows, weather, coherence }: { r
   const { t, language } = usePreferences()
   const advice = buildTrajectoryAdvice(request, rows, weather, t, coherence)
   const c = detailedCopy[language]
-  const rawCourseType = (request as (BriefingRequest & { courseType?: string }) | null)?.courseType
-  const courseType: TrajectoryCourseType = request?.iodaCourse === true || rawCourseType === 'IODA' ? 'IODA' : (request?.courseType ?? 'Banane')
+  const courseType = request?.courseType ?? 'Banane'
   const right = advice.side === 'right'
   const neutral = advice.side === 'neutral'
   const preferredLane = neutral ? 2 : right ? 4 : 0
@@ -158,7 +135,6 @@ export function RecommendedTrajectory({ request, rows, weather, coherence }: { r
   const sideLabel = c.lanes[preferredLane].toLowerCase()
   const phases = neutral ? c.phaseOpen : c.phaseSide.map((item) => item.replace('{side}', sideLabel))
   const legAdvice = c.courses[courseType]
-  const courseLabel = courseType === 'IODA' ? 'IODA' : t(courseType === 'Banane' ? 'courseBanana' : courseType === 'Trapèze' ? 'courseTrapezoid' : 'courseTriangle')
 
   return <section className="trajectory-section" aria-labelledby="trajectory-title">
     <div className="section-heading"><div><span className="section-number">03</span><div><span className="step-label">{c.detailed}</span><h2 id="trajectory-title">{t('recommendedTrajectory')}</h2></div></div><span className={`trajectory-status is-${advice.side}`}>{neutral ? t('openOption') : t('sidePreference', { side: t(right ? 'right' : 'left').toLowerCase() })}</span></div>
@@ -180,9 +156,8 @@ export function RecommendedTrajectory({ request, rows, weather, coherence }: { r
         <circle className="decision-zone" cx={laneX[preferredLane]} cy="250" r="24" />
 
         <rect className="trajectory-water" x="580" y="35" width="395" height="440" />
-        <text className="trajectory-panel-title" x="778" y="25" textAnchor="middle">{c.requested} · {courseLabel}</text>
+        <text className="trajectory-panel-title" x="778" y="25" textAnchor="middle">{c.requested} · {t(courseType === 'Banane' ? 'courseBanana' : courseType === 'Trapèze' ? 'courseTrapezoid' : 'courseTriangle')}</text>
         <polyline className="full-course-route" points={course.route} markerEnd="url(#trajectory-arrow)" />
-        {course.alternateRoute && <polyline className="full-course-route" points={course.alternateRoute} style={{ opacity: .35 }} />}
         <circle className="course-start-point" cx={course.start.x} cy={course.start.y} r="7" />
         <text className="diagram-label" x={course.start.x} y={course.start.y + 22} textAnchor="middle">{course.start.label}</text>
         {course.marks.map((point) => <g key={point.label}><circle className="course-mark-point" cx={point.x} cy={point.y} r="8" /><text className="diagram-label" x={point.x} y={point.y - 14} textAnchor="middle">{point.label}</text></g>)}

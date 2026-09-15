@@ -12,10 +12,9 @@
     top: 0;
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(6, minmax(54px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 3px;
     padding: 7px max(6px, env(safe-area-inset-right)) 7px max(6px, env(safe-area-inset-left));
-    overflow-x: auto;
     background: rgba(248, 250, 252, .96);
     border-bottom: 1px solid #dbe4ea;
     box-shadow: 0 5px 16px rgba(15, 47, 62, .08);
@@ -36,7 +35,7 @@
     background: transparent;
     color: #526873;
     font: inherit;
-    font-size: .63rem;
+    font-size: .67rem;
     font-weight: 700;
     line-height: 1;
   }

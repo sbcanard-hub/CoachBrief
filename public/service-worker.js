@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coachbrief-v2'
+const CACHE_NAME = 'coachbrief-v1'
 const APP_SHELL = [
   './',
   './index.html',
@@ -28,7 +28,9 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return
 
   const url = new URL(request.url)
-  if (url.origin !== self.location.origin) return
+  const isAppAsset = url.origin === self.location.origin
+  const isPublicData = url.hostname === 'api.open-meteo.com' || url.hostname === 'geocoding-api.open-meteo.com'
+  if (!isAppAsset && !isPublicData) return
 
   event.respondWith(
     fetch(request)
