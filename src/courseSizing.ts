@@ -28,6 +28,7 @@ function targetFirstLegMinutes(_boatClass: BoatClass) {
 }
 
 function courseNote(courseType: CourseType) {
+  if (courseType === 'IODA') return 'Parcours IODA : trapèze extérieur, Départ → 1 → 2 → porte 3S/3P → arrivée au terme du second près.'
   if (courseType === 'Trapèze') return 'Sur un trapèze, contrôler ensuite la longueur et l’angle des travers pour conserver le temps cible global.'
   if (courseType === 'Triangle') return 'Sur un triangle, vérifier que les bords de reaching restent suffisamment longs pour être tactiquement lisibles.'
   return 'Sur une banane, ce premier bord sert de base ; ajuster ensuite le nombre de tours au temps cible de la manche.'
