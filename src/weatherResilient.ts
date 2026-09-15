@@ -1,4 +1,4 @@
-import type { BriefingRequest } from './types'
+import type { BriefingRequest, WeatherModelKey } from './types'
 import { fetchWeatherForBriefing, type LiveWeatherData, type WeatherModelInfo } from './weather'
 
 const HISTORICAL_MODEL: WeatherModelInfo = {
@@ -10,6 +10,9 @@ const HISTORICAL_MODEL: WeatherModelInfo = {
   horizon: 'archives',
   note: 'Données historiques Open-Meteo utilisées lorsque la date du briefing est passée.',
 }
+
+const LIVE_FALLBACK_MODELS: WeatherModelKey[] = ['best_match', 'icon_eu', 'ecmwf_ifs', 'ncep_gfs_global']
+const MAX_FORECAST_DAYS = 16
 
 type HistoricalResponse = {
   latitude: number
@@ -70,11 +73,38 @@ function estimateOscillation(directions: number[]) {
   return Math.max(3, Math.min(25, Math.round(maxDeviation || 5)))
 }
 
-function isPastDate(date: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false
-  const today = new Date()
-  const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  return date < localToday
+function parseDateOnly(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function localTodayAtNoon() {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0)
+}
+
+export function weatherDateOffsetDays(value: string) {
+  const target = parseDateOnly(value)
+  if (!target) return null
+  return Math.round((target.getTime() - localTodayAtNoon().getTime()) / 86400000)
+}
+
+function forecastHorizonStartLabel(target: Date) {
+  const start = new Date(target)
+  start.setDate(start.getDate() - MAX_FORECAST_DAYS)
+  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(start)
+}
+
+async function fetchWithTimeout(url: string, timeoutMs = 6500) {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    window.clearTimeout(timeout)
+  }
 }
 
 async function resolveCoordinates(request: BriefingRequest) {
@@ -84,7 +114,7 @@ async function resolveCoordinates(request: BriefingRequest) {
     return { latitude, longitude, name: request.location || 'Point du plan d’eau' }
   }
   const params = new URLSearchParams({ name: request.location.trim(), count: '1', language: 'fr', format: 'json' })
-  const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`)
+  const response = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?${params}`)
   if (!response.ok) throw new Error('Lieu introuvable')
   const data = await response.json() as { results?: Array<{ name: string; latitude: number; longitude: number }> }
   const result = data.results?.[0]
@@ -112,13 +142,13 @@ async function fetchHistoricalWeather(request: BriefingRequest): Promise<LiveWea
   let forecast: HistoricalResponse | null = null
   for (const url of urls) {
     try {
-      const response = await fetch(url)
+      const response = await fetchWithTimeout(url)
       if (!response.ok) continue
       const data = await response.json() as HistoricalResponse
       if (data.hourly?.time?.length) { forecast = data; break }
     } catch { /* try next historical source */ }
   }
-  if (!forecast?.hourly?.time?.length) throw new Error('Données historiques indisponibles pour cette date')
+  if (!forecast?.hourly?.time?.length) throw new Error(`Données historiques indisponibles pour le ${request.date}`)
 
   const h = forecast.hourly
   const startMinutes = minutesFromClock(request.startTime, 0)
@@ -170,14 +200,53 @@ async function fetchHistoricalWeather(request: BriefingRequest): Promise<LiveWea
   }
 }
 
-export async function fetchWeatherForBriefingResilient(request: BriefingRequest): Promise<LiveWeatherData> {
+function errorText(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+async function fetchLiveWeather(request: BriefingRequest): Promise<LiveWeatherData> {
+  const preferredModel = request.weatherModel ?? 'best_match'
+  const attempted = new Set<WeatherModelKey>()
+  const failures: string[] = []
+
+  attempted.add(preferredModel)
   try {
-    return await fetchWeatherForBriefing(request)
-  } catch (primaryError) {
-    if (request.weatherModel && request.weatherModel !== 'best_match') {
-      try { return await fetchWeatherForBriefing(request, 'best_match') } catch { /* historical fallback below */ }
+    return await fetchWeatherForBriefing(request, preferredModel)
+  } catch (error) {
+    failures.push(`${preferredModel}: ${errorText(error)}`)
+  }
+
+  const fallbackModels = LIVE_FALLBACK_MODELS.filter((model) => !attempted.has(model))
+  fallbackModels.forEach((model) => attempted.add(model))
+  const results = await Promise.allSettled(fallbackModels.map((model) => fetchWeatherForBriefing(request, model)))
+
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index]
+    if (result.status === 'fulfilled') return result.value
+    failures.push(`${fallbackModels[index]}: ${errorText(result.reason)}`)
+  }
+
+  throw new Error(`Aucune source de prévision disponible pour le ${request.date}. ${failures.join(' · ')}`)
+}
+
+export async function fetchWeatherForBriefingResilient(request: BriefingRequest): Promise<LiveWeatherData> {
+  const offsetDays = weatherDateOffsetDays(request.date)
+  if (offsetDays == null) throw new Error('Date de briefing invalide')
+
+  if (offsetDays < 0) return fetchHistoricalWeather(request)
+
+  if (offsetDays > MAX_FORECAST_DAYS) {
+    const target = parseDateOnly(request.date)
+    const availableFrom = target ? forecastHorizonStartLabel(target) : 'J-16'
+    throw new Error(`La prévision numérique pour le ${request.date} n’est pas encore disponible. Elle entrera dans l’horizon de prévision vers le ${availableFrom} (J-${MAX_FORECAST_DAYS}).`)
+  }
+
+  try {
+    return await fetchLiveWeather(request)
+  } catch (liveError) {
+    if (offsetDays === 0) {
+      try { return await fetchHistoricalWeather(request) } catch { /* keep the live diagnostic */ }
     }
-    if (isPastDate(request.date)) return fetchHistoricalWeather(request)
-    throw primaryError
+    throw liveError
   }
 }
