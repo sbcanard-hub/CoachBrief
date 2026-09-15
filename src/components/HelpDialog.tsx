@@ -7,6 +7,7 @@ import { legalFooterCopy } from '../pages/legalFooter'
 
 type HelpDialogProps = { open: boolean; onClose: () => void }
 type HelpItem = { category: TranslationKey; question: TranslationKey; answer: TranslationKey; keywords: TranslationKey }
+type ResolvedHelpItem = { category: string; question: string; answer: string; keywords: string }
 
 const item = (category: TranslationKey, id: string): HelpItem => ({
   category,
@@ -31,6 +32,161 @@ const HELP_ITEMS: HelpItem[] = [
   item('helpTypicalJourney', 'Journey'),
 ]
 
+const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
+  fr: [
+    {
+      category: 'Dernières nouveautés',
+      question: 'Comment utiliser plusieurs manches dans la même journée ?',
+      answer: 'Dans les résultats, le bloc « Manches de la journée » crée automatiquement M1. Utilisez « Ajouter une manche » pour créer M2, M3… Chaque manche conserve son heure, son vent observé, sa direction, ses rafales, ses notes et son débrief. Le lieu, la classe, le parcours et la météo générale restent communs à toute la journée.',
+      keywords: 'manche manches M1 M2 M3 ajouter journée heure vent notes débrief régate',
+    },
+    {
+      category: 'Dernières nouveautés',
+      question: 'À quoi sert « Analyser cette manche » ?',
+      answer: 'Le bouton reprend les données de la manche active et relance l’analyse CoachBrief avec son heure et ses observations, sans modifier le briefing général de la journée. Vous pouvez ainsi comparer une manche réellement courue avec les conditions prévues et les autres manches.',
+      keywords: 'analyser manche active heure observations briefing général comparer',
+    },
+    {
+      category: 'Dernières nouveautés',
+      question: 'Que montre la vue « Journée de régate » ?',
+      answer: 'La vue compare les manches M1, M2, M3… dans un même tableau : heure, vent, direction, rafales, notes et débrief. Elle résume aussi l’évolution entre la première et la dernière manche, notamment un renforcement ou un mollissement du vent et une rotation vers la droite ou la gauche.',
+      keywords: 'journée régate tableau comparaison évolution vent rotation droite gauche renforcement mollissement',
+    },
+    {
+      category: 'Dernières nouveautés',
+      question: 'Comment fonctionne le parcours IODA dans CoachBrief ?',
+      answer: 'Choisissez « IODA · Optimist » dans le parcours. Le même parcours est repris dans l’analyse des résultats. La carte affiche les marques 1, 2, la porte 3S/3P et le second près vers l’arrivée avec des virements adaptés au côté tactique. Les bouées peuvent être déplacées, avec des commandes de déplacement global, tout en évitant de les positionner à terre.',
+      keywords: 'IODA Optimist parcours bouée 1 2 3S 3P porte second près virements déplacement terre',
+    },
+    {
+      category: 'Dernières nouveautés',
+      question: 'Que contient le nouvel onglet Prévision ?',
+      answer: 'L’onglet Prévision rassemble la situation générale, le contexte synoptique, la topographie, les fronts possibles, les températures air/eau, la stabilité de la masse d’air, le caractère terre/mer du vent, le vent en altitude, le midi solaire et la lecture des cadrans thermiques Q1 à Q4. Ces éléments servent à préparer l’établissement du thermique et à compléter l’analyse tactique.',
+      keywords: 'prévision synoptique topographie fronts température eau air stabilité vent altitude midi solaire cadrans thermique Q1 Q2 Q3 Q4',
+    },
+    {
+      category: 'Dépannage',
+      question: 'Pourquoi la météo fonctionne-t-elle maintenant aussi en Wi-Fi ?',
+      answer: 'En production, CoachBrief fait passer les appels Open-Meteo par un relais serveur CoachBrief. Cela évite qu’un blocage ou une limitation du réseau local empêche directement le téléphone d’interroger le service météo. Si le relais est indisponible, l’application conserve un repli direct.',
+      keywords: 'wifi météo Open-Meteo relais serveur réseau blocage 5G connexion',
+    },
+  ],
+  en: [
+    {
+      category: 'Latest features',
+      question: 'How do I use several races in the same day?',
+      answer: 'In Results, the “Races of the day” panel automatically creates R1. Use “Add race” to create R2, R3… Each race keeps its own time, observed wind, direction, gusts, notes and debrief, while venue, class, course and general forecast remain shared for the whole day.',
+      keywords: 'race races R1 R2 R3 add day time wind notes debrief regatta',
+    },
+    {
+      category: 'Latest features',
+      question: 'What does “Analyse this race” do?',
+      answer: 'It takes the active race data and reruns CoachBrief using that race time and observations without changing the day’s general briefing. This makes it easier to compare a sailed race with the forecast and with the other races.',
+      keywords: 'analyse race active time observations general briefing compare',
+    },
+    {
+      category: 'Latest features',
+      question: 'What is the “Race day” view for?',
+      answer: 'It compares R1, R2, R3… in one table with time, wind, direction, gusts, notes and debrief. It also summarises the evolution from the first to the last race, including strengthening or easing wind and a right or left shift.',
+      keywords: 'race day table comparison evolution wind shift right left strengthening easing',
+    },
+    {
+      category: 'Latest features',
+      question: 'How does the IODA course work in CoachBrief?',
+      answer: 'Select “IODA · Optimist” as the course. The same course is used in the Results analysis. The map shows marks 1 and 2, the 3S/3P gate and the second beat to the finish with tacks adapted to the tactical side. Marks can be moved, including global movement controls, while preventing them from ending up on land.',
+      keywords: 'IODA Optimist course mark 1 2 3S 3P gate second beat tacks move land',
+    },
+    {
+      category: 'Latest features',
+      question: 'What is included in the new Forecast tab?',
+      answer: 'The Forecast tab groups the general situation, synoptic context, topography, possible fronts, air/water temperatures, atmospheric stability, land/sea wind character, upper-level wind, solar noon and thermal quadrants Q1 to Q4. These elements help anticipate thermal development and complete the tactical analysis.',
+      keywords: 'forecast synoptic topography fronts air water temperature stability upper wind solar noon thermal quadrants Q1 Q2 Q3 Q4',
+    },
+    {
+      category: 'Troubleshooting',
+      question: 'Why does weather now work over Wi-Fi too?',
+      answer: 'In production, CoachBrief routes Open-Meteo requests through a CoachBrief server relay. This prevents a local network block or limitation from directly stopping the phone from reaching the weather service. If the relay is unavailable, the app keeps a direct fallback.',
+      keywords: 'wifi weather Open-Meteo relay server network block 5G connection',
+    },
+  ],
+  it: [
+    {
+      category: 'Ultime novità',
+      question: 'Come si usano più prove nella stessa giornata?',
+      answer: 'Nei Risultati, il pannello delle prove crea automaticamente P1. Usa “Aggiungi prova” per creare P2, P3… Ogni prova conserva ora, vento osservato, direzione, raffica, note e debrief, mentre luogo, classe, percorso e previsione generale restano comuni alla giornata.',
+      keywords: 'prova prove P1 P2 P3 aggiungi giornata ora vento note debrief regata',
+    },
+    {
+      category: 'Ultime novità',
+      question: 'A cosa serve “Analizza questa prova”?',
+      answer: 'Riprende i dati della prova attiva e rilancia CoachBrief usando la sua ora e le sue osservazioni senza modificare il briefing generale della giornata. Permette così di confrontare la prova disputata con la previsione e con le altre prove.',
+      keywords: 'analizza prova attiva ora osservazioni briefing generale confronto',
+    },
+    {
+      category: 'Ultime novità',
+      question: 'Cosa mostra la vista “Giornata di regata”?',
+      answer: 'Confronta P1, P2, P3… in una tabella con ora, vento, direzione, raffiche, note e debrief. Riassume anche l’evoluzione tra la prima e l’ultima prova, compresi aumento o calo del vento e rotazione a destra o a sinistra.',
+      keywords: 'giornata regata tabella confronto evoluzione vento rotazione destra sinistra aumento calo',
+    },
+    {
+      category: 'Ultime novità',
+      question: 'Come funziona il percorso IODA in CoachBrief?',
+      answer: 'Seleziona “IODA · Optimist” come percorso. Lo stesso percorso viene ripreso nell’analisi dei Risultati. La mappa mostra le boe 1 e 2, il cancello 3S/3P e la seconda bolina verso l’arrivo con bordi adattati al lato tattico. Le boe possono essere spostate, anche globalmente, evitando che finiscano a terra.',
+      keywords: 'IODA Optimist percorso boa 1 2 3S 3P cancello seconda bolina bordi spostamento terra',
+    },
+    {
+      category: 'Ultime novità',
+      question: 'Cosa contiene la nuova scheda Previsione?',
+      answer: 'La scheda Previsione riunisce situazione generale, quadro sinottico, topografia, possibili fronti, temperature aria/acqua, stabilità atmosferica, carattere terra/mare del vento, vento in quota, mezzogiorno solare e quadranti termici Q1-Q4. Questi elementi aiutano a valutare lo sviluppo della brezza termica e completano l’analisi tattica.',
+      keywords: 'previsione sinottico topografia fronti temperatura aria acqua stabilità vento quota mezzogiorno solare quadranti termici Q1 Q2 Q3 Q4',
+    },
+    {
+      category: 'Risoluzione problemi',
+      question: 'Perché ora il meteo funziona anche in Wi-Fi?',
+      answer: 'In produzione, CoachBrief fa passare le richieste Open-Meteo attraverso un relay server CoachBrief. In questo modo un blocco o limite della rete locale non impedisce direttamente al telefono di raggiungere il servizio meteo. Se il relay non è disponibile, resta un collegamento diretto di riserva.',
+      keywords: 'wifi meteo Open-Meteo relay server rete blocco 5G connessione',
+    },
+  ],
+  es: [
+    {
+      category: 'Últimas novedades',
+      question: '¿Cómo se usan varias mangas en el mismo día?',
+      answer: 'En Resultados, el panel de mangas crea automáticamente M1. Usa “Añadir manga” para crear M2, M3… Cada manga conserva su hora, viento observado, dirección, racha, notas y debrief, mientras lugar, clase, recorrido y previsión general siguen siendo comunes a toda la jornada.',
+      keywords: 'manga mangas M1 M2 M3 añadir jornada hora viento notas debrief regata',
+    },
+    {
+      category: 'Últimas novedades',
+      question: '¿Para qué sirve “Analizar esta manga”?',
+      answer: 'Toma los datos de la manga activa y vuelve a ejecutar CoachBrief con su hora y sus observaciones sin modificar el briefing general de la jornada. Así puedes comparar una manga navegada con la previsión y con las demás mangas.',
+      keywords: 'analizar manga activa hora observaciones briefing general comparar',
+    },
+    {
+      category: 'Últimas novedades',
+      question: '¿Qué muestra la vista “Jornada de regata”?',
+      answer: 'Compara M1, M2, M3… en una tabla con hora, viento, dirección, rachas, notas y debrief. También resume la evolución entre la primera y la última manga, incluido aumento o disminución del viento y giro a la derecha o a la izquierda.',
+      keywords: 'jornada regata tabla comparación evolución viento giro derecha izquierda aumento disminución',
+    },
+    {
+      category: 'Últimas novedades',
+      question: '¿Cómo funciona el recorrido IODA en CoachBrief?',
+      answer: 'Selecciona “IODA · Optimist” como recorrido. El mismo recorrido se utiliza en el análisis de Resultados. El mapa muestra las balizas 1 y 2, la puerta 3S/3P y la segunda ceñida hacia la llegada con bordos adaptados al lado táctico. Las balizas se pueden mover, también de forma global, evitando que terminen en tierra.',
+      keywords: 'IODA Optimist recorrido baliza 1 2 3S 3P puerta segunda ceñida bordos mover tierra',
+    },
+    {
+      category: 'Últimas novedades',
+      question: '¿Qué incluye la nueva pestaña Previsión?',
+      answer: 'La pestaña Previsión reúne situación general, contexto sinóptico, topografía, posibles frentes, temperaturas de aire/agua, estabilidad atmosférica, carácter tierra/mar del viento, viento en altura, mediodía solar y cuadrantes térmicos Q1-Q4. Estos elementos ayudan a anticipar el desarrollo del térmico y completan el análisis táctico.',
+      keywords: 'previsión sinóptico topografía frentes temperatura aire agua estabilidad viento altura mediodía solar cuadrantes térmicos Q1 Q2 Q3 Q4',
+    },
+    {
+      category: 'Resolución de problemas',
+      question: '¿Por qué ahora la meteorología funciona también por Wi-Fi?',
+      answer: 'En producción, CoachBrief enruta las peticiones Open-Meteo a través de un relé de servidor CoachBrief. Así, un bloqueo o limitación de la red local no impide directamente que el teléfono acceda al servicio meteorológico. Si el relé no está disponible, la aplicación mantiene una conexión directa de respaldo.',
+      keywords: 'wifi meteorología Open-Meteo relé servidor red bloqueo 5G conexión',
+    },
+  ],
+}
+
 function normalize(value: string, locale: string) {
   return value.toLocaleLowerCase(locale).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
@@ -38,16 +194,25 @@ function normalize(value: string, locale: string) {
 export function HelpDialog({ open, onClose }: HelpDialogProps) {
   const [query, setQuery] = useState('')
   const { language, locale, t } = usePreferences()
+  const allItems = useMemo<ResolvedHelpItem[]>(() => [
+    ...HELP_ITEMS.map((entry) => ({
+      category: t(entry.category),
+      question: t(entry.question),
+      answer: t(entry.answer),
+      keywords: t(entry.keywords),
+    })),
+    ...LATEST_HELP[language],
+  ], [language, t])
   const filteredItems = useMemo(() => {
     const normalizedQuery = normalize(query.trim(), locale)
-    if (!normalizedQuery) return HELP_ITEMS
-    return HELP_ITEMS.filter((entry) => {
-      const haystack = normalize(`${t(entry.category)} ${t(entry.question)} ${t(entry.answer)} ${t(entry.keywords)}`, locale)
+    if (!normalizedQuery) return allItems
+    return allItems.filter((entry) => {
+      const haystack = normalize(`${entry.category} ${entry.question} ${entry.answer} ${entry.keywords}`, locale)
       return normalizedQuery.split(/\s+/).every((word) => haystack.includes(word))
     })
-  }, [locale, query, t])
+  }, [allItems, locale, query])
   const categories = useMemo(() => {
-    const grouped = new Map<TranslationKey, HelpItem[]>()
+    const grouped = new Map<string, ResolvedHelpItem[]>()
     filteredItems.forEach((entry) => grouped.set(entry.category, [...(grouped.get(entry.category) ?? []), entry]))
     return Array.from(grouped.entries())
   }, [filteredItems])
@@ -72,8 +237,8 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
         <p><Link to="/a-propos" onClick={onClose}>{legalFooterCopy[language].about} →</Link></p>
       </section>
       <label className="help-search"><Search size={18} aria-hidden="true" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('helpSearch')} aria-label={t('helpSearchLabel')} autoComplete="off" />{query && <button type="button" onClick={() => setQuery('')} aria-label={t('clearSearch')}><X size={16} /></button>}</label>
-      <p className="help-result-count" aria-live="polite">{query ? `${filteredItems.length} ${t(filteredItems.length > 1 ? 'answersFound' : 'answerFound')}` : `${HELP_ITEMS.length} ${t('commonQuestions')}`}</p>
-      {categories.length ? <div className="help-faq">{categories.map(([category, items]) => <section className="help-category" key={category}><h3>{t(category)}</h3><div className="help-faq-list">{items.map((entry) => <details key={entry.question} open={Boolean(query)}><summary>{t(entry.question)}</summary><p>{t(entry.answer)}</p></details>)}</div></section>)}</div> : <div className="help-empty"><strong>{t('noResult')}</strong><span>{t('noResultHelp')}</span></div>}
+      <p className="help-result-count" aria-live="polite">{query ? `${filteredItems.length} ${t(filteredItems.length > 1 ? 'answersFound' : 'answerFound')}` : `${allItems.length} ${t('commonQuestions')}`}</p>
+      {categories.length ? <div className="help-faq">{categories.map(([category, items]) => <section className="help-category" key={category}><h3>{category}</h3><div className="help-faq-list">{items.map((entry) => <details key={entry.question} open={Boolean(query)}><summary>{entry.question}</summary><p>{entry.answer}</p></details>)}</div></section>)}</div> : <div className="help-empty"><strong>{t('noResult')}</strong><span>{t('noResultHelp')}</span></div>}
     </section>
   </div>
 }
