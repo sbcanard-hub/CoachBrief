@@ -173,29 +173,12 @@ function simplifyLocation(location: string) {
     .trim()
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = 8000) {
-  const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    return await fetch(url, { signal: controller.signal })
-  } finally {
-    window.clearTimeout(timeout)
-  }
-}
-
-async function withFallbackTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs = 5000): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => window.setTimeout(() => resolve(fallback), timeoutMs)),
-  ])
-}
-
 async function geocode(location: string) {
   const candidates = Array.from(new Set([location.trim(), simplifyLocation(location)]))
   for (const name of candidates) {
     if (name.length < 2) continue
     const params = new URLSearchParams({ name, count: '1', language: 'fr', format: 'json' })
-    const response = await fetchWithTimeout(`https://geocoding-api.open-meteo.com/v1/search?${params}`)
+    const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`)
     if (!response.ok) continue
     const data = await response.json() as GeocodingResponse
     const result = data.results?.[0]
@@ -269,7 +252,7 @@ async function fetchMarine(latitude: number, longitude: number, date: string, ra
     start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn', cell_selection: 'sea',
   })
   try {
-    const response = await fetchWithTimeout(`https://marine-api.open-meteo.com/v1/marine?${params}`, 5000)
+    const response = await fetch(`https://marine-api.open-meteo.com/v1/marine?${params}`)
     if (!response.ok) return undefined
     const data = await response.json() as MarineResponse
     if (!data.hourly?.time.length) return undefined
@@ -306,7 +289,7 @@ export async function fetchWindModelComparisons(
     })
 
     try {
-      const response = await fetchWithTimeout(`https://api.open-meteo.com/v1/forecast?${params}`)
+      const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
       if (!response.ok) {
         return { model, available: false, speed: null, gust: null, direction: null, timezone: null, error: 'Indisponible pour cette échéance ou cette zone.' }
       }
@@ -342,7 +325,7 @@ export async function fetchWeatherForBriefing(
     start_date: request.date, end_date: request.date, timezone: 'auto', wind_speed_unit: 'kn', models: selectedModel.key,
   })
 
-  const response = await fetchWithTimeout(`https://api.open-meteo.com/v1/forecast?${params}`, 8000)
+  const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
   if (!response.ok) throw new Error(`${selectedModel.shortLabel} indisponible pour cette date`)
   const forecast = await response.json() as ForecastResponse
   if (!forecast.hourly?.time.length) throw new Error(`Aucune prévision horaire ${selectedModel.shortLabel}`)
@@ -364,20 +347,12 @@ export async function fetchWeatherForBriefing(
   const previousIndex = Math.max(0, raceIndex - 2)
   const pressureDelta = forecast.hourly.pressure_msl[raceIndex] - forecast.hourly.pressure_msl[previousIndex]
   const pressureTrend: LiveWeatherData['pressureTrend'] = pressureDelta > 0.7 ? 'hausse' : pressureDelta < -0.7 ? 'baisse' : 'stable'
-  const marine = await withFallbackTimeout(
-    fetchMarine(place.latitude, place.longitude, request.date, request.raceTime || request.startTime),
-    undefined,
-    5500,
-  )
-  const terrain = await withFallbackTimeout(
-    fetchTerrainAnalysis(
-      place.latitude, place.longitude,
-      forecast.hourly.wind_direction_10m[raceIndex], Number(request.courseAxis) || forecast.hourly.wind_direction_10m[raceIndex],
-      forecast.hourly.wind_speed_10m[raceIndex], forecast.hourly.temperature_2m[raceIndex], marine?.seaTemperature,
-      forecast.hourly.cloud_cover[raceIndex],
-    ).catch(() => undefined),
-    undefined,
-    5500,
+  const marine = await fetchMarine(place.latitude, place.longitude, request.date, request.raceTime || request.startTime)
+  const terrain = await fetchTerrainAnalysis(
+    place.latitude, place.longitude,
+    forecast.hourly.wind_direction_10m[raceIndex], Number(request.courseAxis) || forecast.hourly.wind_direction_10m[raceIndex],
+    forecast.hourly.wind_speed_10m[raceIndex], forecast.hourly.temperature_2m[raceIndex], marine?.seaTemperature,
+    forecast.hourly.cloud_cover[raceIndex],
   )
   const directions = indexes.map((index) => forecast.hourly.wind_direction_10m[index])
   const speeds = indexes.map((index) => forecast.hourly.wind_speed_10m[index])
