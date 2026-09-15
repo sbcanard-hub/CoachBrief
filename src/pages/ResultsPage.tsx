@@ -28,6 +28,7 @@ import { IntelligentBriefing } from '../components/IntelligentBriefing'
 import { buildIntelligentBriefing } from '../intelligentBriefing'
 import { buildTacticalCoherence } from '../tacticalCoherence'
 import { AnalysisCoherence } from '../components/AnalysisCoherence'
+import { ResultsTabPanel, type ResultsTab } from '../components/ResultsTabs'
 
 const mockHourlyForecast: WeatherHour[] = [
   { time: '09:00', speed: 7, gust: 10, direction: 45, temperature: 18 },
@@ -125,7 +126,7 @@ function localizedRecommendations(items: CoachRecommendation[], language: Langua
   }[language]
   return items.map((_, index) => copy[Math.min(index, copy.length - 1)])
 }
-export function ResultsPage() {
+export function ResultsPage({ activeTab = 'summary' }: { activeTab?: ResultsTab }) {
   const { language, locale, temperature, pressure, distance, length, t } = usePreferences()
   const calibrationSpeedText = (value: number | null) => value == null
     ? t('speedNotCalibrated')
@@ -281,6 +282,7 @@ export function ResultsPage() {
 
   return (
     <main className="results-page briefing-page">
+      <ResultsTabPanel tab="summary" activeTab={activeTab}>
       <section className="briefing-hero" aria-labelledby="briefing-title">
         <div>
           <span className="step-label">{t('briefingWeatherTactics')} · {weatherLabel}</span>
@@ -303,12 +305,18 @@ export function ResultsPage() {
       </section>
 
       <IntelligentBriefing briefing={intelligentBriefing} />
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="weather" activeTab={activeTab}>
       <ExpressReading request={request} weather={effectiveWeather} onChange={updateExpressReadings} />
       <WindShiftRhythm readings={request?.expressReadings} />
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="tactics" activeTab={activeTab}>
       <StartLineAnalysis request={request} windDirection={raceWeather.direction} currentSpeed={coachObservation.currentVelocity ?? marine?.currentVelocity} currentDirection={coachObservation.currentDirection ?? marine?.currentDirection} />
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="weather" activeTab={activeTab}>
       {localCalibration && localCalibrationMatch && <section className={`local-calibration-suggestion${useLocalCalibration ? ' is-applied' : ''}`} aria-labelledby="local-calibration-title">
         <div className="local-calibration-copy">
           <div className="local-calibration-heading"><h2 id="local-calibration-title">{t('localCorrectionSuggested')}</h2><span>{localCalibrationConfidence}</span></div>
@@ -371,7 +379,9 @@ export function ResultsPage() {
         })}</div>
         <p className="local-source-note">{t('metarExplanation')}</p>
       </section>}
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="summary" activeTab={activeTab}>
       <section className="weather-overview" aria-label={t('mainConditions')}>
         <article className="wind-feature">
           <div className="card-kicker"><Wind size={17} /> {t('raceWind')}</div>
@@ -385,9 +395,13 @@ export function ResultsPage() {
           <article className="condition-card"><CloudSun /><div><small>{t('cloudCover')}</small><strong>{Math.round(raceWeather.cloudCover)} %</strong><p>{raceWeather.cloudCover < 30 ? t('slightlyCloudy') : raceWeather.cloudCover < 70 ? t('variableClouds') : t('veryCloudy')}</p></div></article>
         </div>
       </section>
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="course" activeTab={activeTab}>
       <CourseSizingPanel boatClass={boatClass} courseType={courseType} windSpeed={raceWeather.speed} latitude={sourceLatitude} longitude={sourceLongitude} courseAxis={courseAxisValue} windwardOffset={windwardOffsetValue} />
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="weather" activeTab={activeTab}>
       <TerrainAnalysisPanel terrain={effectiveWeather?.terrain} request={request} />
 
       <section className="brief-section" aria-labelledby="evolution-title"><div className="section-heading"><div><span className="section-number">01</span><div><span className="step-label">{t('raceWindow')}</span><h2 id="evolution-title">{t('hourlyEvolution')}</h2></div></div><div className="legend"><span className="legend-average" /> {t('averageWind')} <span className="legend-gust" /> {t('gusts')}</div></div>
@@ -398,16 +412,25 @@ export function ResultsPage() {
         <article className="detail-panel"><div className="panel-icon"><Compass /></div><div><span className="step-label">{t('windDynamics')}</span><h2>{t('oscillationRotation')}</h2></div><div className="metric-line"><span>{t('estimatedOscillation')}</span><strong>± {effectiveWeather?.scenario.oscillation ?? 8}°</strong></div><div className="metric-line"><span>{t('trend')}</span><strong className="rotation"><span aria-hidden="true">{Math.abs(windRotation) < 2 ? '→' : windRotation > 0 ? '↻' : '↺'}</span> {windRotationLabel}</strong></div><p>{effectiveWeather ? t('calculatedEvolution', { start: formatDegrees(effectiveWeather.scenario.windStart), end: formatDegrees(effectiveWeather.scenario.windEnd) }) : t('demoRotation')}</p></article>
         <article className="detail-panel sea-panel"><div className="panel-icon"><Waves /></div><div><span className="step-label">{t('sailingArea')}</span><h2>{t('seaState')}</h2></div><div className="sea-measure"><strong>{marine?.waveHeight == null ? '—' : length(marine.waveHeight)} {''}</strong><span>{marine?.waveDirection == null ? t('marineUnavailable') : t('wavesFrom', { direction: formatDegrees(marine.waveDirection) })}<br />{marine?.wavePeriod == null ? '' : t('periodSeconds', { value: marine.wavePeriod.toFixed(1).replace('.', ',') })}</span></div><div className="metric-line"><span>{t('modelCurrent')}</span><strong>{marine?.currentVelocity == null ? '—' : `${marine.currentVelocity.toFixed(1).replace('.', ',')} ${t('windUnit')} · ${formatDegrees(marine.currentDirection ?? 0)}`}</strong></div><p>{t('marineDisclaimer')}</p></article>
       </section>
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="tactics" activeTab={activeTab}>
       <section className="bernot-section" aria-labelledby="bernot-title"><div className="section-heading"><div><span className="section-number">02</span><div><span className="step-label">{t('waterReading')}</span><h2 id="bernot-title">{t('bernot')}</h2></div></div><span className="bernot-help">{t('dynamicPriorityHelp')}</span></div><div className="bernot-scroll" tabIndex={0} aria-label={t('bernotTable')}><div className="bernot-board"><div className="bernot-head factor-head">{t('factor')}</div>{bernotColumns.map((column) => <div className="bernot-head" key={column}>{bernotNames[language][column] || column}</div>)}{bernotRows.map((row, rowIndex) => <div className="bernot-row" key={row.factor}><div className="bernot-factor"><span className="priority-badge">{row.priority}</span><div><strong>{row.factor}</strong><small>{row.note}</small></div></div>{bernotColumns.map((column) => <div className={`bernot-cell${rawBernotRows[rowIndex]?.zone === column ? ' is-selected' : ''}`} key={column}>{rawBernotRows[rowIndex]?.zone === column ? <><span className="zone-marker">●</span><small>{t('trend')}</small></> : <span aria-hidden="true">·</span>}</div>)}</div>)}</div></div><p className="bernot-note">{t('bernotNote')}{useLocalCalibration ? ` ${t('historical')}` : ''}</p></section>
 
       <AnalysisCoherence coherence={tacticalCoherence} />
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="summary" activeTab={activeTab}>
       <section className="coach-section" aria-labelledby="coach-title"><div className="coach-heading"><div><span className="step-label">{t('coachEssentials')}</span><h2 id="coach-title">{t('tacticalSummary')}</h2></div><span className="coach-badge">{t('threeCalculatedPoints')}</span></div><div className="recommendations">{recommendations.map((recommendation, index) => { const isOpen = openWhy === index; return <article className="recommendation" key={recommendation.title}><span className="recommendation-number">0{index + 1}</span><div className="recommendation-content"><h3>{recommendation.title}</h3><p>{recommendation.text}</p><button className="why-button" type="button" aria-expanded={isOpen} aria-controls={`why-${index}`} onClick={() => setOpenWhy(isOpen ? null : index)}><HelpCircle size={15} /> {t('why')} <ChevronDown className={isOpen ? 'rotated' : ''} size={15} /></button><div className="why-answer" id={`why-${index}`} hidden={!isOpen}>{recommendation.why}</div></div></article> })}</div></section>
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="tactics" activeTab={activeTab}>
       <RecommendedTrajectory request={request} rows={bernotRows} weather={tacticalWeather} coherence={tacticalCoherence} />
+      </ResultsTabPanel>
 
+      <ResultsTabPanel tab="summary" activeTab={activeTab}>
       <p className="data-note">{t('sourcesNote')}{useLocalCalibration ? ` · ${t('historicalCorrectionApplied')}` : ''} · {t('recommendationsDisclaimer')}</p>
+      </ResultsTabPanel>
     </main>
   )
 }

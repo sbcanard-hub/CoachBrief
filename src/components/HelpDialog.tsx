@@ -25,6 +25,7 @@ const HELP_ITEMS: HelpItem[] = [
   item('printPdf', 'Pdf'), item('troubleshooting', 'OldData'), item('troubleshooting', 'Update'),
   item('helpNewTools', 'StartMode'), item('helpNewTools', 'ExpressReading'), item('helpNewTools', 'WindShifts'),
   item('helpNewTools', 'StartLine'), item('helpNewTools', 'WaterMemory'), item('helpNewTools', 'HistoricalTracks'), item('helpNewTools', 'SmartBriefing'),
+  item('helpNewTools', 'ResultsTabs'),
   item('helpNewTools', 'Coherence'), item('helpNewTools', 'Trajectory'), item('helpNewTools', 'Training'), item('helpNewTools', 'SailorJournal'),
   item('helpNewTools', 'Debrief'),
   item('helpTypicalJourney', 'Journey'),

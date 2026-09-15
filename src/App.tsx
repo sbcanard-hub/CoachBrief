@@ -15,6 +15,8 @@ import { legalFooterCopy } from './pages/legalFooter'
 import { usePreferences } from './preferences'
 import { SimilarSituations } from './components/SimilarSituations'
 import { HistoricalRaces } from './components/HistoricalRaces'
+import { LocalEffectsPanel } from './components/LocalEffectsPanel'
+import { ResultsTabNavigation, ResultsTabPanel, type ResultsTab } from './components/ResultsTabs'
 import type { BriefingRequest } from './types'
 import { useEffect, useState } from 'react'
 import { fetchWeatherForBriefing } from './weather'
@@ -23,10 +25,12 @@ function ResultsRoute() {
   const location = useLocation()
   const request = location.state as BriefingRequest | null
   const [memoryWeather, setMemoryWeather] = useState<Awaited<ReturnType<typeof fetchWeatherForBriefing>> | null>(null)
+  const [activeTab, setActiveTab] = useState<ResultsTab>('summary')
   const startMode = new URLSearchParams(location.search).get('mode') === 'depart'
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0)
+    setActiveTab('summary')
   }, [location.key])
 
   useEffect(() => {
@@ -37,11 +41,17 @@ function ResultsRoute() {
   }, [request])
 
   return <>
-    {!startMode && <WindModelComparisonPanel />}
-    {!startMode && request && <SimilarSituations request={request} weather={memoryWeather} />}
-    {!startMode && request && <HistoricalRaces request={request} weather={memoryWeather} />}
-    {!startMode && <SiteLearningPanel />}
-    <ResultsPage />
+    {!startMode && <ResultsTabNavigation activeTab={activeTab} onChange={setActiveTab} />}
+    {!startMode && <ResultsTabPanel tab="weather" activeTab={activeTab}>
+      <WindModelComparisonPanel />
+      {request && <LocalEffectsPanel request={request} />}
+    </ResultsTabPanel>}
+    {!startMode && <ResultsTabPanel tab="history" activeTab={activeTab}>
+      {request && <SimilarSituations request={request} weather={memoryWeather} />}
+      {request && <HistoricalRaces request={request} weather={memoryWeather} />}
+      <SiteLearningPanel />
+    </ResultsTabPanel>}
+    <ResultsPage activeTab={activeTab} />
   </>
 }
 
