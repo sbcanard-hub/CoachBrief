@@ -26,6 +26,8 @@ export function ResultsTabNavigation({ activeTab, onChange }: { activeTab: Resul
     {tabs.map(({ id, icon: Icon }) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} className={activeTab === id ? 'is-active' : ''} onClick={() => {
       onChange(id)
       window.scrollTo({ top: 0, behavior: 'smooth' })
+      window.requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('coachbrief:results-tab-shown', { detail: { tab: id } })))
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent('coachbrief:results-tab-shown', { detail: { tab: id } })), 250)
     }}><Icon size={18} aria-hidden="true" /><span>{labels[language][id]}</span></button>)}
   </nav>
 }
