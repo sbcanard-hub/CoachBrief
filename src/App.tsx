@@ -56,7 +56,16 @@ function ResultsRoute() {
       window.setTimeout(() => reject(new Error('Délai météo dépassé')), 20000)
     })
 
-    Promise.race([fetchWeatherForBriefing(request), timeout])
+    const loadWeather = async () => {
+      try {
+        return await fetchWeatherForBriefing(request)
+      } catch (primaryError) {
+        if (!request.weatherModel || request.weatherModel === 'best_match') throw primaryError
+        return fetchWeatherForBriefing(request, 'best_match')
+      }
+    }
+
+    Promise.race([loadWeather(), timeout])
       .then((weather) => {
         if (!active) return
         setMemoryWeather(weather)

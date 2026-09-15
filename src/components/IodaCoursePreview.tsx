@@ -53,14 +53,15 @@ function midpoint(a: Point, b: Point): Point {
 export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, firstLegNm, committeeLatitude, committeeLongitude, committeeAccuracy = '' }: Props) {
   const { language } = usePreferences()
   const c = useMemo(() => ({
-    fr: { title: 'Parcours IODA officiel', sequence: 'Départ → 1 (bâbord) → 2 (bâbord) → porte 3S/3P → arrivée', start: 'Départ', finish: 'Arrivée', mark1: '1 · au vent', mark2: '2 · extérieur', gateS: '3S · porte', gateP: '3P · porte', gate: 'Porte 3S/3P', official: 'Trapèze extérieur IODA · arrivée au terme du second près', committee: 'Comité / bateau coach', note: 'Le tracé et l’analyse utilisent la même géométrie IODA.', dragHint: 'Touchez puis faites glisser le départ, les bouées, la porte ou l’arrivée pour ajuster le parcours.', moved: 'déplacé · parcours IODA mis à jour' },
-    en: { title: 'Official IODA course', sequence: 'Start → 1 (port) → 2 (port) → 3S/3P gate → finish', start: 'Start', finish: 'Finish', mark1: '1 · windward', mark2: '2 · outer', gateS: '3S · gate', gateP: '3P · gate', gate: '3S/3P gate', official: 'IODA outer-loop trapezoid · finish at the end of the second windward leg', committee: 'Committee / coach boat', note: 'The layout and course analysis use the same IODA geometry.', dragHint: 'Touch and drag the start, marks, gate or finish to adjust the course.', moved: 'moved · IODA course updated' },
-    it: { title: 'Percorso IODA ufficiale', sequence: 'Partenza → 1 (sinistra) → 2 (sinistra) → cancello 3S/3P → arrivo', start: 'Partenza', finish: 'Arrivo', mark1: '1 · bolina', mark2: '2 · esterna', gateS: '3S · cancello', gateP: '3P · cancello', gate: 'Cancello 3S/3P', official: 'Trapezio esterno IODA · arrivo al termine della seconda bolina', committee: 'Comitato / barca coach', note: 'Tracciato e analisi usano la stessa geometria IODA.', dragHint: 'Tocca e trascina partenza, boe, cancello o arrivo per regolare il percorso.', moved: 'spostato · percorso IODA aggiornato' },
-    es: { title: 'Recorrido IODA oficial', sequence: 'Salida → 1 (babor) → 2 (babor) → puerta 3S/3P → llegada', start: 'Salida', finish: 'Llegada', mark1: '1 · barlovento', mark2: '2 · exterior', gateS: '3S · puerta', gateP: '3P · puerta', gate: 'Puerta 3S/3P', official: 'Trapecio exterior IODA · llegada al final de la segunda ceñida', committee: 'Comité / barco del entrenador', note: 'El trazado y el análisis usan la misma geometría IODA.', dragHint: 'Toca y arrastra la salida, las balizas, la puerta o la llegada para ajustar el recorrido.', moved: 'movido · recorrido IODA actualizado' },
+    fr: { title: 'Parcours IODA officiel', sequence: 'Départ → 1 (bâbord) → 2 (bâbord) → porte 3S/3P → arrivée', start: 'Départ', finish: 'Arrivée', mark1: '1 · au vent', mark2: '2 · extérieur', gateS: '3S · porte', gateP: '3P · porte', gate: 'Porte 3S/3P', official: 'Trapèze extérieur IODA · arrivée au terme du second près', committee: 'Comité / bateau coach', note: 'Le tracé et l’analyse utilisent la même géométrie IODA.', dragHint: 'Touchez puis faites glisser le départ, les bouées, la porte ou l’arrivée pour ajuster le parcours.', moved: 'déplacé · parcours IODA mis à jour', moveCourse: 'Décaler tout le parcours', moveHelp: 'Déplace le départ, toutes les bouées et l’arrivée sans déformer le tracé', step: 'Pas', north: 'nord', south: 'sud', east: 'est', west: 'ouest', wholeMoved: 'Parcours entier déplacé' },
+    en: { title: 'Official IODA course', sequence: 'Start → 1 (port) → 2 (port) → 3S/3P gate → finish', start: 'Start', finish: 'Finish', mark1: '1 · windward', mark2: '2 · outer', gateS: '3S · gate', gateP: '3P · gate', gate: '3S/3P gate', official: 'IODA outer-loop trapezoid · finish at the end of the second windward leg', committee: 'Committee / coach boat', note: 'The layout and course analysis use the same IODA geometry.', dragHint: 'Touch and drag the start, marks, gate or finish to adjust the course.', moved: 'moved · IODA course updated', moveCourse: 'Shift the whole course', moveHelp: 'Moves the start, every mark and the finish without changing the layout', step: 'Step', north: 'north', south: 'south', east: 'east', west: 'west', wholeMoved: 'Whole course shifted' },
+    it: { title: 'Percorso IODA ufficiale', sequence: 'Partenza → 1 (sinistra) → 2 (sinistra) → cancello 3S/3P → arrivo', start: 'Partenza', finish: 'Arrivo', mark1: '1 · bolina', mark2: '2 · esterna', gateS: '3S · cancello', gateP: '3P · cancello', gate: 'Cancello 3S/3P', official: 'Trapezio esterno IODA · arrivo al termine della seconda bolina', committee: 'Comitato / barca coach', note: 'Tracciato e analisi usano la stessa geometria IODA.', dragHint: 'Tocca e trascina partenza, boe, cancello o arrivo per regolare il percorso.', moved: 'spostato · percorso IODA aggiornato', moveCourse: 'Sposta tutto il percorso', moveHelp: 'Sposta partenza, tutte le boe e arrivo senza deformare il tracciato', step: 'Passo', north: 'nord', south: 'sud', east: 'est', west: 'ovest', wholeMoved: 'Intero percorso spostato' },
+    es: { title: 'Recorrido IODA oficial', sequence: 'Salida → 1 (babor) → 2 (babor) → puerta 3S/3P → llegada', start: 'Salida', finish: 'Llegada', mark1: '1 · barlovento', mark2: '2 · exterior', gateS: '3S · puerta', gateP: '3P · puerta', gate: 'Puerta 3S/3P', official: 'Trapecio exterior IODA · llegada al final de la segunda ceñida', committee: 'Comité / barco del entrenador', note: 'El trazado y el análisis usan la misma geometría IODA.', dragHint: 'Toca y arrastra la salida, las balizas, la puerta o la llegada para ajustar el recorrido.', moved: 'movido · recorrido IODA actualizado', moveCourse: 'Desplazar todo el recorrido', moveHelp: 'Mueve la salida, todas las boyas y la llegada sin deformar el trazado', step: 'Paso', north: 'norte', south: 'sur', east: 'este', west: 'oeste', wholeMoved: 'Recorrido completo desplazado' },
   }[language]), [language])
   const mapElement = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const [status, setStatus] = useState('')
+  const [shiftStepMeters, setShiftStepMeters] = useState(50)
   const bearing = normalize(axis + windwardOffset)
 
   const defaultPoints = useMemo<IodaPoints>(() => {
@@ -87,6 +88,19 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
     ]
     return { ...points, gateCentre, startLine, finishLine, marks }
   }, [points, bearing, firstLegNm, c.mark1, c.mark2, c.gateS, c.gateP])
+
+  const moveWholeCourse = (direction: number, directionLabel: string) => {
+    const distanceNm = shiftStepMeters / 1852
+    setPoints((current) => ({
+      startCentre: destination(current.startCentre, direction, distanceNm),
+      mark1: destination(current.mark1, direction, distanceNm),
+      mark2: destination(current.mark2, direction, distanceNm),
+      gate3S: destination(current.gate3S, direction, distanceNm),
+      gate3P: destination(current.gate3P, direction, distanceNm),
+      finishCentre: destination(current.finishCentre, direction, distanceNm),
+    }))
+    setStatus(`${c.wholeMoved} · ${shiftStepMeters} m ${directionLabel}`)
+  }
 
   useEffect(() => {
     publishCourseAnalysisPosition({
@@ -228,6 +242,29 @@ export function IodaCoursePreview({ latitude, longitude, axis, windwardOffset, f
     <div ref={mapElement} className="course-map" aria-label={c.title} style={{ minHeight: 360, width: '100%' }} />
     <small>{c.dragHint}</small><br />
     <small>{c.note}</small>
+
+    <div className="course-shift-panel">
+      <div className="course-shift-heading">
+        <strong>{c.moveCourse}</strong>
+        <small>{c.moveHelp}</small>
+      </div>
+      <label className="course-shift-step">
+        <span>{c.step}</span>
+        <select value={shiftStepMeters} onChange={(event) => setShiftStepMeters(Number(event.target.value))}>
+          <option value={25}>25 m</option>
+          <option value={50}>50 m</option>
+          <option value={100}>100 m</option>
+        </select>
+      </label>
+      <div className="course-shift-pad" aria-label={c.moveCourse}>
+        <button type="button" className="shift-north" onClick={() => moveWholeCourse(0, c.north)} aria-label={c.north} title={c.north}>↑</button>
+        <button type="button" className="shift-west" onClick={() => moveWholeCourse(270, c.west)} aria-label={c.west} title={c.west}>←</button>
+        <span className="shift-centre" aria-hidden="true">◎</span>
+        <button type="button" className="shift-east" onClick={() => moveWholeCourse(90, c.east)} aria-label={c.east} title={c.east}>→</button>
+        <button type="button" className="shift-south" onClick={() => moveWholeCourse(180, c.south)} aria-label={c.south} title={c.south}>↓</button>
+      </div>
+    </div>
+
     {status && <p className="gpx-status">{status}</p>}
   </div>
 }
