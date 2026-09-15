@@ -34,7 +34,8 @@ export function CourseSizingPanel({ boatClass, courseType, windSpeed, latitude, 
   const hasPoint = Number.isFinite(latitude) && Number.isFinite(longitude)
   const { state } = useLocation()
   const request = state as BriefingRequest | null
-  const isIoda = request?.iodaCourse === true
+  const rawCourseType = (request as (BriefingRequest & { courseType?: string }) | null)?.courseType
+  const isIoda = request?.iodaCourse === true || rawCourseType === 'IODA'
   const committeeLatitude = Number(request?.committeeLatitude)
   const committeeLongitude = Number(request?.committeeLongitude)
   const hasCommittee = request?.committeeLatitude !== '' && request?.committeeLongitude !== '' && Number.isFinite(committeeLatitude) && Number.isFinite(committeeLongitude)
@@ -67,7 +68,7 @@ export function CourseSizingPanel({ boatClass, courseType, windSpeed, latitude, 
           <small className="course-sizing-disclaimer">{c.disclaimer}</small>
         </div>
 
-        {hasPoint ? isIoda ? <IodaCoursePreview key={`IODA:${latitude}:${longitude}`}
+        {hasPoint ? isIoda ? <IodaCoursePreview key={`IODA:${latitude}:${longitude}:${courseAxis}:${windwardOffset}`}
           latitude={latitude}
           longitude={longitude}
           axis={courseAxis}
