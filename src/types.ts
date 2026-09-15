@@ -37,6 +37,8 @@ export type BriefingRequest = {
   raceTime: string
   boatClass: BoatClass
   courseType: CourseType
+  /** IODA uses the official Optimist outer-loop trapezoid while remaining compatible with existing trapezoid analysis. */
+  iodaCourse?: boolean
   courseAxis: string
   /** Records whether the course axis was entered by the coach or derived from the selected forecast model. */
   courseAxisMode?: CourseAxisMode
