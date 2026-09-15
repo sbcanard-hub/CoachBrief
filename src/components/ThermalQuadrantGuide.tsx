@@ -51,14 +51,29 @@ export function ThermalQuadrantGuide({ active, language }: Props) {
   const label = active === 'Q1/Q3' ? c.uncertain : c.active
   return <div className="thermal-quadrants" aria-label={c.title}>
     <div className="thermal-quadrants__heading"><strong>{c.title}</strong><span>{label} : <b>{active}</b></span></div>
-    <div className="thermal-quadrants__layout">
-      <div className="thermal-quadrants__side thermal-quadrants__side--land">{c.land}</div>
-      <svg className="thermal-quadrants__svg" viewBox="0 0 360 360" role="img" aria-labelledby="thermal-quadrant-title thermal-quadrant-desc">
-        <title id="thermal-quadrant-title">{c.title}</title>
-        <desc id="thermal-quadrant-desc">Q1 side-off, Q2 offshore, Q3 side-on, Q4 onshore.</desc>
-        <defs>
-          <pattern id="thermal-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="currentColor" strokeWidth="2" opacity=".2"/></pattern>
-        </defs>
+
+    <svg className="thermal-quadrants__scene" viewBox="0 0 720 390" role="img" aria-labelledby="thermal-quadrant-title thermal-quadrant-desc">
+      <title id="thermal-quadrant-title">{c.title}</title>
+      <desc id="thermal-quadrant-desc">Q1 side-off, Q2 offshore, Q3 side-on, Q4 onshore. {c.land} à gauche de la côte, {c.sea} à droite et sous la côte.</desc>
+      <defs>
+        <linearGradient id="thermal-land-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#e7e2c9" />
+          <stop offset="100%" stopColor="#b8bd91" />
+        </linearGradient>
+        <linearGradient id="thermal-sea-gradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#dceff8" />
+          <stop offset="100%" stopColor="#b9deee" />
+        </linearGradient>
+      </defs>
+
+      <rect x="0" y="0" width="720" height="390" className="thermal-quadrants__sea-bg" />
+      <path d="M0 0 H720 V118 C640 112 575 132 525 154 C470 178 426 173 376 158 C310 138 250 146 196 174 C128 210 74 224 0 244 Z" className="thermal-quadrants__land-bg" />
+      <path d="M0 244 C74 224 128 210 196 174 C250 146 310 138 376 158 C426 173 470 178 525 154 C575 132 640 112 720 118" className="thermal-quadrants__coast" />
+
+      <text x="72" y="155" className="thermal-quadrants__terrain-label thermal-quadrants__terrain-label--land">{c.land}</text>
+      <text x="648" y="190" textAnchor="middle" className="thermal-quadrants__terrain-label thermal-quadrants__terrain-label--sea">{c.sea}</text>
+
+      <g transform="translate(180 14)">
         <circle cx="180" cy="180" r="142" className="thermal-quadrants__ring"/>
         <path d="M180 180 L180 38 A142 142 0 0 1 322 180 Z" className={`thermal-quadrants__zone thermal-quadrants__zone--fav ${active === 'Q1' || active === 'Q1/Q3' ? 'is-active' : ''}`}/>
         <path d="M180 180 L38 180 A142 142 0 0 1 180 38 Z" className={`thermal-quadrants__zone thermal-quadrants__zone--bad ${active === 'Q2' ? 'is-active' : ''}`}/>
@@ -67,15 +82,15 @@ export function ThermalQuadrantGuide({ active, language }: Props) {
         <line x1="180" y1="24" x2="180" y2="336" className="thermal-quadrants__axis"/>
         <line x1="24" y1="180" x2="336" y2="180" className="thermal-quadrants__axis"/>
         <path d="M180 18 l-10 20 h20 z" className="thermal-quadrants__arrow"/>
-        <text x="180" y="15" textAnchor="middle" className="thermal-quadrants__axis-label">{c.axis}</text>
+        <text x="180" y="14" textAnchor="middle" className="thermal-quadrants__axis-label">{c.axis}</text>
         <text x="248" y="110" className="thermal-quadrants__q">Q1</text>
         <text x="83" y="110" className="thermal-quadrants__q">Q2</text>
         <text x="83" y="268" className="thermal-quadrants__q">Q3</text>
         <text x="248" y="268" className="thermal-quadrants__q">Q4</text>
         <circle cx="180" cy="180" r="16" className="thermal-quadrants__hub"/>
-      </svg>
-      <div className="thermal-quadrants__side thermal-quadrants__side--sea">{c.sea}</div>
-    </div>
+      </g>
+    </svg>
+
     <div className="thermal-quadrants__cards">
       <article className={active === 'Q1' || active === 'Q1/Q3' ? 'is-active' : ''}><strong>Q1 · {c.q1}</strong><span>{c.q1d}</span></article>
       <article className={active === 'Q2' ? 'is-active' : ''}><strong>Q2 · {c.q2}</strong><span>{c.q2d}</span></article>
