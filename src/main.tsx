@@ -6,7 +6,9 @@ import './styles.css'
 import './tactics.css'
 import { registerServiceWorker } from './pwa'
 import { PreferencesProvider } from './preferences'
+import { installOpenMeteoRelay } from './openMeteoRelay'
 
+installOpenMeteoRelay()
 registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
