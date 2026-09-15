@@ -23,6 +23,8 @@ import type { BriefingRequest } from './types'
 import { useEffect, useState } from 'react'
 import { fetchWeatherForBriefingResilient } from './weatherResilient'
 
+const WEATHER_LOADING_TIMEOUT_MS = 45_000
+
 function ResultsRoute() {
   const location = useLocation()
   const { language } = usePreferences()
@@ -53,7 +55,7 @@ function ResultsRoute() {
     setMemoryWeatherError('')
 
     const timeout = new Promise<never>((_, reject) => {
-      window.setTimeout(() => reject(new Error('Délai météo dépassé')), 20000)
+      window.setTimeout(() => reject(new Error('Délai météo dépassé')), WEATHER_LOADING_TIMEOUT_MS)
     })
 
     Promise.race([fetchWeatherForBriefingResilient(request), timeout])
