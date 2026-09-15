@@ -26,9 +26,8 @@ const HELP_ITEMS: HelpItem[] = [
   item('printPdf', 'Pdf'), item('troubleshooting', 'OldData'), item('troubleshooting', 'Update'),
   item('helpNewTools', 'StartMode'), item('helpNewTools', 'ExpressReading'), item('helpNewTools', 'WindShifts'),
   item('helpNewTools', 'StartLine'), item('helpNewTools', 'WaterMemory'), item('helpNewTools', 'HistoricalTracks'), item('helpNewTools', 'SmartBriefing'),
-  item('helpNewTools', 'ResultsTabs'),
-  item('helpNewTools', 'Coherence'), item('helpNewTools', 'Trajectory'), item('helpNewTools', 'Training'), item('helpNewTools', 'SailorJournal'),
-  item('helpNewTools', 'Debrief'),
+  item('helpNewTools', 'ResultsTabs'), item('helpNewTools', 'Coherence'), item('helpNewTools', 'Trajectory'),
+  item('helpNewTools', 'Training'), item('helpNewTools', 'SailorJournal'), item('helpNewTools', 'Debrief'),
   item('helpTypicalJourney', 'Journey'),
 ]
 
@@ -36,9 +35,15 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
   fr: [
     {
       category: 'Dernières nouveautés',
+      question: 'Où trouver les manches M1, M2, M3… ?',
+      answer: 'Sur la page Résultats, ouvrez l’onglet « Manches ». La page s’ouvre par défaut sur « Prévision » afin de garder l’analyse météo en premier. L’onglet « Manches » contient le module « Manches de la journée », la création de M1, M2, M3… et la vue « Journée de régate ».',
+      keywords: 'onglet manches M1 M2 M3 résultats prévision journée régate emplacement',
+    },
+    {
+      category: 'Dernières nouveautés',
       question: 'Comment utiliser plusieurs manches dans la même journée ?',
-      answer: 'Dans les résultats, le bloc « Manches de la journée » crée automatiquement M1. Utilisez « Ajouter une manche » pour créer M2, M3… Chaque manche conserve son heure, son vent observé, sa direction, ses rafales, ses notes et son débrief. Le lieu, la classe, le parcours et la météo générale restent communs à toute la journée.',
-      keywords: 'manche manches M1 M2 M3 ajouter journée heure vent notes débrief régate',
+      answer: 'Dans l’onglet « Manches » des résultats, M1 est créée automatiquement. Utilisez « Ajouter une manche » pour créer M2, M3… Chaque manche conserve son heure, son vent observé, sa direction, ses rafales, ses notes et son débrief. Le lieu, la classe, le parcours et la météo générale restent communs à toute la journée.',
+      keywords: 'manche manches M1 M2 M3 ajouter journée heure vent notes débrief régate onglet',
     },
     {
       category: 'Dernières nouveautés',
@@ -49,8 +54,8 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
     {
       category: 'Dernières nouveautés',
       question: 'Que montre la vue « Journée de régate » ?',
-      answer: 'La vue compare les manches M1, M2, M3… dans un même tableau : heure, vent, direction, rafales, notes et débrief. Elle résume aussi l’évolution entre la première et la dernière manche, notamment un renforcement ou un mollissement du vent et une rotation vers la droite ou la gauche.',
-      keywords: 'journée régate tableau comparaison évolution vent rotation droite gauche renforcement mollissement',
+      answer: 'Dans l’onglet « Manches », la vue compare M1, M2, M3… dans un même tableau : heure, vent, direction, rafales, notes et débrief. Elle résume aussi l’évolution entre la première et la dernière manche, notamment un renforcement ou un mollissement du vent et une rotation vers la droite ou la gauche.',
+      keywords: 'journée régate onglet manches tableau comparaison évolution vent rotation droite gauche renforcement mollissement',
     },
     {
       category: 'Dernières nouveautés',
@@ -60,9 +65,9 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
     },
     {
       category: 'Dernières nouveautés',
-      question: 'Que contient le nouvel onglet Prévision ?',
-      answer: 'L’onglet Prévision rassemble la situation générale, le contexte synoptique, la topographie, les fronts possibles, les températures air/eau, la stabilité de la masse d’air, le caractère terre/mer du vent, le vent en altitude, le midi solaire et la lecture des cadrans thermiques Q1 à Q4. Ces éléments servent à préparer l’établissement du thermique et à compléter l’analyse tactique.',
-      keywords: 'prévision synoptique topographie fronts température eau air stabilité vent altitude midi solaire cadrans thermique Q1 Q2 Q3 Q4',
+      question: 'Que contient l’onglet Prévision ?',
+      answer: 'La page Résultats s’ouvre par défaut sur « Prévision ». Cet onglet rassemble la situation générale, le contexte synoptique, la topographie, les fronts possibles, les températures air/eau, la stabilité de la masse d’air, le caractère terre/mer du vent, le vent en altitude, le midi solaire et la lecture des cadrans thermiques Q1 à Q4.',
+      keywords: 'prévision défaut page résultats synoptique topographie fronts température eau air stabilité vent altitude midi solaire cadrans thermique Q1 Q2 Q3 Q4',
     },
     {
       category: 'Dépannage',
@@ -74,9 +79,15 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
   en: [
     {
       category: 'Latest features',
+      question: 'Where can I find R1, R2, R3…?',
+      answer: 'On the Results page, open the “Races” tab. Results opens on “Forecast” by default so the weather analysis stays first. The “Races” tab contains the races-of-the-day module, R1/R2/R3 management and the Race day view.',
+      keywords: 'races tab R1 R2 R3 results forecast race day location',
+    },
+    {
+      category: 'Latest features',
       question: 'How do I use several races in the same day?',
-      answer: 'In Results, the “Races of the day” panel automatically creates R1. Use “Add race” to create R2, R3… Each race keeps its own time, observed wind, direction, gusts, notes and debrief, while venue, class, course and general forecast remain shared for the whole day.',
-      keywords: 'race races R1 R2 R3 add day time wind notes debrief regatta',
+      answer: 'In the “Races” tab, R1 is created automatically. Use “Add race” to create R2, R3… Each race keeps its own time, observed wind, direction, gusts, notes and debrief, while venue, class, course and general forecast remain shared for the whole day.',
+      keywords: 'race races R1 R2 R3 add day time wind notes debrief regatta tab',
     },
     {
       category: 'Latest features',
@@ -87,8 +98,8 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
     {
       category: 'Latest features',
       question: 'What is the “Race day” view for?',
-      answer: 'It compares R1, R2, R3… in one table with time, wind, direction, gusts, notes and debrief. It also summarises the evolution from the first to the last race, including strengthening or easing wind and a right or left shift.',
-      keywords: 'race day table comparison evolution wind shift right left strengthening easing',
+      answer: 'Inside the “Races” tab, it compares R1, R2, R3… in one table with time, wind, direction, gusts, notes and debrief. It also summarises the evolution from the first to the last race, including strengthening or easing wind and a right or left shift.',
+      keywords: 'race day races tab table comparison evolution wind shift right left strengthening easing',
     },
     {
       category: 'Latest features',
@@ -98,9 +109,9 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
     },
     {
       category: 'Latest features',
-      question: 'What is included in the new Forecast tab?',
-      answer: 'The Forecast tab groups the general situation, synoptic context, topography, possible fronts, air/water temperatures, atmospheric stability, land/sea wind character, upper-level wind, solar noon and thermal quadrants Q1 to Q4. These elements help anticipate thermal development and complete the tactical analysis.',
-      keywords: 'forecast synoptic topography fronts air water temperature stability upper wind solar noon thermal quadrants Q1 Q2 Q3 Q4',
+      question: 'What is included in the Forecast tab?',
+      answer: 'Results opens on “Forecast” by default. The tab groups the general situation, synoptic context, topography, possible fronts, air/water temperatures, atmospheric stability, land/sea wind character, upper-level wind, solar noon and thermal quadrants Q1 to Q4.',
+      keywords: 'forecast default results synoptic topography fronts air water temperature stability upper wind solar noon thermal quadrants Q1 Q2 Q3 Q4',
     },
     {
       category: 'Troubleshooting',
@@ -112,9 +123,15 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
   it: [
     {
       category: 'Ultime novità',
+      question: 'Dove trovo P1, P2, P3…?',
+      answer: 'Nella pagina Risultati, apri la scheda “Prove”. I Risultati si aprono per impostazione predefinita su “Previsione”, così l’analisi meteo resta in primo piano. La scheda “Prove” contiene le prove della giornata, P1/P2/P3 e la vista Giornata di regata.',
+      keywords: 'prove scheda P1 P2 P3 risultati previsione giornata regata posizione',
+    },
+    {
+      category: 'Ultime novità',
       question: 'Come si usano più prove nella stessa giornata?',
-      answer: 'Nei Risultati, il pannello delle prove crea automaticamente P1. Usa “Aggiungi prova” per creare P2, P3… Ogni prova conserva ora, vento osservato, direzione, raffica, note e debrief, mentre luogo, classe, percorso e previsione generale restano comuni alla giornata.',
-      keywords: 'prova prove P1 P2 P3 aggiungi giornata ora vento note debrief regata',
+      answer: 'Nella scheda “Prove”, P1 viene creata automaticamente. Usa “Aggiungi prova” per creare P2, P3… Ogni prova conserva ora, vento osservato, direzione, raffica, note e debrief, mentre luogo, classe, percorso e previsione generale restano comuni alla giornata.',
+      keywords: 'prova prove P1 P2 P3 aggiungi giornata ora vento note debrief regata scheda',
     },
     {
       category: 'Ultime novità',
@@ -125,8 +142,8 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
     {
       category: 'Ultime novità',
       question: 'Cosa mostra la vista “Giornata di regata”?',
-      answer: 'Confronta P1, P2, P3… in una tabella con ora, vento, direzione, raffiche, note e debrief. Riassume anche l’evoluzione tra la prima e l’ultima prova, compresi aumento o calo del vento e rotazione a destra o a sinistra.',
-      keywords: 'giornata regata tabella confronto evoluzione vento rotazione destra sinistra aumento calo',
+      answer: 'Nella scheda “Prove”, confronta P1, P2, P3… in una tabella con ora, vento, direzione, raffiche, note e debrief. Riassume anche l’evoluzione tra la prima e l’ultima prova, compresi aumento o calo del vento e rotazione a destra o a sinistra.',
+      keywords: 'giornata regata prove scheda tabella confronto evoluzione vento rotazione destra sinistra aumento calo',
     },
     {
       category: 'Ultime novità',
@@ -136,9 +153,9 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
     },
     {
       category: 'Ultime novità',
-      question: 'Cosa contiene la nuova scheda Previsione?',
-      answer: 'La scheda Previsione riunisce situazione generale, quadro sinottico, topografia, possibili fronti, temperature aria/acqua, stabilità atmosferica, carattere terra/mare del vento, vento in quota, mezzogiorno solare e quadranti termici Q1-Q4. Questi elementi aiutano a valutare lo sviluppo della brezza termica e completano l’analisi tattica.',
-      keywords: 'previsione sinottico topografia fronti temperatura aria acqua stabilità vento quota mezzogiorno solare quadranti termici Q1 Q2 Q3 Q4',
+      question: 'Cosa contiene la scheda Previsione?',
+      answer: 'I Risultati si aprono per impostazione predefinita su “Previsione”. La scheda riunisce situazione generale, quadro sinottico, topografia, possibili fronti, temperature aria/acqua, stabilità atmosferica, carattere terra/mare del vento, vento in quota, mezzogiorno solare e quadranti termici Q1-Q4.',
+      keywords: 'previsione predefinita risultati sinottico topografia fronti temperatura aria acqua stabilità vento quota mezzogiorno solare quadranti termici Q1 Q2 Q3 Q4',
     },
     {
       category: 'Risoluzione problemi',
@@ -150,9 +167,15 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
   es: [
     {
       category: 'Últimas novedades',
+      question: '¿Dónde encuentro M1, M2, M3…?',
+      answer: 'En la página Resultados, abre la pestaña “Mangas”. Resultados se abre por defecto en “Previsión” para mantener primero el análisis meteorológico. La pestaña “Mangas” contiene las mangas del día, M1/M2/M3 y la vista Jornada de regata.',
+      keywords: 'mangas pestaña M1 M2 M3 resultados previsión jornada regata ubicación',
+    },
+    {
+      category: 'Últimas novedades',
       question: '¿Cómo se usan varias mangas en el mismo día?',
-      answer: 'En Resultados, el panel de mangas crea automáticamente M1. Usa “Añadir manga” para crear M2, M3… Cada manga conserva su hora, viento observado, dirección, racha, notas y debrief, mientras lugar, clase, recorrido y previsión general siguen siendo comunes a toda la jornada.',
-      keywords: 'manga mangas M1 M2 M3 añadir jornada hora viento notas debrief regata',
+      answer: 'En la pestaña “Mangas”, M1 se crea automáticamente. Usa “Añadir manga” para crear M2, M3… Cada manga conserva su hora, viento observado, dirección, racha, notas y debrief, mientras lugar, clase, recorrido y previsión general siguen siendo comunes a toda la jornada.',
+      keywords: 'manga mangas M1 M2 M3 añadir jornada hora viento notas debrief regata pestaña',
     },
     {
       category: 'Últimas novedades',
@@ -163,8 +186,8 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
     {
       category: 'Últimas novedades',
       question: '¿Qué muestra la vista “Jornada de regata”?',
-      answer: 'Compara M1, M2, M3… en una tabla con hora, viento, dirección, rachas, notas y debrief. También resume la evolución entre la primera y la última manga, incluido aumento o disminución del viento y giro a la derecha o a la izquierda.',
-      keywords: 'jornada regata tabla comparación evolución viento giro derecha izquierda aumento disminución',
+      answer: 'Dentro de la pestaña “Mangas”, compara M1, M2, M3… en una tabla con hora, viento, dirección, rachas, notas y debrief. También resume la evolución entre la primera y la última manga, incluido aumento o disminución del viento y giro a la derecha o a la izquierda.',
+      keywords: 'jornada regata mangas pestaña tabla comparación evolución viento giro derecha izquierda aumento disminución',
     },
     {
       category: 'Últimas novedades',
@@ -174,9 +197,9 @@ const LATEST_HELP: Record<'fr' | 'en' | 'it' | 'es', ResolvedHelpItem[]> = {
     },
     {
       category: 'Últimas novedades',
-      question: '¿Qué incluye la nueva pestaña Previsión?',
-      answer: 'La pestaña Previsión reúne situación general, contexto sinóptico, topografía, posibles frentes, temperaturas de aire/agua, estabilidad atmosférica, carácter tierra/mar del viento, viento en altura, mediodía solar y cuadrantes térmicos Q1-Q4. Estos elementos ayudan a anticipar el desarrollo del térmico y completan el análisis táctico.',
-      keywords: 'previsión sinóptico topografía frentes temperatura aire agua estabilidad viento altura mediodía solar cuadrantes térmicos Q1 Q2 Q3 Q4',
+      question: '¿Qué incluye la pestaña Previsión?',
+      answer: 'Resultados se abre por defecto en “Previsión”. La pestaña reúne situación general, contexto sinóptico, topografía, posibles frentes, temperaturas de aire/agua, estabilidad atmosférica, carácter tierra/mar del viento, viento en altura, mediodía solar y cuadrantes térmicos Q1-Q4.',
+      keywords: 'previsión defecto resultados sinóptico topografía frentes temperatura aire agua estabilidad viento altura mediodía solar cuadrantes térmicos Q1 Q2 Q3 Q4',
     },
     {
       category: 'Resolución de problemas',
@@ -195,12 +218,7 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
   const [query, setQuery] = useState('')
   const { language, locale, t } = usePreferences()
   const allItems = useMemo<ResolvedHelpItem[]>(() => [
-    ...HELP_ITEMS.map((entry) => ({
-      category: t(entry.category),
-      question: t(entry.question),
-      answer: t(entry.answer),
-      keywords: t(entry.keywords),
-    })),
+    ...HELP_ITEMS.map((entry) => ({ category: t(entry.category), question: t(entry.question), answer: t(entry.answer), keywords: t(entry.keywords) })),
     ...LATEST_HELP[language],
   ], [language, t])
   const filteredItems = useMemo(() => {
