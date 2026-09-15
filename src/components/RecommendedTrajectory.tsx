@@ -54,7 +54,7 @@ const detailedCopy = {
       Banane: ['Premier près : jouer les bascules par bords droits.', 'Vent arrière : protéger l’intérieur et l’air libre.', 'Deuxième près : réévaluer le côté avec les nouveaux relevés.', 'Dernier bord vers l’arrivée.'],
       Triangle: ['Premier près : jouer les bascules par bords droits.', 'Premier reaching : vitesse et air libre.', 'Deuxième reaching : anticiper la marque suivante.', 'Dernier bord vers l’arrivée.'],
       'Trapèze': ['Premier près : lecture détaillée en trois tiers.', 'Travers haut : vitesse, pression et contrôle de la layline.', 'Bord extérieur : gérer vent arrière et trafic.', 'Travers bas : préparer l’approche de l’arrivée.', 'Dernier bord vers l’arrivée.'],
-      IODA: ['Premier près vers 1 : construire le côté conseillé sans atteindre la layline trop tôt.', '1 → 2 : priorité à la vitesse et à l’air libre sur le bord extérieur.', '2 → porte 3S/3P : préparer le choix de porte selon pression, trafic et côté tactique.', 'Porte → arrivée : second près, tirer des bords selon la tactique du jour, réévaluer le côté et poser la layline tardivement.'],
+      IODA: ['Premier près vers 1 : construire le côté conseillé sans atteindre la layline trop tôt.', '1 → 2 : priorité à la vitesse et à l’air libre sur le bord extérieur.', '2 → porte 3S/3P : préparer le choix de porte selon pression, trafic et côté tactique.', 'Porte → arrivée : second près, réévaluer le côté avec les derniers relevés et poser la layline tardivement.'],
     },
   },
   en: {
@@ -68,7 +68,7 @@ const detailedCopy = {
       Banane: ['First beat: play the shifts with straight tacks.', 'Run: protect the inside and clear air.', 'Second beat: reassess the side with new readings.', 'Final leg to the finish.'],
       Triangle: ['First beat: play the shifts with straight tacks.', 'First reach: speed and clear air.', 'Second reach: anticipate the next mark.', 'Final leg to the finish.'],
       'Trapèze': ['First beat: detailed reading in three thirds.', 'Upper reach: speed, pressure and layline control.', 'Outer leg: manage downwind pressure and traffic.', 'Lower reach: prepare the finish approach.', 'Final leg to the finish.'],
-      IODA: ['First beat to 1: build towards the recommended side without reaching the layline too early.', '1 → 2: prioritise speed and clear air on the outer leg.', '2 → 3S/3P gate: prepare the gate choice from pressure, traffic and tactical side.', 'Gate → finish: second beat, tack according to the tactical side, reassess the pressure and take the layline late.'],
+      IODA: ['First beat to 1: build towards the recommended side without reaching the layline too early.', '1 → 2: prioritise speed and clear air on the outer leg.', '2 → 3S/3P gate: prepare the gate choice from pressure, traffic and tactical side.', 'Gate → finish: second beat, reassess the side with the latest readings and take the layline late.'],
     },
   },
   it: {
@@ -82,7 +82,7 @@ const detailedCopy = {
       Banane: ['Prima bolina: gioca le rotazioni con bordi rettilinei.', 'Poppa: proteggi l’interno e l’aria libera.', 'Seconda bolina: rivaluta il lato con i nuovi rilievi.', 'Ultimo lato verso l’arrivo.'],
       Triangle: ['Prima bolina: gioca le rotazioni con bordi rettilinei.', 'Primo lasco: velocità e aria libera.', 'Secondo lasco: anticipa la boa seguente.', 'Ultimo lato verso l’arrivo.'],
       'Trapèze': ['Prima bolina: lettura dettagliata in tre terzi.', 'Traverso alto: velocità, pressione e layline.', 'Lato esterno: gestisci poppa e traffico.', 'Traverso basso: prepara l’arrivo.', 'Ultimo lato verso l’arrivo.'],
-      IODA: ['Prima bolina verso 1: costruisci il lato consigliato senza raggiungere troppo presto la layline.', '1 → 2: privilegia velocità e aria libera sul lato esterno.', '2 → cancello 3S/3P: prepara la scelta del cancello in base a pressione, traffico e lato tattico.', 'Cancello → arrivo: seconda bolina, fai i bordi secondo il lato tattico, rivaluta la pressione e prendi la layline tardi.'],
+      IODA: ['Prima bolina verso 1: costruisci il lato consigliato senza raggiungere troppo presto la layline.', '1 → 2: privilegia velocità e aria libera sul lato esterno.', '2 → cancello 3S/3P: prepara la scelta del cancello in base a pressione, traffico e lato tattico.', 'Cancello → arrivo: seconda bolina, rivaluta il lato con gli ultimi rilievi e prendi la layline tardi.'],
     },
   },
   es: {
@@ -90,13 +90,13 @@ const detailedCopy = {
     lanes: ['Izquierda', 'Centro izquierda', 'Centro', 'Centro derecha', 'Derecha'],
     thirds: ['Primer tercio', 'Segundo tercio', 'Último tercio'], start: 'Salida', finish: 'Llegada', mark: 'Boya',
     leg: 'Tramo', recommended: 'Zona recomendada', keepOpen: 'Mantente centrado y confirma el primer role.',
-    phaseOpen: ['Sal con velocidad manteniendo abiertos ambos lados.', 'Elige lado solo con un señal confirmado.', 'Vuelve al eje antes de las laylines.'],
+    phaseOpen: ['Sal con velocidad manteniendo abiertos ambos lados.', 'Elige lado solo con una señal confirmada.', 'Vuelve al eje antes de las laylines.'],
     phaseSide: ['Construye una calle libre hacia {side}.', 'Aprovecha {side} sin llegar demasiado pronto al límite.', 'Vuelve hacia el eje y toma la layline tarde.'],
     courses: {
       Banane: ['Primera ceñida: juega los roles con bordos rectos.', 'Popa: protege el interior y el viento libre.', 'Segunda ceñida: reevalúa el lado con nuevas lecturas.', 'Último tramo hacia la llegada.'],
       Triangle: ['Primera ceñida: juega los roles con bordos rectos.', 'Primer través: velocidad y viento libre.', 'Segundo través: anticipa la siguiente boya.', 'Último tramo hacia la llegada.'],
       'Trapèze': ['Primera ceñida: lectura detallada en tres tercios.', 'Través alto: velocidad, presión y layline.', 'Tramo exterior: gestiona popa y tráfico.', 'Través bajo: prepara la llegada.', 'Último tramo hacia la llegada.'],
-      IODA: ['Primera ceñida a 1: construye hacia el lado recomendado sin llegar demasiado pronto a la layline.', '1 → 2: prioriza velocidad y viento libre en el tramo exterior.', '2 → puerta 3S/3P: prepara la elección según presión, tráfico y lado táctico.', 'Puerta → llegada: segunda ceñida, da bordos según el lado táctico, reevalúa la presión y toma la layline tarde.'],
+      IODA: ['Primera ceñida a 1: construye hacia el lado recomendado sin llegar demasiado pronto a la layline.', '1 → 2: prioriza velocidad y viento libre en el tramo exterior.', '2 → puerta 3S/3P: prepara la elección según presión, tráfico y lado táctico.', 'Puerta → llegada: segunda ceñida, reevalúa el lado con las últimas lecturas y toma la layline tarde.'],
     },
   },
 } as const
@@ -109,16 +109,6 @@ function fullCourse(courseType: TrajectoryCourseType, side: Side, labels: { star
     const otherGateX = chosenGateX === 690 ? 610 : 690
     const finishX = 675
     const finishY = 220
-    const secondBeat = side === 'right'
-      ? `${chosenGateX},365 760,325 700,285 735,248 ${finishX},${finishY}`
-      : side === 'left'
-        ? `${chosenGateX},365 600,325 670,285 620,248 ${finishX},${finishY}`
-        : `${chosenGateX},365 615,325 705,285 635,248 ${finishX},${finishY}`
-    const alternateSecondBeat = side === 'right'
-      ? `${otherGateX},365 745,325 695,285 730,248 ${finishX},${finishY}`
-      : side === 'left'
-        ? `${otherGateX},365 605,325 665,285 625,248 ${finishX},${finishY}`
-        : `${otherGateX},365 610,325 700,285 640,248 ${finishX},${finishY}`
     return {
       marks: [
         { x: 840, y: 70, label: `${labels.mark} 1` },
@@ -126,8 +116,8 @@ function fullCourse(courseType: TrajectoryCourseType, side: Side, labels: { star
         { x: 610, y: 365, label: '3S' },
         { x: 690, y: 365, label: '3P' },
       ],
-      route: `840,445 ${900 + offset},350 ${810 - offset},250 ${900 + offset},155 840,70 620,165 ${secondBeat}`,
-      alternateRoute: `620,165 ${alternateSecondBeat}`,
+      route: `840,445 ${900 + offset},350 ${810 - offset},250 ${900 + offset},155 840,70 620,165 ${chosenGateX},365 ${finishX},${finishY}`,
+      alternateRoute: `620,165 ${otherGateX},365 ${finishX},${finishY}`,
       start: { x: 840, y: 445, label: labels.start },
       finish: { x: finishX, y: finishY, label: labels.finish },
     }
