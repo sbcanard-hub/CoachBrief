@@ -3,7 +3,7 @@ import type { LocalEffect, LocalEffectsAnalysis, TerrainSample } from './localEf
 import type { BriefingRequest } from './types'
 import type { LiveWeatherData } from './weather'
 import { waterFetchForBearing } from './waterGeometry'
-import type { WaterGeometryProfile } from './waterGeometry'
+import type { WaterGeometryProfile, WaterGeometrySector } from './waterGeometry'
 
 export type EnhancedLocalEffectsAnalysis = LocalEffectsAnalysis & {
   waterGeometry: WaterGeometryProfile
@@ -36,6 +36,47 @@ function formatKm(value: number | null) {
   return `${value < 10 ? value.toFixed(1).replace('.', ',') : Math.round(value)} km`
 }
 
+function sectorAt(sectors: WaterGeometrySector[], index: number) {
+  const length = sectors.length
+  return sectors[(index + length) % length]
+}
+
+function detectHeadland(profile: WaterGeometryProfile) {
+  const sectors = profile.sectors
+  let best: { bearing: number; distance: number; contrast: number } | null = null
+  sectors.forEach((sector, index) => {
+    if (!sector.shorelineDetected || sector.fetchKm > 4) return
+    const left = sectorAt(sectors, index - 1)
+    const right = sectorAt(sectors, index + 1)
+    const flankMean = (left.fetchKm + right.fetchKm) / 2
+    const contrast = flankMean - sector.fetchKm
+    if (contrast < 2.5) return
+    if (!best || contrast > best.contrast) best = { bearing: sector.bearing, distance: sector.fetchKm, contrast }
+  })
+  return best
+}
+
+function detectCoastalFunnel(profile: WaterGeometryProfile) {
+  const sectors = profile.sectors
+  let best: { bearing: number; widthDeg: number; flankFetch: number; centerFetch: number } | null = null
+  sectors.forEach((sector, index) => {
+    if (sector.fetchKm < 6) return
+    const left1 = sectorAt(sectors, index - 1)
+    const right1 = sectorAt(sectors, index + 1)
+    const left2 = sectorAt(sectors, index - 2)
+    const right2 = sectorAt(sectors, index + 2)
+    const nearFlanks = Math.min(left1.fetchKm, right1.fetchKm)
+    const outerFlanks = Math.min(left2.fetchKm, right2.fetchKm)
+    const flankFetch = Math.min(nearFlanks, outerFlanks)
+    if (flankFetch > 5 || sector.fetchKm - flankFetch < 4) return
+    const widthDeg = 45
+    if (!best || sector.fetchKm - flankFetch > best.centerFetch - best.flankFetch) {
+      best = { bearing: sector.bearing, widthDeg, flankFetch, centerFetch: sector.fetchKm }
+    }
+  })
+  return best
+}
+
 export function analyseLocalEffectsWithWater(
   request: BriefingRequest,
   weather: LiveWeatherData,
@@ -49,6 +90,8 @@ export function analyseLocalEffectsWithWater(
   const openGap = waterGeometry.openBearing == null ? null : angleGap(windDirection, waterGeometry.openBearing)
   const daylight = daylightWindow(request)
   const lightEnoughForLocalCirculation = daylight && weather.race.cloudCover <= 60 && windSpeed <= 14
+  const headland = detectHeadland(waterGeometry)
+  const coastalFunnel = detectCoastalFunnel(waterGeometry)
 
   let waterExposureLabel = 'Ouverture au vent indéterminée'
   if (upwindFetchKm != null) {
@@ -64,6 +107,8 @@ export function analyseLocalEffectsWithWater(
     else if (openGap >= 135) waterInteractionLabel += ' · vent venant du côté fermé / terrestre'
     else waterInteractionLabel += ' · vent travers au secteur d’ouverture principal'
   }
+  if (headland) waterInteractionLabel += ` · pointe/cap probable vers ${String(Math.round(headland.bearing)).padStart(3, '0')}°`
+  if (coastalFunnel) waterInteractionLabel += ` · goulet/entrée resserrée vers ${String(Math.round(coastalFunnel.bearing)).padStart(3, '0')}°`
 
   const effects: LocalEffect[] = [...base.effects]
   if (upwindFetchKm != null) {
@@ -88,6 +133,40 @@ export function analyseLocalEffectsWithWater(
     }
   }
 
+  if (headland) {
+    const windToHeadland = angleGap(windDirection, headland.bearing)
+    if (windToHeadland <= 50) {
+      effects.unshift({
+        title: 'Cap / pointe au vent',
+        level: headland.distance <= 2 && headland.contrast >= 5 ? 'fort' : 'modéré',
+        text: `Une saillie côtière est détectée vers ${String(Math.round(headland.bearing)).padStart(3, '0')}° à environ ${formatKm(headland.distance)}. Le vent arrive dans ce secteur : accélération sur le bord exposé, rotation autour de la pointe et dévent/turbulence dans son sillage sont à surveiller.`,
+      })
+    } else if (windToHeadland <= 100) {
+      effects.push({
+        title: 'Effet de pointe transversal',
+        level: 'modéré',
+        text: `Une pointe côtière proche est détectée vers ${String(Math.round(headland.bearing)).padStart(3, '0')}°. Le vent la prend de biais : une accélération locale et une rotation du flux autour du cap sont plausibles sans forcément créer un dévent généralisé.`,
+      })
+    }
+  }
+
+  if (coastalFunnel) {
+    const funnelGap = Math.min(angleGap(windDirection, coastalFunnel.bearing), angleGap(windDirection, (coastalFunnel.bearing + 180) % 360))
+    if (funnelGap <= 30) {
+      effects.unshift({
+        title: 'Venturi côtier / goulet',
+        level: coastalFunnel.centerFetch >= 10 && coastalFunnel.flankFetch <= 3 ? 'fort' : 'modéré',
+        text: `Ouverture resserrée détectée dans l’axe ${String(Math.round(coastalFunnel.bearing)).padStart(3, '0')}° avec des rives beaucoup plus proches de part et d’autre. Le vent est aligné à ${Math.round(funnelGap)}° : accélération de type Venturi et pression renforcée dans l’axe du goulet possibles.`,
+      })
+    } else {
+      effects.push({
+        title: 'Goulet côtier',
+        level: 'faible',
+        text: `Un passage resserré est détecté vers ${String(Math.round(coastalFunnel.bearing)).padStart(3, '0')}°, mais le vent actuel est décalé d’environ ${Math.round(funnelGap)}° : l’effet Venturi devrait rester secondaire tant que le vent ne s’aligne pas davantage.`,
+      })
+    }
+  }
+
   if (waterGeometry.openBearing != null && waterGeometry.openBearingClarity >= 0.25) {
     const openDirection = `${String(Math.round(waterGeometry.openBearing)).padStart(3, '0')}°`
     if (lightEnoughForLocalCirculation && (openGap == null || openGap > 35)) {
@@ -106,7 +185,15 @@ export function analyseLocalEffectsWithWater(
   }
 
   let coachAdvice = base.coachAdvice
-  if (upwindFetchKm != null && upwindFetchKm < 2.5) {
+  const headlandWindGap = headland ? angleGap(windDirection, headland.bearing) : 180
+  const funnelWindGap = coastalFunnel
+    ? Math.min(angleGap(windDirection, coastalFunnel.bearing), angleGap(windDirection, (coastalFunnel.bearing + 180) % 360))
+    : 180
+  if (coastalFunnel && funnelWindGap <= 30) {
+    coachAdvice = `Tester en priorité l’axe du goulet ${String(Math.round(coastalFunnel.bearing)).padStart(3, '0')}° : comparer vitesse et angle au centre du couloir puis sur ses deux bords. Une accélération stable confirmerait un Venturi réellement structurant.`
+  } else if (headland && headlandWindGap <= 50) {
+    coachAdvice = `Faire un transect autour de la pointe ${String(Math.round(headland.bearing)).padStart(3, '0')}° : pression sur le bord exposé, rotation autour du cap, puis éventuelle zone molle sous le vent. La position exacte de cette transition est plus utile que le relief régional.`
+  } else if (upwindFetchKm != null && upwindFetchKm < 2.5) {
     coachAdvice = 'Priorité à la transition côte–plan d’eau : observer très tôt où le vent se réorganise après le rivage, puis comparer la pression et l’angle entre la zone proche de la côte et le centre du parcours.'
   } else if (waterGeometry.openBearing != null && waterGeometry.openBearingClarity >= 0.25 && lightEnoughForLocalCirculation) {
     coachAdvice = `Surveiller si le vent réel évolue vers le secteur d’ouverture ${String(Math.round(waterGeometry.openBearing)).padStart(3, '0')}°. Si la rotation s’accompagne d’un renforcement cohérent et durable, elle peut signaler une circulation locale plutôt qu’une simple oscillation.`
@@ -118,7 +205,9 @@ export function analyseLocalEffectsWithWater(
   if (waterGeometry.featureCount >= 3) confidence += 4
   if (waterGeometry.shorelineCoverage >= 0.45) confidence += 3
   if (waterGeometry.openBearingClarity >= 0.3) confidence += 3
-  confidence = clamp(Math.round(confidence), 20, 90)
+  if (headland) confidence += 3
+  if (coastalFunnel) confidence += 3
+  confidence = clamp(Math.round(confidence), 20, 92)
 
   return {
     ...base,
@@ -131,7 +220,7 @@ export function analyseLocalEffectsWithWater(
       : base.thermalLabel,
     effects,
     coachAdvice,
-    attribution: `${base.attribution} Rivages : © OpenStreetMap contributors via Overpass.`,
+    attribution: `${base.attribution} Rivages : © OpenStreetMap contributors via Overpass. Détection des caps/goulets indicative, à confirmer sur l’eau.`,
     waterGeometry,
     upwindFetchKm,
     waterExposureLabel,
