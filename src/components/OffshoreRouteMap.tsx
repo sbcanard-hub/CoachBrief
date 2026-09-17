@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { loadLeaflet } from '../leafletLoader'
 import type { OffshorePoint } from '../offshore'
+import type { IsochroneResult } from '../offshoreIsochrone'
 
 function valid(point: OffshorePoint) {
   const lat = Number(point.latitude)
@@ -11,9 +12,10 @@ function valid(point: OffshorePoint) {
 type Props = {
   points: OffshorePoint[]
   onPointChange: (id: string, latitude: string, longitude: string) => void
+  isochrones?: IsochroneResult | null
 }
 
-export function OffshoreRouteMap({ points, onPointChange }: Props) {
+export function OffshoreRouteMap({ points, onPointChange, isochrones = null }: Props) {
   const elementRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const layerRef = useRef<any>(null)
@@ -38,7 +40,17 @@ export function OffshoreRouteMap({ points, onPointChange }: Props) {
 
       const usable = points.filter(valid)
       const latLngs = usable.map((point) => [Number(point.latitude), Number(point.longitude)] as [number, number])
-      if (latLngs.length >= 2) leaflet.polyline(latLngs, { weight: 4, opacity: .9 }).addTo(group)
+      if (latLngs.length >= 2) leaflet.polyline(latLngs, { weight: 4, opacity: .55, dashArray: '8 7' }).addTo(group)
+
+      if (isochrones) {
+        isochrones.steps.slice(1).forEach((step) => {
+          const front = step.nodes.map((node) => [node.latitude, node.longitude] as [number, number])
+          if (front.length >= 2) leaflet.polyline(front, { weight: 1.5, opacity: .35 }).addTo(group)
+          else if (front.length === 1) leaflet.circleMarker(front[0], { radius: 2.5, opacity: .5, fillOpacity: .35 }).addTo(group)
+        })
+        const routed = isochrones.bestRoute.map((node) => [node.latitude, node.longitude] as [number, number])
+        if (routed.length >= 2) leaflet.polyline(routed, { weight: 5, opacity: .95 }).bindTooltip('Route isochrone retenue').addTo(group)
+      }
 
       usable.forEach((point, index) => {
         const icon = leaflet.divIcon({
@@ -55,12 +67,13 @@ export function OffshoreRouteMap({ points, onPointChange }: Props) {
         })
       })
 
-      if (latLngs.length >= 2) map.fitBounds(latLngs, { padding: [28, 28] })
-      else if (latLngs.length === 1) map.setView(latLngs[0], 9)
+      const boundsPoints = [...latLngs, ...(isochrones?.bestRoute.map((node) => [node.latitude, node.longitude] as [number, number]) ?? [])]
+      if (boundsPoints.length >= 2) map.fitBounds(boundsPoints, { padding: [28, 28] })
+      else if (boundsPoints.length === 1) map.setView(boundsPoints[0], 9)
       window.setTimeout(() => map.invalidateSize(false), 50)
     })
     return () => { cancelled = true }
-  }, [points, onPointChange])
+  }, [points, onPointChange, isochrones])
 
   useEffect(() => () => {
     if (mapRef.current) {

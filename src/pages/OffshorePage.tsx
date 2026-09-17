@@ -2,8 +2,11 @@ import { useCallback, useMemo, useState } from 'react'
 import { Anchor, ArrowRight, CalendarDays, Clock3, Compass, Gauge, LoaderCircle, MapPin, Plus, Route, Sailboat, Trash2, Waves, Wind } from 'lucide-react'
 import { OffshoreRouteMap } from '../components/OffshoreRouteMap'
 import { OffshorePolarPanel } from '../components/OffshorePolarPanel'
+import { OffshoreIsochronePanel } from '../components/OffshoreIsochronePanel'
 import { buildOffshoreLegs, estimateOffshoreEtaHours, totalOffshoreDistance, type OffshorePoint } from '../offshore'
 import { fetchOffshoreLegForecasts, type OffshoreLegForecast } from '../offshoreForecast'
+import { DEMO_POLAR, type PolarTable } from '../offshorePolar'
+import type { IsochroneResult } from '../offshoreIsochrone'
 import './offshore.css'
 
 function makePoint(name = ''): OffshorePoint {
@@ -37,19 +40,27 @@ export function OffshorePage() {
   const [points, setPoints] = useState<OffshorePoint[]>([makePoint('Départ'), makePoint('Arrivée')])
   const [forecasts, setForecasts] = useState<OffshoreLegForecast[]>([])
   const [forecastState, setForecastState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [polar, setPolar] = useState<PolarTable>(DEMO_POLAR)
+  const [isochrones, setIsochrones] = useState<IsochroneResult | null>(null)
 
   const legs = useMemo(() => buildOffshoreLegs(points), [points])
   const totalDistance = useMemo(() => totalOffshoreDistance(legs), [legs])
   const etaHours = useMemo(() => estimateOffshoreEtaHours(totalDistance, Number(averageSpeed)), [totalDistance, averageSpeed])
 
+  function invalidateRouteAnalysis() {
+    setForecastState('idle')
+    setForecasts([])
+    setIsochrones(null)
+  }
+
   function updatePoint(id: string, key: keyof OffshorePoint, value: string) {
     setPoints((current) => current.map((point) => point.id === id ? { ...point, [key]: value } : point))
-    setForecastState('idle'); setForecasts([])
+    invalidateRouteAnalysis()
   }
 
   const updatePointCoordinates = useCallback((id: string, latitude: string, longitude: string) => {
     setPoints((current) => current.map((point) => point.id === id ? { ...point, latitude, longitude } : point))
-    setForecastState('idle'); setForecasts([])
+    setForecastState('idle'); setForecasts([]); setIsochrones(null)
   }, [])
 
   function addWaypoint() {
@@ -58,12 +69,12 @@ export function OffshorePage() {
       next.splice(Math.max(1, next.length - 1), 0, makePoint(`Waypoint ${Math.max(1, next.length - 1)}`))
       return next
     })
-    setForecastState('idle'); setForecasts([])
+    invalidateRouteAnalysis()
   }
 
   function removePoint(id: string) {
     setPoints((current) => current.length <= 2 ? current : current.filter((point) => point.id !== id))
-    setForecastState('idle'); setForecasts([])
+    invalidateRouteAnalysis()
   }
 
   async function analyseRoute() {
@@ -96,13 +107,13 @@ export function OffshorePage() {
       </div>
       <div className="offshore-grid offshore-grid-3">
         <label><span>Nom de la course</span><input value={raceName} onChange={(e) => setRaceName(e.target.value)} placeholder="Ex. Fastnet, Spi Ouest offshore…" /></label>
-        <label><span><CalendarDays size={15} /> Date de départ</span><input type="date" value={departureDate} onChange={(e) => { setDepartureDate(e.target.value); setForecastState('idle'); setForecasts([]) }} /></label>
-        <label><span><Clock3 size={15} /> Heure de départ</span><input type="time" value={departureTime} onChange={(e) => { setDepartureTime(e.target.value); setForecastState('idle'); setForecasts([]) }} /></label>
+        <label><span><CalendarDays size={15} /> Date de départ</span><input type="date" value={departureDate} onChange={(e) => { setDepartureDate(e.target.value); invalidateRouteAnalysis() }} /></label>
+        <label><span><Clock3 size={15} /> Heure de départ</span><input type="time" value={departureTime} onChange={(e) => { setDepartureTime(e.target.value); invalidateRouteAnalysis() }} /></label>
         <label><span>Nom du bateau</span><input value={boatName} onChange={(e) => setBoatName(e.target.value)} placeholder="Nom ou numéro" /></label>
         <label><span>Type de bateau</span><select value={boatType} onChange={(e) => setBoatType(e.target.value)}><option>Monocoque</option><option>Multicoque</option><option>Mini 6.50</option><option>Class40</option><option>IRC / ORC</option><option>Autre</option></select></label>
         <label><span><Gauge size={15} /> Vitesse moyenne de travail</span><div className="offshore-unit"><input type="number" min="0.5" step="0.1" value={averageSpeed} onChange={(e) => { setAverageSpeed(e.target.value); setForecastState('idle'); setForecasts([]) }} /><b>nd</b></div></label>
       </div>
-      <p className="offshore-help">Cette vitesse sert à positionner une heure estimée de passage au milieu de chaque tronçon. Les polaires du bateau peuvent maintenant être importées pour calculer une vitesse cible selon TWA/TWS.</p>
+      <p className="offshore-help">La vitesse moyenne sert au premier échantillonnage des tronçons. Le routage isochrone utilise ensuite la polaire active du bateau.</p>
     </section>
 
     <section className="offshore-card">
@@ -124,8 +135,8 @@ export function OffshorePage() {
           <button type="button" className="offshore-add" onClick={addWaypoint}><Plus size={17} /> Ajouter un waypoint</button>
         </div>
         <div className="offshore-map-wrap">
-          <div className="offshore-map-title"><MapPin size={16} /><strong>Carte de route</strong><span>Déplace les marqueurs pour ajuster les points.</span></div>
-          <OffshoreRouteMap points={points} onPointChange={updatePointCoordinates} />
+          <div className="offshore-map-title"><MapPin size={16} /><strong>Carte de route</strong><span>{isochrones ? 'Route directe en pointillés · routage isochrone en trait plein.' : 'Déplace les marqueurs pour ajuster les points.'}</span></div>
+          <OffshoreRouteMap points={points} onPointChange={updatePointCoordinates} isochrones={isochrones} />
         </div>
       </div>
     </section>
@@ -171,18 +182,20 @@ export function OffshorePage() {
           </article>
         })}
       </div>
-      {forecasts.length > 0 && <p className="offshore-source">Source actuelle : Open-Meteo Forecast + Marine. L’heure de passage est encore calculée avec la vitesse moyenne de travail ; la polaire ci-dessous permet déjà une première correction de performance.</p>}
+      {forecasts.length > 0 && <p className="offshore-source">Source actuelle : Open-Meteo Forecast + Marine. La polaire et le routage permettent maintenant de dépasser l’hypothèse d’une vitesse constante.</p>}
     </section>}
 
-    {legs.length > 0 && <OffshorePolarPanel legs={legs} forecasts={forecasts} />}
+    {legs.length > 0 && <OffshorePolarPanel legs={legs} forecasts={forecasts} polar={polar} onPolarChange={(next) => { setPolar(next); setIsochrones(null) }} />}
+
+    {legs.length > 0 && <OffshoreIsochronePanel start={legs[0].from} target={legs[legs.length - 1].to} departureDate={departureDate} departureTime={departureTime} polar={polar} onResult={setIsochrones} />}
 
     <section className="offshore-roadmap">
       <h2>Étapes suivantes du mode large</h2>
       <div className="offshore-roadmap-grid">
-        <article><Wind /><strong>Isochrones météo</strong><p>Recalculer les conditions à chaque pas de temps et tester plusieurs caps autour de la route directe.</p></article>
+        <article><Wind /><strong>Routage multi-modèles</strong><p>Comparer le même isochrone avec plusieurs modèles météo et mesurer la robustesse de la route.</p></article>
         <article><Anchor /><strong>Courants fins</strong><p>Appliquer SHOM sur les zones couvertes et les effets bathymétriques le long de chaque option de route.</p></article>
         <article><Waves /><strong>Mer et houle</strong><p>Appliquer une pénalité de performance lorsque la mer de face ou de travers ralentit le bateau.</p></article>
-        <article><Compass /><strong>Comparaison des routes</strong><p>Comparer ETA, distance, changements de bord, risque météo et robustesse des scénarios.</p></article>
+        <article><Compass /><strong>Contraintes de navigation</strong><p>Écarter automatiquement la terre, les zones interdites, TSS et autres contraintes de route.</p></article>
       </div>
     </section>
   </main>
