@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Anchor, ArrowRight, CalendarDays, Clock3, Compass, Gauge, LoaderCircle, MapPin, Plus, Route, Sailboat, Trash2, Waves, Wind } from 'lucide-react'
+import { Anchor, ArrowRight, CalendarDays, ChevronDown, ChevronUp, Clock3, Compass, Gauge, GripVertical, LoaderCircle, MapPin, Plus, Route, Sailboat, Trash2, Waves, Wind } from 'lucide-react'
 import { OffshoreRouteMap } from '../components/OffshoreRouteMap'
 import { OffshorePolarPanel } from '../components/OffshorePolarPanel'
 import { OffshoreIsochronePanel } from '../components/OffshoreIsochronePanel'
@@ -11,6 +11,7 @@ import type { OffshorePlaceResult } from '../offshoreGeocoding'
 import { DEMO_POLAR, type PolarTable } from '../offshorePolar'
 import type { IsochroneResult } from '../offshoreIsochrone'
 import './offshore.css'
+import './offshoreWaypointReorder.css'
 
 function makePoint(name = ''): OffshorePoint {
   return { id: crypto.randomUUID(), name, latitude: '', longitude: '' }
@@ -45,6 +46,7 @@ export function OffshorePage() {
   const [forecastState, setForecastState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [polar, setPolar] = useState<PolarTable>(DEMO_POLAR)
   const [isochrones, setIsochrones] = useState<IsochroneResult | null>(null)
+  const [draggedWaypointId, setDraggedWaypointId] = useState<string | null>(null)
 
   const legs = useMemo(() => buildOffshoreLegs(points), [points])
   const totalDistance = useMemo(() => totalOffshoreDistance(legs), [legs])
@@ -91,6 +93,34 @@ export function OffshorePage() {
 
   function removePoint(id: string) {
     setPoints((current) => current.length <= 2 ? current : current.filter((point) => point.id !== id))
+    invalidateRouteAnalysis()
+  }
+
+  function moveWaypoint(id: string, direction: -1 | 1) {
+    setPoints((current) => {
+      const index = current.findIndex((point) => point.id === id)
+      if (index <= 0 || index >= current.length - 1) return current
+      const target = index + direction
+      if (target <= 0 || target >= current.length - 1) return current
+      const next = [...current]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+    invalidateRouteAnalysis()
+  }
+
+  function dropWaypoint(targetId: string) {
+    if (!draggedWaypointId || draggedWaypointId === targetId) return
+    setPoints((current) => {
+      const from = current.findIndex((point) => point.id === draggedWaypointId)
+      const to = current.findIndex((point) => point.id === targetId)
+      if (from <= 0 || to <= 0 || from >= current.length - 1 || to >= current.length - 1) return current
+      const next = [...current]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
+    setDraggedWaypointId(null)
     invalidateRouteAnalysis()
   }
 
@@ -161,14 +191,31 @@ export function OffshorePage() {
       <div className="offshore-route-layout">
         <div>
           <div className="offshore-points">
-            {points.map((point, index) => <article className="offshore-point" key={point.id}>
-              <div className="offshore-point-index">{index === 0 ? 'D' : index === points.length - 1 ? 'A' : index}</div>
-              <label><span>Nom</span><input value={point.name} onChange={(e) => updatePoint(point.id, 'name', e.target.value)} /></label>
-              <label><span>Latitude</span><input inputMode="decimal" placeholder="48.390" value={point.latitude} onChange={(e) => updatePoint(point.id, 'latitude', e.target.value)} /></label>
-              <label><span>Longitude</span><input inputMode="decimal" placeholder="-4.486" value={point.longitude} onChange={(e) => updatePoint(point.id, 'longitude', e.target.value)} /></label>
-              {index > 0 && index < points.length - 1 && <button type="button" className="offshore-icon-button" onClick={() => removePoint(point.id)} aria-label={`Supprimer ${point.name}`}><Trash2 size={17} /></button>}
-            </article>)}
+            {points.map((point, index) => {
+              const isWaypoint = index > 0 && index < points.length - 1
+              return <article
+                className={`offshore-point${draggedWaypointId === point.id ? ' is-dragging' : ''}`}
+                key={point.id}
+                draggable={isWaypoint}
+                onDragStart={() => { if (isWaypoint) setDraggedWaypointId(point.id) }}
+                onDragEnd={() => setDraggedWaypointId(null)}
+                onDragOver={(e) => { if (isWaypoint && draggedWaypointId) e.preventDefault() }}
+                onDrop={() => { if (isWaypoint) dropWaypoint(point.id) }}
+              >
+                <div className="offshore-point-index">{index === 0 ? 'D' : index === points.length - 1 ? 'A' : index}</div>
+                <label><span>Nom</span><input value={point.name} onChange={(e) => updatePoint(point.id, 'name', e.target.value)} /></label>
+                <label><span>Latitude</span><input inputMode="decimal" placeholder="48.390" value={point.latitude} onChange={(e) => updatePoint(point.id, 'latitude', e.target.value)} /></label>
+                <label><span>Longitude</span><input inputMode="decimal" placeholder="-4.486" value={point.longitude} onChange={(e) => updatePoint(point.id, 'longitude', e.target.value)} /></label>
+                {isWaypoint && <div className="offshore-waypoint-actions">
+                  <button type="button" className="offshore-drag-handle" aria-label={`Déplacer ${point.name} par glisser-déposer`} title="Glisser pour réordonner"><GripVertical size={17} /></button>
+                  <button type="button" className="offshore-icon-button" onClick={() => moveWaypoint(point.id, -1)} disabled={index === 1} aria-label={`Monter ${point.name}`}><ChevronUp size={17} /></button>
+                  <button type="button" className="offshore-icon-button" onClick={() => moveWaypoint(point.id, 1)} disabled={index === points.length - 2} aria-label={`Descendre ${point.name}`}><ChevronDown size={17} /></button>
+                  <button type="button" className="offshore-icon-button" onClick={() => removePoint(point.id)} aria-label={`Supprimer ${point.name}`}><Trash2 size={17} /></button>
+                </div>}
+              </article>
+            })}
           </div>
+          {points.length > 3 && <p className="offshore-reorder-help">Glisse les waypoints pour changer l’ordre de passage. Sur téléphone, utilise les flèches ↑ ↓.</p>}
           <button type="button" className="offshore-add" onClick={addWaypoint}><Plus size={17} /> Ajouter un waypoint manuel</button>
         </div>
         <div className="offshore-map-wrap">
