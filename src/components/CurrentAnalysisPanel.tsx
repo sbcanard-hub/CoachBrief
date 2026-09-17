@@ -5,10 +5,12 @@ import { analyseTidalCurrent, fetchBathymetryCurrentContext } from '../currentAn
 import type { BathymetryCurrentContext, TidalCurrentAnalysis } from '../currentAnalysis'
 import { fetchCurrentSeries } from '../currentMarine'
 import { shomCurrentAvailability } from '../shomCurrent'
+import { fetchShomCurrentSeries } from '../shomCurrentGrid'
 import './currentAnalysisPanel.css'
 
 type Props = { request: BriefingRequest | null }
 type State = 'idle' | 'loading' | 'ready'
+type CurrentSource = 'shom' | 'open-meteo' | 'none'
 
 function clock(value: string | null) {
   if (!value) return '—'
@@ -21,6 +23,10 @@ export function CurrentAnalysisPanel({ request }: Props) {
   const [state, setState] = useState<State>('idle')
   const [analysis, setAnalysis] = useState<TidalCurrentAnalysis | null>(null)
   const [bathymetry, setBathymetry] = useState<BathymetryCurrentContext | null>(null)
+  const [coefficient, setCoefficient] = useState('70')
+  const [referenceHighWaterTime, setReferenceHighWaterTime] = useState('')
+  const [currentSource, setCurrentSource] = useState<CurrentSource>('none')
+  const [sourceNote, setSourceNote] = useState('')
   const latitude = Number(request?.latitude)
   const longitude = Number(request?.longitude)
   const courseAxis = Number(request?.courseAxis)
@@ -30,24 +36,38 @@ export function CurrentAnalysisPanel({ request }: Props) {
 
   useEffect(() => {
     let active = true
-    if (!valid || !request) { setState('idle'); setAnalysis(null); setBathymetry(null); return }
+    if (!valid || !request) { setState('idle'); setAnalysis(null); setBathymetry(null); setCurrentSource('none'); return }
     setState('loading')
-    void fetchCurrentSeries(latitude, longitude, request.date)
-      .then(async (hours) => {
-        const current = analyseTidalCurrent(hours, raceTime, Number.isFinite(courseAxis) ? courseAxis : 0, latitude, longitude)
-        const bottom = await fetchBathymetryCurrentContext(latitude, longitude, current.raceDirection)
-        return { current, bottom }
-      })
-      .then(({ current, bottom }) => {
+
+    void (async () => {
+      const coefficientValue = Number(coefficient)
+      const canUseShom = Boolean(shom?.atlas && referenceHighWaterTime && Number.isFinite(coefficientValue))
+      const shomResult = canUseShom
+        ? await fetchShomCurrentSeries(latitude, longitude, coefficientValue, referenceHighWaterTime)
+        : null
+      const hours = shomResult?.hours.length
+        ? shomResult.hours
+        : await fetchCurrentSeries(latitude, longitude, request.date)
+      const source: CurrentSource = shomResult?.hours.length ? 'shom' : hours.length ? 'open-meteo' : 'none'
+      const note = shomResult?.hours.length
+        ? shomResult.note
+        : shomResult?.note || (shom?.atlas
+          ? 'Atlas SHOM détecté, mais jeu de données local ou paramètres de marée incomplets : repli Open-Meteo Marine.'
+          : 'Courant fourni par Open-Meteo Marine.')
+      const current = analyseTidalCurrent(hours, raceTime, Number.isFinite(courseAxis) ? courseAxis : 0, latitude, longitude)
+      const bottom = await fetchBathymetryCurrentContext(latitude, longitude, current.raceDirection)
+      return { current, bottom, source, note }
+    })()
+      .then(({ current, bottom, source, note }) => {
         if (!active) return
-        setAnalysis(current); setBathymetry(bottom); setState('ready')
+        setAnalysis(current); setBathymetry(bottom); setCurrentSource(source); setSourceNote(note); setState('ready')
       })
       .catch(() => {
         if (!active) return
-        setAnalysis(null); setBathymetry(null); setState('ready')
+        setAnalysis(null); setBathymetry(null); setCurrentSource('none'); setSourceNote('Analyse du courant indisponible.'); setState('ready')
       })
     return () => { active = false }
-  }, [valid, request?.date, raceTime, courseAxis, latitude, longitude])
+  }, [valid, request?.date, raceTime, courseAxis, latitude, longitude, coefficient, referenceHighWaterTime, shom?.atlas?.id])
 
   const importance = useMemo(() => {
     if (!analysis) return 'indéterminée'
@@ -62,11 +82,22 @@ export function CurrentAnalysisPanel({ request }: Props) {
       {analysis && <strong className={`current-importance importance-${importance}`}>Importance {importance}</strong>}
     </div>
 
+    {shom?.atlas && <div className="shom-current-controls">
+      <div>
+        <strong>Données SHOM fines</strong>
+        <p>Renseignez le coefficient du jour et l’heure de pleine mer du port de référence ({shom.atlas.referencePort}). Si les tuiles NetCDF de l’atlas sont présentes dans CoachBrief, elles deviennent prioritaires sur Open-Meteo.</p>
+      </div>
+      <label>Coefficient<input inputMode="numeric" min="20" max="120" value={coefficient} onChange={(event) => setCoefficient(event.target.value)} /></label>
+      <label>PM {shom.atlas.referencePort}<input type="time" value={referenceHighWaterTime} onChange={(event) => setReferenceHighWaterTime(event.target.value)} /></label>
+    </div>}
+
     {state === 'loading' && <div className="current-analysis-loading"><LoaderCircle size={18} className="current-spin" /> Analyse de la phase du courant et des lignes de fond…</div>}
     {state === 'idle' && <p className="current-analysis-empty">Position précise et date nécessaires pour analyser le courant.</p>}
     {state === 'ready' && !analysis && <p className="current-analysis-empty">Courant horaire indisponible pour ce point.</p>}
 
     {analysis && <>
+      <div className="current-source-badge"><strong>{currentSource === 'shom' ? 'Source active : SHOM' : currentSource === 'open-meteo' ? 'Source active : Open-Meteo Marine' : 'Source courant indisponible'}</strong><span>{sourceNote}</span></div>
+
       <div className="current-analysis-metrics">
         <article><Waves size={18} /><div><small>À l’heure de la manche</small><strong>{fmt(analysis.raceSpeed)} nd · {compass(analysis.raceDirection)}</strong><span>{analysis.phase}</span></div></article>
         <article><Activity size={18} /><div><small>Évolution</small><strong>{analysis.trendText}</strong><span>{analysis.maxTime ? `Maximum ≈ ${fmt(analysis.maxSpeed)} nd vers ${clock(analysis.maxTime)}` : 'Maximum non déterminé'}</span></div></article>
@@ -96,14 +127,14 @@ export function CurrentAnalysisPanel({ request }: Props) {
           <span>Maille <strong>{shom.atlas.spatialResolution}</strong></span>
           <span>Pas temporel <strong>{shom.atlas.temporalResolution}</strong></span>
         </div>
-        <p>{shom.note} La phase de l’atlas est exprimée autour de {shom.atlas.phaseWindow}. Pour exploiter automatiquement le coefficient réel et l’heure de pleine mer, le service officiel de prédiction SHOM nécessite une clé d’abonnement ; CoachBrief ne masque pas cette limite et conserve Open-Meteo Marine comme source opérationnelle de repli.</p>
+        <p>{shom.note} Les vecteurs u/v sont interpolés entre les états de référence coefficient 45 et 95 lorsqu’un jeu NetCDF préparé est disponible. La phase est recalée sur l’heure de pleine mer saisie ci-dessus.</p>
         <a href={shom.atlas.productUrl} target="_blank" rel="noreferrer">Ouvrir la fiche de l’atlas SHOM</a>
       </div>}
 
       <div className="current-source-note">
-        <p><strong>Sources opérationnelles :</strong> courant horaire Open-Meteo Marine ; bathymétrie EMODnet DTM.</p>
-        {analysis.shomAtlasRelevant && <p><strong>Zone SHOM détectée :</strong> {analysis.shomRegionLabel}. Les atlas SHOM servent de référence locale lorsque leurs champs numériques sont disponibles dans CoachBrief.</p>}
-        <p>Les effets du fond sont présentés comme une lecture tactique indicative : profondeur, frottement, chenaux, pointes et resserrements peuvent modifier localement la vitesse et la direction du courant, mais ils ne remplacent pas une mesure sur l’eau.</p>
+        <p><strong>Sources :</strong> SHOM NetCDF 2D lorsqu’un atlas préparé est disponible ; sinon Open-Meteo Marine. Bathymétrie : EMODnet DTM.</p>
+        <p>Le calcul SHOM convertit les composantes u/v en vitesse et direction, interpole le coefficient entre morte-eau 45 et vive-eau 95 et utilise la phase -6 h / +6 h autour de la pleine mer de référence.</p>
+        <p>Les effets du fond restent une lecture tactique indicative : profondeur, frottement, chenaux, pointes et resserrements peuvent modifier localement la vitesse et la direction du courant, à confirmer sur l’eau.</p>
       </div>
     </>}
   </section>
