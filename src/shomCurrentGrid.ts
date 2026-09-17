@@ -22,6 +22,10 @@ const METRES_PER_SECOND_TO_KNOTS = 1.9438444924
 function clamp(value: number, min: number, max: number) { return Math.min(max, Math.max(min, value)) }
 function radians(value: number) { return value * Math.PI / 180 }
 function normalize(value: number) { return ((value % 360) + 360) % 360 }
+function publicAsset(path: string) {
+  const base = import.meta.env.BASE_URL || '/'
+  return `${base}${path.replace(/^\//, '')}`
+}
 
 function tileKey(latitude: number, longitude: number, tileSize: number) {
   const latFloor = Math.floor(latitude / tileSize) * tileSize
@@ -87,10 +91,10 @@ export async function fetchShomCurrentSeries(
     return { hours: [], source: 'none', atlasId: atlas.id, atlasLabel: atlas.label, coefficient: null, referenceHighWaterTime: null, nearestPointKm: null, note: 'Coefficient et heure de pleine mer de référence requis pour exploiter l’atlas SHOM.' }
   }
 
-  const manifest = await fetchJson<ShomManifest>(`./shom-current/${atlas.id}/manifest.json`)
+  const manifest = await fetchJson<ShomManifest>(publicAsset(`shom-current/${atlas.id}/manifest.json`))
   const tileSize = manifest?.tileSize ?? 0.25
   const key = tileKey(latitude, longitude, tileSize)
-  const tile = await fetchJson<ShomTile>(`./shom-current/${atlas.id}/tiles/${key}.json`)
+  const tile = await fetchJson<ShomTile>(publicAsset(`shom-current/${atlas.id}/tiles/${key}.json`))
   const points = tile?.points ?? []
   if (!points.length) return { hours: [], source: 'none', atlasId: atlas.id, atlasLabel: atlas.label, coefficient, referenceHighWaterTime, nearestPointKm: null, note: 'Atlas identifié, mais aucune tuile SHOM préparée n’est disponible pour ce point.' }
 
