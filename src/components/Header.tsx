@@ -19,10 +19,10 @@ import './readability.css'
 import '../print.css'
 
 const headerCopy = {
-  fr: { home: "Retour à l'accueil CoachBrief", open: 'Ouvrir le menu Plus', close: 'Fermer le menu Plus', training: 'Entraînements', sailors: 'Carnet des coureurs', edit: 'Modifier le briefing', print: 'Imprimer / PDF', printTitle: 'Imprimer la fiche ou l’enregistrer en PDF', saving: 'Enregistrement…', saved: 'Mis à jour', retry: 'Réessayer', save: 'Enregistrer' },
-  en: { home: 'Back to CoachBrief home', open: 'Open More menu', close: 'Close More menu', training: 'Training', sailors: 'Sailor journal', edit: 'Edit briefing', print: 'Print / PDF', printTitle: 'Print the sheet or save it as a PDF', saving: 'Saving…', saved: 'Updated', retry: 'Try again', save: 'Save' },
-  it: { home: 'Torna alla home di CoachBrief', open: 'Apri il menu Altro', close: 'Chiudi il menu Altro', training: 'Allenamenti', sailors: 'Diario dei velisti', edit: 'Modifica briefing', print: 'Stampa / PDF', printTitle: 'Stampa la scheda o salvala in PDF', saving: 'Salvataggio…', saved: 'Aggiornato', retry: 'Riprova', save: 'Salva' },
-  es: { home: 'Volver al inicio de CoachBrief', open: 'Abrir el menú Más', close: 'Cerrar el menú Más', training: 'Entrenamientos', sailors: 'Cuaderno de regatistas', edit: 'Editar briefing', print: 'Imprimir / PDF', printTitle: 'Imprimir la ficha o guardarla como PDF', saving: 'Guardando…', saved: 'Actualizado', retry: 'Reintentar', save: 'Guardar' },
+  fr: { home: "Retour à l'accueil CoachBrief", open: 'Ouvrir le menu Plus', close: 'Fermer le menu Plus', training: 'Entraînements', sailors: 'Carnet des coureurs', offshore: 'Course au large', edit: 'Modifier le briefing', print: 'Imprimer / PDF', printTitle: 'Imprimer la fiche ou l’enregistrer en PDF', saving: 'Enregistrement…', saved: 'Mis à jour', retry: 'Réessayer', save: 'Enregistrer' },
+  en: { home: 'Back to CoachBrief home', open: 'Open More menu', close: 'Close More menu', training: 'Training', sailors: 'Sailor journal', offshore: 'Offshore racing', edit: 'Edit briefing', print: 'Print / PDF', printTitle: 'Print the sheet or save it as a PDF', saving: 'Saving…', saved: 'Updated', retry: 'Try again', save: 'Save' },
+  it: { home: 'Torna alla home di CoachBrief', open: 'Apri il menu Altro', close: 'Chiudi il menu Altro', training: 'Allenamenti', sailors: 'Diario dei velisti', offshore: 'Regata d’altura', edit: 'Modifica briefing', print: 'Stampa / PDF', printTitle: 'Stampa la scheda o salvala in PDF', saving: 'Salvataggio…', saved: 'Aggiornato', retry: 'Riprova', save: 'Salva' },
+  es: { home: 'Volver al inicio de CoachBrief', open: 'Abrir el menú Más', close: 'Cerrar el menú Más', training: 'Entrenamientos', sailors: 'Cuaderno de regatistas', offshore: 'Regata de altura', edit: 'Editar briefing', print: 'Imprimir / PDF', printTitle: 'Imprimir la ficha o guardarla en PDF', saving: 'Guardando…', saved: 'Actualizado', retry: 'Reintentar', save: 'Guardar' },
 } as const
 
 export function Header() {
@@ -132,9 +132,10 @@ export function Header() {
         {request && !startMode && <Link className="start-mode-button" to={{ pathname: '/resultats', search: '?mode=depart' }} state={request}>
           <Flag size={15} /> <span>{t('startMode')}</span>
         </Link>}
-        {!request && <span className="header-label">{t('weather')}</span>}
+        {!request && <span className="header-label">{location.pathname === '/large' ? c.offshore : t('weather')}</span>}
       </nav>
       <div id="secondary-navigation" className={`header-secondary${menuOpen ? ' is-open' : ''}`}>
+        <Link to="/large" onClick={() => setMenuOpen(false)}><Sailboat size={15} /> <span>{c.offshore}</span></Link>
         <Link to="/briefings" onClick={() => setMenuOpen(false)}><FolderOpen size={15} /> <span>{t('briefings')}</span></Link>
         <Link to="/entrainements" onClick={() => setMenuOpen(false)}><Activity size={15} /> <span>{c.training}</span></Link>
         <Link to="/coureurs" onClick={() => setMenuOpen(false)}><BookUser size={15} /> <span>{c.sailors}</span></Link>

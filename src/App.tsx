@@ -12,6 +12,7 @@ import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
 import { DebriefPage } from './pages/DebriefPage'
 import { TrainingPage } from './pages/TrainingPage'
 import { SailorJournalPage } from './pages/SailorJournalPage'
+import { OffshorePage } from './pages/OffshorePage'
 import { LegalPage } from './pages/LegalPage'
 import { AboutPage } from './pages/AboutPage'
 import { legalFooterCopy } from './pages/legalFooter'
@@ -82,6 +83,7 @@ export default function App() {
       <Header />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/large" element={<OffshorePage />} />
         <Route path="/resultats" element={<ResultsRoute />} />
         <Route path="/briefings" element={<SavedBriefingsPage />} />
         <Route path="/briefings/:id/debrief" element={<DebriefPage />} />
