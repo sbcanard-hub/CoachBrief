@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Anchor, Clock3, Compass, LoaderCircle, Route } from 'lucide-react'
+import { Anchor, Clock3, Compass, Download, LoaderCircle, MapPin, Route } from 'lucide-react'
 import type { OffshorePoint } from '../offshore'
 import { computeIsochrones, type IsochroneResult } from '../offshoreIsochrone'
 import type { PolarTable } from '../offshorePolar'
 import { parseHighWaterLines, SHOM_REFERENCE_PORTS, type ShomHighWaterSchedules } from '../shomHighWater'
 import './offshoreIsochrone.css'
+import './offshoreNavigationWaypoints.css'
 
 type Props = {
   start: OffshorePoint
@@ -13,6 +14,17 @@ type Props = {
   departureTime: string
   polar: PolarTable
   onResult: (result: IsochroneResult | null) => void
+}
+
+type NavigationWaypoint = {
+  name: string
+  latitude: number
+  longitude: number
+  time: string
+  heading: number
+  legDistanceNm: number
+  cumulativeDistanceNm: number
+  reason: 'cap' | 'distance' | 'arrival'
 }
 
 function fmtTime(value: string | null) {
@@ -32,6 +44,62 @@ function fmtBearing(value: number | null | undefined) {
 function trueWindAngle(heading: number, windFrom: number | null) {
   if (windFrom == null || !Number.isFinite(windFrom)) return null
   return Math.abs((((heading - windFrom) % 360) + 540) % 360 - 180)
+}
+
+function angleDiff(a: number, b: number) {
+  return Math.abs((((a - b) % 360) + 540) % 360 - 180)
+}
+
+function distanceNm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) {
+  const radiusNm = 3440.065
+  const rad = (value: number) => value * Math.PI / 180
+  const lat1 = rad(a.latitude)
+  const lat2 = rad(b.latitude)
+  const dLat = lat2 - lat1
+  const dLon = rad(b.longitude - a.longitude)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+  return 2 * radiusNm * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+function navigationWaypoints(result: IsochroneResult | null) {
+  if (!result || result.bestRoute.length < 2) return [] as NavigationWaypoint[]
+  const route = result.bestRoute
+  const waypoints: NavigationWaypoint[] = []
+  let distanceSinceWaypoint = 0
+  let cumulativeDistance = 0
+  let waypointNumber = 1
+
+  for (let index = 1; index < route.length; index += 1) {
+    const previous = route[index - 1]
+    const current = route[index]
+    const segmentDistance = distanceNm(previous, current)
+    distanceSinceWaypoint += segmentDistance
+    cumulativeDistance += segmentDistance
+
+    const isArrival = index === route.length - 1
+    const headingChange = index > 1 ? angleDiff(current.heading, previous.heading) : 0
+    const significantTurn = headingChange >= 12
+    const spacingReached = distanceSinceWaypoint >= 10
+    if (!isArrival && !significantTurn && !spacingReached) continue
+
+    waypoints.push({
+      name: isArrival ? 'A' : `WP${waypointNumber++}`,
+      latitude: current.latitude,
+      longitude: current.longitude,
+      time: current.time,
+      heading: current.heading,
+      legDistanceNm: distanceSinceWaypoint,
+      cumulativeDistanceNm: cumulativeDistance,
+      reason: isArrival ? 'arrival' : significantTurn ? 'cap' : 'distance',
+    })
+    distanceSinceWaypoint = 0
+  }
+
+  return waypoints
+}
+
+function xmlEscape(value: string) {
+  return value.replace(/[<>&'\"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '\"': '&quot;' })[character] ?? character)
 }
 
 export function OffshoreIsochronePanel({ start, target, departureDate, departureTime, polar, onResult }: Props) {
@@ -78,6 +146,26 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
       maxTwa: twas.length ? Math.max(...twas) : null,
     }
   }, [result])
+
+  const navWaypoints = useMemo(() => navigationWaypoints(result), [result])
+
+  function exportGpx() {
+    if (!result || !navWaypoints.length) return
+    const startNode = result.bestRoute[0]
+    const routePoints = [
+      { name: 'D', latitude: startNode.latitude, longitude: startNode.longitude },
+      ...navWaypoints.map((waypoint) => ({ name: waypoint.name, latitude: waypoint.latitude, longitude: waypoint.longitude })),
+    ]
+    const pointsXml = routePoints.map((point) => `    <rtept lat="${point.latitude.toFixed(6)}" lon="${point.longitude.toFixed(6)}"><name>${xmlEscape(point.name)}</name></rtept>`).join('\n')
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="CoachBrief" xmlns="http://www.topografix.com/GPX/1/1">\n  <rte>\n    <name>CoachBrief route météo</name>\n${pointsXml}\n  </rte>\n</gpx>`
+    const blob = new Blob([gpx], { type: 'application/gpx+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `coachbrief-route-${departureDate || 'offshore'}.gpx`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
 
   async function run() {
     const departure = new Date(`${departureDate}T${departureTime}:00`)
@@ -163,6 +251,24 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
       <span>Atlas SHOM utilisés <strong>{result.shomAtlasLabels.length ? result.shomAtlasLabels.join(' · ') : 'aucun'}</strong></span>
       <p>{result.note}</p>
       <p>{result.constraintsNote}</p>
+    </div>}
+
+    {navWaypoints.length > 0 && <div className="offshore-navigation-waypoints">
+      <div className="offshore-navigation-waypoints-heading">
+        <div><MapPin size={18} /><div><strong>Waypoints de navigation</strong><small>Points pratiques à viser pour suivre la route météo retenue. Un WP est créé à chaque changement de cap important ou au plus tard tous les 10 nm.</small></div></div>
+        <button type="button" className="offshore-add offshore-gpx-button" onClick={exportGpx}><Download size={16} /> Exporter GPX</button>
+      </div>
+      <div className="offshore-navigation-waypoints-grid">
+        {navWaypoints.map((waypoint) => <article key={`${waypoint.name}-${waypoint.time}`}>
+          <div className="offshore-navigation-waypoint-name"><b>{waypoint.name}</b><small>{waypoint.reason === 'arrival' ? 'Arrivée' : waypoint.reason === 'cap' ? 'Changement de cap' : 'Point intermédiaire'}</small></div>
+          <span>Position <b>{waypoint.latitude.toFixed(5)} · {waypoint.longitude.toFixed(5)}</b></span>
+          <span>Cap à suivre <b>{fmtBearing(waypoint.heading)}</b></span>
+          <span>Distance depuis le point précédent <b>{fmtNumber(waypoint.legDistanceNm)} nm</b></span>
+          <span>Distance cumulée <b>{fmtNumber(waypoint.cumulativeDistanceNm)} nm</b></span>
+          <span>Passage prévu <b>{fmtTime(waypoint.time)}</b></span>
+        </article>)}
+      </div>
+      <p className="offshore-source">Ces waypoints sont liés à ce calcul météo. Relance le routage si l’heure de départ, la météo, la polaire ou les conditions de courant changent.</p>
     </div>}
 
     {routeDiagnostics.length > 0 && <div className="offshore-route-diagnostics">
