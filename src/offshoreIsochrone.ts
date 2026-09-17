@@ -58,6 +58,10 @@ type ExpansionResult = {
 
 const EARTH_RADIUS_NM = 3440.065
 const NODE_CONCURRENCY = 6
+const DETOUR_HEADING_SPREAD = 150
+const DETOUR_MAX_NODES = 36
+const PRUNE_SECTOR_DEGREES = 15
+const PRUNE_NODES_PER_SECTOR = 2
 
 function rad(v: number) { return v * Math.PI / 180 }
 function deg(v: number) { return v * 180 / Math.PI }
@@ -91,14 +95,18 @@ function routeScore(node: IsochroneNode, target: OffshorePoint) {
 }
 
 function prune(nodes: IsochroneNode[], target: OffshorePoint, maxNodes: number) {
-  const sectors = new Map<number, IsochroneNode>()
+  const sectors = new Map<number, IsochroneNode[]>()
   for (const node of nodes) {
     const geometry = distanceAndBearing(asPoint(node), target)
-    const sector = Math.round(geometry.bearing / 15) * 15
-    const current = sectors.get(sector)
-    if (!current || routeScore(current, target) > routeScore(node, target)) sectors.set(sector, node)
+    const sector = Math.round(geometry.bearing / PRUNE_SECTOR_DEGREES) * PRUNE_SECTOR_DEGREES
+    const bucket = sectors.get(sector) ?? []
+    bucket.push(node)
+    bucket.sort((a, b) => routeScore(a, target) - routeScore(b, target))
+    if (bucket.length > PRUNE_NODES_PER_SECTOR) bucket.length = PRUNE_NODES_PER_SECTOR
+    sectors.set(sector, bucket)
   }
   return [...sectors.values()]
+    .flat()
     .sort((a, b) => routeScore(a, target) - routeScore(b, target))
     .slice(0, maxNodes)
 }
@@ -167,6 +175,14 @@ export async function computeIsochrones(args: {
   const headingSpread = args.headingSpread ?? 60
   const headingStep = args.headingStep ?? 15
   const constraints = await fetchOffshoreConstraintProfile(start, target)
+  const directConstraint = evaluateOffshoreSegment(
+    constraints,
+    { lat: Number(start.latitude), lon: Number(start.longitude) },
+    { lat: Number(target.latitude), lon: Number(target.longitude) },
+  )
+  const detourMode = directConstraint.crossesLand
+  const effectiveHeadingSpread = detourMode ? Math.max(headingSpread, DETOUR_HEADING_SPREAD) : headingSpread
+  const effectiveMaxNodes = detourMode ? Math.max(maxNodes, DETOUR_MAX_NODES) : maxNodes
   const useShom = args.tidalCoefficient != null
     && Number.isFinite(args.tidalCoefficient)
     && args.referenceHighWater != null
@@ -233,7 +249,7 @@ export async function computeIsochrones(args: {
       const direct = distanceAndBearing(asPoint(node), target).bearing
       if (env.windDirection == null || env.windSpeed == null) return local
 
-      const headings = candidateHeadings(direct, env.windDirection, polar, headingSpread, headingStep)
+      const headings = candidateHeadings(direct, env.windDirection, polar, effectiveHeadingSpread, headingStep)
       for (const heading of headings) {
         const twa = trueWindAngle(heading, env.windDirection)
         const rawPolarSpeed = polarSpeed(polar, twa, env.windSpeed)
@@ -302,7 +318,9 @@ export async function computeIsochrones(args: {
         bestRoute: routeFrom(reachedNode),
         reached: true,
         eta: reachedNode.time,
-        note: 'Arrivée atteinte par le calcul isochrone avec contrôle côte, mer et courant local disponible.',
+        note: detourMode
+          ? 'Arrivée atteinte par le calcul isochrone après recherche élargie d’un contournement maritime.'
+          : 'Arrivée atteinte par le calcul isochrone avec contrôle côte, mer et courant local disponible.',
         blockedLandCandidates,
         tssCrossingCandidates,
         constraintsAvailable: constraints.available,
@@ -316,7 +334,7 @@ export async function computeIsochrones(args: {
     }
 
     if (!candidates.length) break
-    frontier = prune(candidates, target, maxNodes)
+    frontier = prune(candidates, target, effectiveMaxNodes)
     steps.push({ time: frontier[0]?.time ?? time.toISOString(), nodes: frontier })
   }
 
@@ -329,8 +347,10 @@ export async function computeIsochrones(args: {
     reached: false,
     eta: null,
     note: progressed
-      ? 'Horizon atteint avant l’arrivée : meilleure route conservée avec contraintes et courant disponibles.'
-      : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure, place le point de départ sur l’eau et contrôle la disponibilité de la météo au point D.',
+      ? detourMode
+        ? 'Horizon atteint avant l’arrivée : un contournement maritime a été exploré mais n’a pas encore rejoint A.'
+        : 'Horizon atteint avant l’arrivée : meilleure route conservée avec contraintes et courant disponibles.'
+      : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure et la disponibilité de la météo au point D.',
     blockedLandCandidates,
     tssCrossingCandidates,
     constraintsAvailable: constraints.available,
