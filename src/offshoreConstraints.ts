@@ -25,6 +25,9 @@ const ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
 ]
 
+const EARTH_KM_PER_DEGREE = 111.32
+const LAND_SAMPLE_SPACING_KM = 3
+
 function num(value: string) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
@@ -119,7 +122,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         available: true,
         coastLines,
         tssLines: lines.filter((line) => line.kind === 'tss'),
-        note: 'Côtes et dispositifs de séparation du trafic issus d’OpenStreetMap. À confirmer avec la cartographie nautique officielle.',
+        note: 'Côtes et dispositifs de séparation du trafic issus d’OpenStreetMap. Chaque segment est aussi contrôlé par échantillonnage terre/mer.',
       }
     }
   } catch {
@@ -135,7 +138,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         available: true,
         coastLines,
         tssLines: [],
-        note: 'Côtes OpenStreetMap chargées en mode de secours. Le routage terre est bloqué ; les TSS n’ont pas pu être chargés pour ce calcul.',
+        note: 'Côtes OpenStreetMap chargées en mode de secours. Contrôle terre/mer renforcé actif ; les TSS n’ont pas pu être chargés pour ce calcul.',
       }
     }
   } catch {
@@ -179,12 +182,72 @@ function crosses(lines: ConstraintLine[], from: GeoPoint, to: GeoPoint) {
   return false
 }
 
+function planarKm(a: GeoPoint, b: GeoPoint) {
+  const referenceLat = (a.lat + b.lat) / 2
+  const cos = Math.max(.15, Math.cos(referenceLat * Math.PI / 180))
+  const dx = (b.lon - a.lon) * EARTH_KM_PER_DEGREE * cos
+  const dy = (b.lat - a.lat) * EARTH_KM_PER_DEGREE
+  return Math.hypot(dx, dy)
+}
+
+function pointSegmentDistanceSquared(point: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  if (Math.abs(dx) + Math.abs(dy) < 1e-12) return (point.x - a.x) ** 2 + (point.y - a.y) ** 2
+  const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy)))
+  const x = a.x + t * dx
+  const y = a.y + t * dy
+  return (point.x - x) ** 2 + (point.y - y) ** 2
+}
+
+// Dans OSM, une coastline est orientée avec la terre à gauche et la mer à droite.
+// On utilise le segment côtier le plus proche pour classer les points intermédiaires.
+function likelyOnLand(coastLines: ConstraintLine[], point: GeoPoint) {
+  let bestDistance = Number.POSITIVE_INFINITY
+  let bestSide = 0
+  for (const line of coastLines) {
+    for (let i = 1; i < line.points.length; i += 1) {
+      const a = line.points[i - 1]
+      const b = line.points[i]
+      const ref = (a.lat + b.lat + point.lat) / 3
+      const pa = project(a, ref)
+      const pb = project(b, ref)
+      const pp = project(point, ref)
+      const distance = pointSegmentDistanceSquared(pp, pa, pb)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        bestSide = orientation(pa, pb, pp)
+      }
+    }
+  }
+  return Number.isFinite(bestDistance) && bestSide > 0
+}
+
+function samplesAlong(from: GeoPoint, to: GeoPoint) {
+  const distanceKm = planarKm(from, to)
+  const count = Math.max(1, Math.ceil(distanceKm / LAND_SAMPLE_SPACING_KM))
+  const samples: GeoPoint[] = []
+  for (let index = 1; index < count; index += 1) {
+    const ratio = index / count
+    samples.push({
+      lat: from.lat + (to.lat - from.lat) * ratio,
+      lon: from.lon + (to.lon - from.lon) * ratio,
+    })
+  }
+  return samples
+}
+
+function crossesLandOrInterior(coastLines: ConstraintLine[], from: GeoPoint, to: GeoPoint) {
+  if (crosses(coastLines, from, to)) return true
+  return samplesAlong(from, to).some((point) => likelyOnLand(coastLines, point))
+}
+
 export function evaluateOffshoreSegment(profile: OffshoreConstraintProfile | null, from: GeoPoint, to: GeoPoint) {
   if (!profile?.available || profile.coastLines.length === 0) {
     return { crossesLand: true, crossesTss: false }
   }
   return {
-    crossesLand: crosses(profile.coastLines, from, to),
+    crossesLand: crossesLandOrInterior(profile.coastLines, from, to),
     crossesTss: crosses(profile.tssLines, from, to),
   }
 }
