@@ -10,7 +10,7 @@ import { fetchOffshoreLegForecasts, type OffshoreLegForecast } from '../offshore
 import type { OffshorePlaceResult } from '../offshoreGeocoding'
 import { DEMO_POLAR, type PolarTable } from '../offshorePolar'
 import type { IsochroneResult } from '../offshoreIsochrone'
-import { deleteOffshoreSavedRoute, loadOffshoreSavedRoutes, saveOffshoreRoute, type OffshoreSavedRoute } from '../offshoreSavedRoutes'
+import { deleteOffshoreSavedRoute, loadOffshoreSavedRoutes, saveOffshoreRoute, type OffshoreIsochroneSettings, type OffshoreSavedRoute } from '../offshoreSavedRoutes'
 import './offshore.css'
 import './offshoreWaypointReorder.css'
 
@@ -74,6 +74,8 @@ export function OffshorePage() {
   const [forecastState, setForecastState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [polar, setPolar] = useState<PolarTable>(DEMO_POLAR)
   const [isochrones, setIsochrones] = useState<IsochroneResult | null>(null)
+  const [isochroneSettings, setIsochroneSettings] = useState<OffshoreIsochroneSettings | null>(null)
+  const [isochroneSettingsRestoreKey, setIsochroneSettingsRestoreKey] = useState(0)
   const [draggedWaypointId, setDraggedWaypointId] = useState<string | null>(null)
   const [geolocationState, setGeolocationState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [geolocationMessage, setGeolocationMessage] = useState('')
@@ -129,6 +131,7 @@ export function OffshorePage() {
       forecasts,
       polar,
       isochrones,
+      isochroneSettings: isochroneSettings ?? undefined,
     }
   }
 
@@ -161,11 +164,13 @@ export function OffshorePage() {
     setForecastState(saved.forecasts.length ? 'ready' : 'idle')
     setPolar(saved.polar)
     setIsochrones(saved.isochrones)
+    setIsochroneSettings(saved.isochroneSettings ?? null)
+    setIsochroneSettingsRestoreKey((value) => value + 1)
     setCurrentSavedRouteId(saved.id)
     setSavedRouteName(saved.name)
     setGeolocationState('idle')
     setGeolocationMessage('')
-    setSaveMessage(`Route « ${saved.name} » ouverte.`)
+    setSaveMessage(`Route « ${saved.name} » ouverte${saved.isochroneSettings ? ' avec ses réglages de routage' : ''}.`)
   }
 
   function removeSavedRoute() {
@@ -185,7 +190,7 @@ export function OffshorePage() {
     if (!autoSave || !currentSavedRouteId) return
     const timeout = window.setTimeout(() => saveCurrentRoute(false, true), 800)
     return () => window.clearTimeout(timeout)
-  }, [autoSave, currentSavedRouteId, raceName, departureDate, departureTime, boatName, boatType, averageSpeed, points, forecasts, polar, isochrones])
+  }, [autoSave, currentSavedRouteId, raceName, departureDate, departureTime, boatName, boatType, averageSpeed, points, forecasts, polar, isochrones, isochroneSettings])
 
   function updatePoint(id: string, key: keyof OffshorePoint, value: string) {
     setPoints((current) => current.map((point) => point.id === id ? { ...point, [key]: value } : point))
@@ -342,7 +347,7 @@ export function OffshorePage() {
       <div className="offshore-analysis-action">
         <div>
           <strong>{currentSavedRouteId ? 'Route liée à une sauvegarde' : 'Nouvelle préparation'}</strong>
-          <p>Enregistre le bateau, D/A et waypoints, l’analyse météo, la polaire active et le dernier routage calculé.</p>
+          <p>Enregistre le bateau, D/A et waypoints, l’analyse météo, la polaire active, les réglages d’isochrones et le dernier routage calculé.</p>
           {saveMessage && <small className="offshore-source">{saveMessage}</small>}
         </div>
         <div className="offshore-waypoint-actions">
@@ -486,7 +491,17 @@ export function OffshorePage() {
 
     {legs.length > 0 && <OffshorePolarPanel legs={legs} forecasts={forecasts} polar={polar} onPolarChange={(next) => { setPolar(next); setIsochrones(null) }} />}
 
-    {routeEndpointsReady && <OffshoreIsochronePanel start={routeStart} target={routeTarget} departureDate={departureDate} departureTime={departureTime} polar={polar} onResult={setIsochrones} />}
+    {routeEndpointsReady && <OffshoreIsochronePanel
+      start={routeStart}
+      target={routeTarget}
+      departureDate={departureDate}
+      departureTime={departureTime}
+      polar={polar}
+      settings={isochroneSettings}
+      settingsRestoreKey={isochroneSettingsRestoreKey}
+      onSettingsChange={setIsochroneSettings}
+      onResult={setIsochrones}
+    />}
 
     <section className="offshore-roadmap">
       <h2>Étapes suivantes du mode large</h2>
