@@ -1,0 +1,46 @@
+.module-home {
+  color: #173b3a;
+}
+
+.module-home__hero h1,
+.module-home__lead,
+.module-home__choice-heading h2,
+.module-card h2,
+.module-home__field-note h2 {
+  color: #173b3a;
+}
+
+.module-home__eyebrow,
+.module-home__choice-kicker,
+.module-card__kicker,
+.module-home__field-kicker,
+.module-home__hero-mark > span {
+  color: #57716c;
+  opacity: 1;
+}
+
+.module-home__intro,
+.module-home__choice-heading p,
+.module-card p,
+.module-home__field-note p,
+.module-home__closing {
+  color: #667773;
+  opacity: 1;
+}
+
+.module-home__signature,
+.module-card__action,
+.module-home__signature svg,
+.module-card__icon,
+.module-home__field-icon,
+.module-home__hero-mark svg {
+  color: #db6b45;
+}
+
+.module-home__signature {
+  opacity: 1;
+}
+
+.module-card__action {
+  font-weight: 800;
+}
