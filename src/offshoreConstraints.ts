@@ -53,9 +53,13 @@ function bbox(start: GeoPoint, target: GeoPoint) {
   }
 }
 
-function queryFor(start: GeoPoint, target: GeoPoint) {
+function boxFor(start: GeoPoint, target: GeoPoint) {
   const b = bbox(start, target)
-  const box = `${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)}`
+  return `${b.south.toFixed(5)},${b.west.toFixed(5)},${b.north.toFixed(5)},${b.east.toFixed(5)}`
+}
+
+function queryFor(start: GeoPoint, target: GeoPoint) {
+  const box = boxFor(start, target)
   return `[out:json][timeout:22];(
     way["natural"="coastline"](${box});
     way["seamark:type"~"separation|traffic_separation",i](${box});
@@ -63,13 +67,24 @@ function queryFor(start: GeoPoint, target: GeoPoint) {
   );out tags geom qt;`
 }
 
+function coastlineOnlyQuery(start: GeoPoint, target: GeoPoint) {
+  const box = boxFor(start, target)
+  return `[out:json][timeout:14];way["natural"="coastline"](${box});out tags geom qt;`
+}
+
 async function fetchOverpass(query: string): Promise<OverpassResponse> {
   let last: unknown = null
   for (const endpoint of ENDPOINTS) {
     try {
-      const response = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`)
-      if (!response.ok) throw new Error(`Overpass ${response.status}`)
-      return await response.json() as OverpassResponse
+      const controller = new AbortController()
+      const timeout = window.setTimeout(() => controller.abort(), 9000)
+      try {
+        const response = await fetch(`${endpoint}?data=${encodeURIComponent(query)}`, { signal: controller.signal })
+        if (!response.ok) throw new Error(`Overpass ${response.status}`)
+        return await response.json() as OverpassResponse
+      } finally {
+        window.clearTimeout(timeout)
+      }
     } catch (error) { last = error }
   }
   throw last instanceof Error ? last : new Error('Contraintes cartographiques indisponibles')
@@ -93,18 +108,46 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
   const a = validPoint(start)
   const b = validPoint(target)
   if (!a || !b) return { source: 'OpenStreetMap / Overpass', available: false, coastLines: [], tssLines: [], note: 'Coordonnées insuffisantes.' }
+
   try {
     const payload = await fetchOverpass(queryFor(a, b))
     const lines = extract(payload)
-    return {
-      source: 'OpenStreetMap / Overpass',
-      available: true,
-      coastLines: lines.filter((line) => line.kind === 'coastline'),
-      tssLines: lines.filter((line) => line.kind === 'tss'),
-      note: 'Côtes et dispositifs de séparation du trafic issus d’OpenStreetMap. À confirmer avec la cartographie nautique officielle.',
+    const coastLines = lines.filter((line) => line.kind === 'coastline')
+    if (coastLines.length) {
+      return {
+        source: 'OpenStreetMap / Overpass',
+        available: true,
+        coastLines,
+        tssLines: lines.filter((line) => line.kind === 'tss'),
+        note: 'Côtes et dispositifs de séparation du trafic issus d’OpenStreetMap. À confirmer avec la cartographie nautique officielle.',
+      }
     }
   } catch {
-    return { source: 'OpenStreetMap / Overpass', available: false, coastLines: [], tssLines: [], note: 'Contraintes cartographiques indisponibles : aucun blocage terre/TSS automatique.' }
+    // Repli plus léger ci-dessous : les côtes sont prioritaires pour empêcher un routage à terre.
+  }
+
+  try {
+    const payload = await fetchOverpass(coastlineOnlyQuery(a, b))
+    const coastLines = extract(payload).filter((line) => line.kind === 'coastline')
+    if (coastLines.length) {
+      return {
+        source: 'OpenStreetMap / Overpass',
+        available: true,
+        coastLines,
+        tssLines: [],
+        note: 'Côtes OpenStreetMap chargées en mode de secours. Le routage terre est bloqué ; les TSS n’ont pas pu être chargés pour ce calcul.',
+      }
+    }
+  } catch {
+    // Si même le repli côtier échoue, le moteur passe en sécurité fermée.
+  }
+
+  return {
+    source: 'OpenStreetMap / Overpass',
+    available: false,
+    coastLines: [],
+    tssLines: [],
+    note: 'Côtes indisponibles : routage interrompu par sécurité afin de ne jamais proposer une trajectoire passant sur terre.',
   }
 }
 
@@ -137,7 +180,9 @@ function crosses(lines: ConstraintLine[], from: GeoPoint, to: GeoPoint) {
 }
 
 export function evaluateOffshoreSegment(profile: OffshoreConstraintProfile | null, from: GeoPoint, to: GeoPoint) {
-  if (!profile?.available) return { crossesLand: false, crossesTss: false }
+  if (!profile?.available || profile.coastLines.length === 0) {
+    return { crossesLand: true, crossesTss: false }
+  }
   return {
     crossesLand: crosses(profile.coastLines, from, to),
     crossesTss: crosses(profile.tssLines, from, to),
