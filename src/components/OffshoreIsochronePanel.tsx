@@ -21,6 +21,19 @@ function fmtTime(value: string | null) {
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date) : '—'
 }
 
+function fmtNumber(value: number | null | undefined, digits = 1) {
+  return value == null || !Number.isFinite(value) ? '—' : value.toFixed(digits).replace('.', ',')
+}
+
+function fmtBearing(value: number | null | undefined) {
+  return value == null || !Number.isFinite(value) ? '—' : `${String(Math.round(value)).padStart(3, '0')}°`
+}
+
+function trueWindAngle(heading: number, windFrom: number | null) {
+  if (windFrom == null || !Number.isFinite(windFrom)) return null
+  return Math.abs((((heading - windFrom) % 360) + 540) % 360 - 180)
+}
+
 export function OffshoreIsochronePanel({ start, target, departureDate, departureTime, polar, onResult }: Props) {
   const [stepMinutes, setStepMinutes] = useState('60')
   const [maxHours, setMaxHours] = useState('48')
@@ -34,6 +47,37 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     SHOM_REFERENCE_PORTS.map(({ atlasId }) => [atlasId, parseHighWaterLines(portHighWaters[atlasId] ?? '')])
       .filter(([, values]) => values.length > 0),
   ), [portHighWaters])
+
+  const routeDiagnostics = useMemo(() => {
+    if (!result || result.bestRoute.length < 2) return []
+    const route = result.bestRoute.slice(1)
+    const stride = Math.max(1, Math.ceil(route.length / 8))
+    const selected = route.filter((_, index) => index % stride === 0)
+    const last = route[route.length - 1]
+    if (selected[selected.length - 1] !== last) selected.push(last)
+    return selected.map((node) => ({
+      ...node,
+      twa: trueWindAngle(node.heading, node.windDirection),
+      currentEffect: node.groundSpeed - node.boatSpeed,
+      waveLossPct: Math.max(0, (1 - node.waveFactor) * 100),
+    }))
+  }, [result])
+
+  const routeWeatherSummary = useMemo(() => {
+    if (!result || result.bestRoute.length < 2) return null
+    const route = result.bestRoute.slice(1)
+    const validCurrentEffects = route.map((node) => node.groundSpeed - node.boatSpeed).filter(Number.isFinite)
+    const avgCurrentEffect = validCurrentEffects.length ? validCurrentEffects.reduce((sum, value) => sum + value, 0) / validCurrentEffects.length : 0
+    const waveLosses = route.map((node) => Math.max(0, (1 - node.waveFactor) * 100)).filter(Number.isFinite)
+    const avgWaveLoss = waveLosses.length ? waveLosses.reduce((sum, value) => sum + value, 0) / waveLosses.length : 0
+    const twas = route.map((node) => trueWindAngle(node.heading, node.windDirection)).filter((value): value is number => value != null)
+    return {
+      avgCurrentEffect,
+      avgWaveLoss,
+      minTwa: twas.length ? Math.min(...twas) : null,
+      maxTwa: twas.length ? Math.max(...twas) : null,
+    }
+  }, [result])
 
   async function run() {
     const departure = new Date(`${departureDate}T${departureTime}:00`)
@@ -120,6 +164,32 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
       <p>{result.note}</p>
       <p>{result.constraintsNote}</p>
     </div>}
+
+    {routeDiagnostics.length > 0 && <div className="offshore-route-diagnostics">
+      <div className="offshore-route-diagnostics-title">
+        <strong>Pourquoi cette route météo ?</strong>
+        <small>Échantillons de la route retenue : ils montrent les conditions réellement utilisées par le moteur, pas une simple ligne géométrique.</small>
+      </div>
+      {routeWeatherSummary && <div className="offshore-route-diagnostics-summary">
+        <span>TWA parcouru <b>{fmtNumber(routeWeatherSummary.minTwa, 0)}° → {fmtNumber(routeWeatherSummary.maxTwa, 0)}°</b></span>
+        <span>Effet moyen du courant sur la vitesse sol <b>{routeWeatherSummary.avgCurrentEffect >= 0 ? '+' : ''}{fmtNumber(routeWeatherSummary.avgCurrentEffect)} nd</b></span>
+        <span>Perte moyenne liée à la mer <b>{fmtNumber(routeWeatherSummary.avgWaveLoss)} %</b></span>
+      </div>}
+      <div className="offshore-route-diagnostics-grid">
+        {routeDiagnostics.map((node, index) => <article key={`${node.time}-${index}`}>
+          <strong>{fmtTime(node.time)}</strong>
+          <span>Cap <b>{fmtBearing(node.heading)}</b></span>
+          <span>Vent <b>{fmtNumber(node.windSpeed)} nd · {fmtBearing(node.windDirection)}</b></span>
+          <span>TWA <b>{node.twa == null ? '—' : `${fmtNumber(node.twa, 0)}°`}</b></span>
+          <span>Polaire <b>{fmtNumber(node.polarSpeed)} nd</b></span>
+          <span>Après mer <b>{fmtNumber(node.boatSpeed)} nd</b>{node.waveLossPct > .1 && <small>−{fmtNumber(node.waveLossPct)} %</small>}</span>
+          <span>Vitesse sol <b>{fmtNumber(node.groundSpeed)} nd</b><small>{node.currentEffect >= 0 ? '+' : ''}{fmtNumber(node.currentEffect)} nd vs bateau</small></span>
+          <span>Courant <b>{fmtNumber(node.currentSpeed)} nd · {fmtBearing(node.currentDirection)}</b><small>{node.currentSource === 'shom' ? 'SHOM' : node.currentSource === 'open-meteo' ? 'Open-Meteo' : 'non disponible'}</small></span>
+        </article>)}
+      </div>
+      <p className="offshore-source">Ce diagnostic explique pourquoi le moteur a retenu ces caps. Il ne prouve pas à lui seul qu’une route plus côtière serait plus lente : pour cela, il faudra comparer explicitement une seconde route candidate avec les mêmes conditions météo.</p>
+    </div>}
+
     <p className="offshore-source">Les PM saisies par port sont prioritaires et évitent de propager artificiellement un même horaire entre Roscoff, Cherbourg et Saint-Malo. Lorsqu’aucune PM locale n’est fournie pour un atlas, le moteur garde le secours semi-diurne d’environ 12 h 25 à partir de la PM générique. Sans tuile SHOM locale, il revient automatiquement au courant Open-Meteo.</p>
   </section>
 }
