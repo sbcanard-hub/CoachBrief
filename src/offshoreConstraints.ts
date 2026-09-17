@@ -27,6 +27,8 @@ const ENDPOINTS = [
 
 const EARTH_KM_PER_DEGREE = 111.32
 const LAND_SAMPLE_SPACING_KM = 3
+const MAX_INTERIOR_CLASSIFICATION_DISTANCE_KM = 4
+const MIN_CONSECUTIVE_LAND_SAMPLES = 2
 
 function num(value: string) {
   const parsed = Number(value)
@@ -63,11 +65,7 @@ function boxFor(start: GeoPoint, target: GeoPoint) {
 
 function queryFor(start: GeoPoint, target: GeoPoint) {
   const box = boxFor(start, target)
-  return `[out:json][timeout:22];(
-    way["natural"="coastline"](${box});
-    way["seamark:type"~"separation|traffic_separation",i](${box});
-    relation["seamark:type"~"separation|traffic_separation",i](${box});
-  );out tags geom qt;`
+  return `[out:json][timeout:22];(\n    way["natural"="coastline"](${box});\n    way["seamark:type"~"separation|traffic_separation",i](${box});\n    relation["seamark:type"~"separation|traffic_separation",i](${box});\n  );out tags geom qt;`
 }
 
 function coastlineOnlyQuery(start: GeoPoint, target: GeoPoint) {
@@ -122,7 +120,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         available: true,
         coastLines,
         tssLines: lines.filter((line) => line.kind === 'tss'),
-        note: 'Côtes et dispositifs de séparation du trafic issus d’OpenStreetMap. Chaque segment est aussi contrôlé par échantillonnage terre/mer.',
+        note: 'Côtes et dispositifs de séparation du trafic issus d’OpenStreetMap. Contrôle côtier renforcé avec filtre anti-faux-positifs.',
       }
     }
   } catch {
@@ -138,7 +136,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         available: true,
         coastLines,
         tssLines: [],
-        note: 'Côtes OpenStreetMap chargées en mode de secours. Contrôle terre/mer renforcé actif ; les TSS n’ont pas pu être chargés pour ce calcul.',
+        note: 'Côtes OpenStreetMap chargées en mode de secours. Contrôle terre/mer actif ; les TSS n’ont pas pu être chargés pour ce calcul.',
       }
     }
   } catch {
@@ -201,7 +199,8 @@ function pointSegmentDistanceSquared(point: { x: number; y: number }, a: { x: nu
 }
 
 // Dans OSM, une coastline est orientée avec la terre à gauche et la mer à droite.
-// On utilise le segment côtier le plus proche pour classer les points intermédiaires.
+// Cette classification ne sert qu'à combler de petits trous de géométrie : au-delà de 4 km
+// du segment côtier le plus proche, on ne conclut rien afin de ne pas rejeter la mer ouverte.
 function likelyOnLand(coastLines: ConstraintLine[], point: GeoPoint) {
   let bestDistance = Number.POSITIVE_INFINITY
   let bestSide = 0
@@ -220,7 +219,9 @@ function likelyOnLand(coastLines: ConstraintLine[], point: GeoPoint) {
       }
     }
   }
-  return Number.isFinite(bestDistance) && bestSide > 0
+  if (!Number.isFinite(bestDistance)) return false
+  const distanceKm = Math.sqrt(bestDistance) * EARTH_KM_PER_DEGREE
+  return distanceKm <= MAX_INTERIOR_CLASSIFICATION_DISTANCE_KM && bestSide > 0
 }
 
 function samplesAlong(from: GeoPoint, to: GeoPoint) {
@@ -238,8 +239,21 @@ function samplesAlong(from: GeoPoint, to: GeoPoint) {
 }
 
 function crossesLandOrInterior(coastLines: ConstraintLine[], from: GeoPoint, to: GeoPoint) {
+  // Une intersection réelle avec la côte reste toujours bloquante.
   if (crosses(coastLines, from, to)) return true
-  return samplesAlong(from, to).some((point) => likelyOnLand(coastLines, point))
+
+  // La classification gauche/droite d'une coastline peut être ambiguë sur un segment isolé.
+  // On exige donc deux échantillons terrestres consécutifs et proches de la côte avant de rejeter.
+  let consecutiveLandSamples = 0
+  for (const point of samplesAlong(from, to)) {
+    if (likelyOnLand(coastLines, point)) {
+      consecutiveLandSamples += 1
+      if (consecutiveLandSamples >= MIN_CONSECUTIVE_LAND_SAMPLES) return true
+    } else {
+      consecutiveLandSamples = 0
+    }
+  }
+  return false
 }
 
 export function evaluateOffshoreSegment(profile: OffshoreConstraintProfile | null, from: GeoPoint, to: GeoPoint) {

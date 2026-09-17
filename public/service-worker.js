@@ -1,4 +1,4 @@
-const CACHE_NAME = 'coachbrief-v2'
+const CACHE_NAME = 'coachbrief-v3'
 const APP_SHELL = [
   './',
   './index.html',
