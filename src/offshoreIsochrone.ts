@@ -2,7 +2,7 @@ import type { OffshorePoint } from './offshore'
 import { distanceAndBearing } from './offshore'
 import { evaluateOffshoreSegment, fetchOffshoreConstraintProfile, wavePerformanceFactor } from './offshoreConstraints'
 import { fetchOffshorePointForecast } from './offshoreForecast'
-import { polarSpeed, trueWindAngle, type PolarTable } from './offshorePolar'
+import { minimumSailableTwa, polarSpeed, trueWindAngle, type PolarTable } from './offshorePolar'
 import { fetchShomCurrentAtTime } from './shomCurrentGrid'
 import type { ShomHighWaterSchedules } from './shomHighWater'
 
@@ -96,6 +96,29 @@ function routeFrom(node: IsochroneNode | undefined) {
   return route.reverse()
 }
 
+function candidateHeadings(
+  direct: number,
+  windFromDirection: number,
+  polar: PolarTable,
+  headingSpread: number,
+  headingStep: number,
+) {
+  const headings = new Set<number>()
+  for (let offset = -headingSpread; offset <= headingSpread; offset += headingStep) {
+    headings.add(norm(direct + offset))
+  }
+
+  const minimumTwa = minimumSailableTwa(polar)
+  const directTwa = trueWindAngle(direct, windFromDirection)
+  if (minimumTwa > 0 && directTwa < minimumTwa + headingStep) {
+    // La cible est dans, ou tout près, de la zone interdite : tester explicitement les deux bords de près.
+    headings.add(norm(windFromDirection - minimumTwa))
+    headings.add(norm(windFromDirection + minimumTwa))
+  }
+
+  return [...headings]
+}
+
 export async function computeIsochrones(args: {
   start: OffshorePoint
   target: OffshorePoint
@@ -168,8 +191,8 @@ export async function computeIsochrones(args: {
 
       const direct = distanceAndBearing(asPoint(node), target).bearing
       if (env.windDirection == null || env.windSpeed == null) continue
-      for (let offset = -headingSpread; offset <= headingSpread; offset += headingStep) {
-        const heading = norm(direct + offset)
+      const headings = candidateHeadings(direct, env.windDirection, polar, headingSpread, headingStep)
+      for (const heading of headings) {
         const twa = trueWindAngle(heading, env.windDirection)
         const rawPolarSpeed = polarSpeed(polar, twa, env.windSpeed)
         const waveFactor = wavePerformanceFactor(heading, env.waveHeight, env.waveDirection, env.wavePeriod)
