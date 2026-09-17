@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Anchor, Clock3, Compass, Download, LoaderCircle, MapPin, Route } from 'lucide-react'
 import type { OffshorePoint } from '../offshore'
 import { computeIsochrones, type IsochroneResult } from '../offshoreIsochrone'
@@ -61,6 +61,26 @@ function distanceNm(a: { latitude: number; longitude: number }, b: { latitude: n
   return 2 * radiusNm * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
+function directRouteDistanceNm(start: OffshorePoint, target: OffshorePoint) {
+  const latitudeA = Number(start.latitude)
+  const longitudeA = Number(start.longitude)
+  const latitudeB = Number(target.latitude)
+  const longitudeB = Number(target.longitude)
+  if (![latitudeA, longitudeA, latitudeB, longitudeB].every(Number.isFinite)) return null
+  return distanceNm(
+    { latitude: latitudeA, longitude: longitudeA },
+    { latitude: latitudeB, longitude: longitudeB },
+  )
+}
+
+function routingPreset(distance: number | null) {
+  if (distance == null) return { stepMinutes: '60', maxHours: '48', label: 'Réglage standard' }
+  if (distance < 15) return { stepMinutes: '10', maxHours: '6', label: 'Petit trajet côtier' }
+  if (distance < 40) return { stepMinutes: '15', maxHours: '12', label: 'Trajet côtier court' }
+  if (distance < 100) return { stepMinutes: '30', maxHours: '24', label: 'Trajet intermédiaire' }
+  return { stepMinutes: '60', maxHours: '48', label: 'Route au large' }
+}
+
 function navigationWaypoints(result: IsochroneResult | null) {
   if (!result || result.bestRoute.length < 2) return [] as NavigationWaypoint[]
   const route = result.bestRoute
@@ -103,13 +123,27 @@ function xmlEscape(value: string) {
 }
 
 export function OffshoreIsochronePanel({ start, target, departureDate, departureTime, polar, onResult }: Props) {
-  const [stepMinutes, setStepMinutes] = useState('60')
-  const [maxHours, setMaxHours] = useState('48')
+  const directDistance = useMemo(() => directRouteDistanceNm(start, target), [start, target])
+  const automaticPreset = useMemo(() => routingPreset(directDistance), [directDistance])
+  const routeSignature = `${start.latitude}|${start.longitude}|${target.latitude}|${target.longitude}`
+  const previousRouteSignature = useRef<string | null>(null)
+  const [stepMinutes, setStepMinutes] = useState(automaticPreset.stepMinutes)
+  const [maxHours, setMaxHours] = useState(automaticPreset.maxHours)
   const [tidalCoefficient, setTidalCoefficient] = useState('70')
   const [referenceHighWater, setReferenceHighWater] = useState('')
   const [portHighWaters, setPortHighWaters] = useState<Record<string, string>>({})
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [result, setResult] = useState<IsochroneResult | null>(null)
+
+  useEffect(() => {
+    if (previousRouteSignature.current === routeSignature) return
+    previousRouteSignature.current = routeSignature
+    setStepMinutes(automaticPreset.stepMinutes)
+    setMaxHours(automaticPreset.maxHours)
+    setState('idle')
+    setResult(null)
+    onResult(null)
+  }, [automaticPreset.maxHours, automaticPreset.stepMinutes, onResult, routeSignature])
 
   const schedules = useMemo<ShomHighWaterSchedules>(() => Object.fromEntries(
     SHOM_REFERENCE_PORTS.map(({ atlasId }) => [atlasId, parseHighWaterLines(portHighWaters[atlasId] ?? '')])
@@ -183,8 +217,8 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
         target,
         departure,
         polar,
-        stepMinutes: Math.max(30, Number(stepMinutes) || 60),
-        maxHours: Math.max(6, Number(maxHours) || 48),
+        stepMinutes: Math.max(10, Number(stepMinutes) || 60),
+        maxHours: Math.max(3, Number(maxHours) || 48),
         budgetMs: 25_000,
         tidalCoefficient: Number.isFinite(coefficient) ? coefficient : null,
         referenceHighWater: highWater,
@@ -204,14 +238,15 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
       <Route size={24} />
     </div>
     <div className="offshore-isochrone-controls">
-      <label><span><Clock3 size={14} /> Pas de temps</span><select value={stepMinutes} onChange={(e) => setStepMinutes(e.target.value)}><option value="30">30 min</option><option value="60">1 h</option><option value="120">2 h</option></select></label>
-      <label><span>Horizon</span><select value={maxHours} onChange={(e) => setMaxHours(e.target.value)}><option value="24">24 h</option><option value="48">48 h</option><option value="72">72 h</option><option value="120">5 jours</option></select></label>
+      <label><span><Clock3 size={14} /> Pas de temps</span><select value={stepMinutes} onChange={(e) => setStepMinutes(e.target.value)}><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 h</option><option value="120">2 h</option></select></label>
+      <label><span>Horizon</span><select value={maxHours} onChange={(e) => setMaxHours(e.target.value)}><option value="3">3 h</option><option value="6">6 h</option><option value="12">12 h</option><option value="24">24 h</option><option value="48">48 h</option><option value="72">72 h</option><option value="120">5 jours</option></select></label>
       <label><span><Anchor size={14} /> Coefficient marée</span><input type="number" min="20" max="120" value={tidalCoefficient} onChange={(e) => setTidalCoefficient(e.target.value)} /></label>
       <label className="offshore-high-water"><span>PM générique de secours</span><input type="datetime-local" value={referenceHighWater} onChange={(e) => setReferenceHighWater(e.target.value)} /></label>
       <button type="button" className="offshore-add" onClick={() => void run()} disabled={state === 'loading' || !departureDate || !departureTime}>
         {state === 'loading' ? <LoaderCircle size={17} className="current-spin" /> : <Compass size={17} />}
         {state === 'loading' ? 'Calcul des isochrones…' : 'Calculer le routage'}
       </button>
+      {directDistance != null && <small>{automaticPreset.label} · {fmtNumber(directDistance)} nm : réglage automatique {automaticPreset.stepMinutes} min / {automaticPreset.maxHours} h. Tu peux le modifier manuellement.</small>}
       {state === 'loading' && <small>Calcul adaptatif, limité à environ 25 s pour éviter un blocage prolongé sur mobile.</small>}
     </div>
 
