@@ -39,8 +39,16 @@ function bounds(values: number[], target: number) {
 
 function lerp(a: number, b: number, ratio: number) { return a + (b - a) * ratio }
 
+export function minimumSailableTwa(table: PolarTable) {
+  const first = table.rows[0]?.twa
+  return first == null ? 0 : Math.max(0, Math.min(180, Math.abs(first)))
+}
+
 export function polarSpeed(table: PolarTable, twa: number, tws: number) {
   const angle = Math.max(0, Math.min(180, Math.abs(twa)))
+  const minimumAngle = minimumSailableTwa(table)
+  if (angle + 1e-9 < minimumAngle) return 0
+
   const wind = Math.max(0, tws)
   const angles = table.rows.map((row) => row.twa)
   const [ai, aj] = bounds(angles, angle)
