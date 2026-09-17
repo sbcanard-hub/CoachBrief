@@ -4,6 +4,7 @@ import { evaluateOffshoreSegment, fetchOffshoreConstraintProfile, wavePerformanc
 import { fetchOffshorePointForecast } from './offshoreForecast'
 import { polarSpeed, trueWindAngle, type PolarTable } from './offshorePolar'
 import { fetchShomCurrentAtTime } from './shomCurrentGrid'
+import type { ShomHighWaterSchedules } from './shomHighWater'
 
 export type IsochroneNode = {
   latitude: number
@@ -39,6 +40,8 @@ export type IsochroneResult = {
   shomCurrentSamples: number
   fallbackCurrentSamples: number
   shomAtlasLabels: string[]
+  shomScheduledReferenceSamples: number
+  shomPropagatedReferenceSamples: number
 }
 
 const EARTH_RADIUS_NM = 3440.065
@@ -105,6 +108,7 @@ export async function computeIsochrones(args: {
   headingStep?: number
   tidalCoefficient?: number | null
   referenceHighWater?: Date | null
+  referenceHighWaterSchedules?: ShomHighWaterSchedules
 }): Promise<IsochroneResult> {
   const { start, target, departure, polar } = args
   const stepMinutes = args.stepMinutes ?? 60
@@ -118,6 +122,8 @@ export async function computeIsochrones(args: {
   let tssCrossingCandidates = 0
   let shomCurrentSamples = 0
   let fallbackCurrentSamples = 0
+  let shomScheduledReferenceSamples = 0
+  let shomPropagatedReferenceSamples = 0
   const shomAtlasLabels = new Set<string>()
   const startNode: IsochroneNode = {
     latitude: Number(start.latitude), longitude: Number(start.longitude), time: departure.toISOString(), heading: 0,
@@ -137,12 +143,21 @@ export async function computeIsochrones(args: {
       let currentDirection = env.currentDirection
       let currentSource: IsochroneNode['currentSource'] = currentSpeed != null && currentDirection != null ? 'open-meteo' : 'none'
       if (useShom) {
-        const shom = await fetchShomCurrentAtTime(node.latitude, node.longitude, args.tidalCoefficient as number, args.referenceHighWater as Date, time)
+        const shom = await fetchShomCurrentAtTime(
+          node.latitude,
+          node.longitude,
+          args.tidalCoefficient as number,
+          args.referenceHighWater as Date,
+          time,
+          args.referenceHighWaterSchedules,
+        )
         if (shom.source === 'shom' && shom.speed != null && shom.direction != null) {
           currentSpeed = shom.speed
           currentDirection = shom.direction
           currentSource = 'shom'
           shomCurrentSamples += 1
+          if (shom.referenceMode === 'port-schedule') shomScheduledReferenceSamples += 1
+          if (shom.referenceMode === 'propagated') shomPropagatedReferenceSamples += 1
           if (shom.atlasLabel) shomAtlasLabels.add(shom.atlasLabel)
         } else if (currentSource === 'open-meteo') {
           fallbackCurrentSamples += 1
@@ -190,6 +205,7 @@ export async function computeIsochrones(args: {
             note: 'Arrivée atteinte par le calcul isochrone avec contrôle côte, mer et courant local disponible.',
             blockedLandCandidates, tssCrossingCandidates, constraintsAvailable: constraints.available, constraintsNote: constraints.note,
             shomCurrentSamples, fallbackCurrentSamples, shomAtlasLabels: [...shomAtlasLabels],
+            shomScheduledReferenceSamples, shomPropagatedReferenceSamples,
           }
         }
         candidates.push(nextNode)
@@ -214,5 +230,7 @@ export async function computeIsochrones(args: {
     shomCurrentSamples,
     fallbackCurrentSamples,
     shomAtlasLabels: [...shomAtlasLabels],
+    shomScheduledReferenceSamples,
+    shomPropagatedReferenceSamples,
   }
 }
