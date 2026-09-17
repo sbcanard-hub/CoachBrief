@@ -4,25 +4,18 @@ import type { BriefingRequest } from '../types'
 import { analyseTidalCurrent, fetchBathymetryCurrentContext } from '../currentAnalysis'
 import type { BathymetryCurrentContext, TidalCurrentAnalysis } from '../currentAnalysis'
 import { fetchCurrentSeries } from '../currentMarine'
+import { shomCurrentAvailability } from '../shomCurrent'
 import './currentAnalysisPanel.css'
 
 type Props = { request: BriefingRequest | null }
-
 type State = 'idle' | 'loading' | 'ready'
 
 function clock(value: string | null) {
   if (!value) return '—'
   return value.includes('T') ? value.split('T')[1]?.slice(0, 5) ?? value : value.slice(0, 5)
 }
-
-function fmt(value: number | null, digits = 1) {
-  return value == null ? '—' : value.toFixed(digits).replace('.', ',')
-}
-
-function compass(value: number | null) {
-  if (value == null) return '—'
-  return `${String(Math.round(value)).padStart(3, '0')}°`
-}
+function fmt(value: number | null, digits = 1) { return value == null ? '—' : value.toFixed(digits).replace('.', ',') }
+function compass(value: number | null) { return value == null ? '—' : `${String(Math.round(value)).padStart(3, '0')}°` }
 
 export function CurrentAnalysisPanel({ request }: Props) {
   const [state, setState] = useState<State>('idle')
@@ -33,6 +26,7 @@ export function CurrentAnalysisPanel({ request }: Props) {
   const courseAxis = Number(request?.courseAxis)
   const raceTime = request?.raceTime || request?.startTime || '12:00'
   const valid = Boolean(request?.date && Number.isFinite(latitude) && Number.isFinite(longitude))
+  const shom = useMemo(() => valid ? shomCurrentAvailability(latitude, longitude) : null, [valid, latitude, longitude])
 
   useEffect(() => {
     let active = true
@@ -46,15 +40,11 @@ export function CurrentAnalysisPanel({ request }: Props) {
       })
       .then(({ current, bottom }) => {
         if (!active) return
-        setAnalysis(current)
-        setBathymetry(bottom)
-        setState('ready')
+        setAnalysis(current); setBathymetry(bottom); setState('ready')
       })
       .catch(() => {
         if (!active) return
-        setAnalysis(null)
-        setBathymetry(null)
-        setState('ready')
+        setAnalysis(null); setBathymetry(null); setState('ready')
       })
     return () => { active = false }
   }, [valid, request?.date, raceTime, courseAxis, latitude, longitude])
@@ -98,9 +88,21 @@ export function CurrentAnalysisPanel({ request }: Props) {
         </>}
       </div>
 
+      {shom?.atlas && <div className="current-analysis-bottom">
+        <div className="current-analysis-bottom-heading"><Compass size={18} /><strong>Référence SHOM détectée</strong></div>
+        <div className="bottom-metrics">
+          <span>Atlas <strong>{shom.atlas.label}</strong></span>
+          <span>Port de référence <strong>{shom.atlas.referencePort}</strong></span>
+          <span>Maille <strong>{shom.atlas.spatialResolution}</strong></span>
+          <span>Pas temporel <strong>{shom.atlas.temporalResolution}</strong></span>
+        </div>
+        <p>{shom.note} La phase de l’atlas est exprimée autour de {shom.atlas.phaseWindow}. Pour exploiter automatiquement le coefficient réel et l’heure de pleine mer, le service officiel de prédiction SHOM nécessite une clé d’abonnement ; CoachBrief ne masque pas cette limite et conserve Open-Meteo Marine comme source opérationnelle de repli.</p>
+        <a href={shom.atlas.productUrl} target="_blank" rel="noreferrer">Ouvrir la fiche de l’atlas SHOM</a>
+      </div>}
+
       <div className="current-source-note">
-        <p><strong>Sources :</strong> courant horaire Open-Meteo Marine ; bathymétrie EMODnet DTM.</p>
-        {analysis.shomAtlasRelevant && <p><strong>Zone SHOM détectée :</strong> {analysis.shomRegionLabel}. Le moteur signale cette couverture afin de privilégier à terme les atlas de courants de marée SHOM pour la référence locale fine.</p>}
+        <p><strong>Sources opérationnelles :</strong> courant horaire Open-Meteo Marine ; bathymétrie EMODnet DTM.</p>
+        {analysis.shomAtlasRelevant && <p><strong>Zone SHOM détectée :</strong> {analysis.shomRegionLabel}. Les atlas SHOM servent de référence locale lorsque leurs champs numériques sont disponibles dans CoachBrief.</p>}
         <p>Les effets du fond sont présentés comme une lecture tactique indicative : profondeur, frottement, chenaux, pointes et resserrements peuvent modifier localement la vitesse et la direction du courant, mais ils ne remplacent pas une mesure sur l’eau.</p>
       </div>
     </>}
