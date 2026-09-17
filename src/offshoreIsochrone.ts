@@ -59,9 +59,13 @@ type ExpansionResult = {
 const EARTH_RADIUS_NM = 3440.065
 const NODE_CONCURRENCY = 6
 const DETOUR_HEADING_SPREAD = 150
-const DETOUR_MAX_NODES = 36
+const DETOUR_MAX_NODES = 20
 const PRUNE_SECTOR_DEGREES = 15
 const PRUNE_NODES_PER_SECTOR = 2
+const DEFAULT_BUDGET_MS = 25_000
+const SOFT_BUDGET_RATIO = .55
+const SOFT_MAX_NODES = 12
+const SOFT_HEADING_STEP = 30
 
 function rad(v: number) { return v * Math.PI / 180 }
 function deg(v: number) { return v * 180 / Math.PI }
@@ -164,11 +168,17 @@ export async function computeIsochrones(args: {
   maxNodes?: number
   headingSpread?: number
   headingStep?: number
+  budgetMs?: number
   tidalCoefficient?: number | null
   referenceHighWater?: Date | null
   referenceHighWaterSchedules?: ShomHighWaterSchedules
 }): Promise<IsochroneResult> {
   const { start, target, departure, polar } = args
+  const startedAt = Date.now()
+  const budgetMs = Math.max(8_000, args.budgetMs ?? DEFAULT_BUDGET_MS)
+  const deadline = startedAt + budgetMs
+  const softDeadline = startedAt + budgetMs * SOFT_BUDGET_RATIO
+  let budgetExhausted = false
   const stepMinutes = args.stepMinutes ?? 60
   const maxHours = args.maxHours ?? 72
   const maxNodes = args.maxNodes ?? 18
@@ -206,9 +216,13 @@ export async function computeIsochrones(args: {
   const iterations = Math.ceil(maxHours * 60 / stepMinutes)
 
   for (let step = 1; step <= iterations; step += 1) {
+    if (Date.now() >= deadline) { budgetExhausted = true; break }
+    const softMode = Date.now() >= softDeadline
+    const activeFrontier = softMode ? frontier.slice(0, SOFT_MAX_NODES) : frontier
+    const activeHeadingStep = softMode ? Math.max(headingStep, SOFT_HEADING_STEP) : headingStep
     const time = new Date(departure.getTime() + (step - 1) * stepMinutes * 60_000)
 
-    const expansions = await mapWithConcurrency(frontier, NODE_CONCURRENCY, async (node): Promise<ExpansionResult> => {
+    const expansions = await mapWithConcurrency(activeFrontier, NODE_CONCURRENCY, async (node): Promise<ExpansionResult> => {
       const local: ExpansionResult = {
         candidates: [], reached: null,
         blockedLandCandidates: 0, tssCrossingCandidates: 0,
@@ -217,7 +231,9 @@ export async function computeIsochrones(args: {
         shomAtlasLabels: [],
       }
 
+      if (Date.now() >= deadline) { budgetExhausted = true; return local }
       const env = await fetchOffshorePointForecast(node.latitude, node.longitude, time)
+      if (Date.now() >= deadline) { budgetExhausted = true; return local }
       let currentSpeed = env.currentSpeed
       let currentDirection = env.currentDirection
       let currentSource: IsochroneNode['currentSource'] = currentSpeed != null && currentDirection != null ? 'open-meteo' : 'none'
@@ -246,11 +262,13 @@ export async function computeIsochrones(args: {
         local.fallbackCurrentSamples += 1
       }
 
+      if (Date.now() >= deadline) { budgetExhausted = true; return local }
       const direct = distanceAndBearing(asPoint(node), target).bearing
       if (env.windDirection == null || env.windSpeed == null) return local
 
-      const headings = candidateHeadings(direct, env.windDirection, polar, effectiveHeadingSpread, headingStep)
+      const headings = candidateHeadings(direct, env.windDirection, polar, effectiveHeadingSpread, activeHeadingStep)
       for (const heading of headings) {
+        if (Date.now() >= deadline) { budgetExhausted = true; break }
         const twa = trueWindAngle(heading, env.windDirection)
         const rawPolarSpeed = polarSpeed(polar, twa, env.windSpeed)
         const waveFactor = wavePerformanceFactor(heading, env.waveHeight, env.waveDirection, env.wavePeriod)
@@ -334,8 +352,10 @@ export async function computeIsochrones(args: {
     }
 
     if (!candidates.length) break
-    frontier = prune(candidates, target, effectiveMaxNodes)
+    const activeMaxNodes = softMode ? Math.min(effectiveMaxNodes, SOFT_MAX_NODES) : effectiveMaxNodes
+    frontier = prune(candidates, target, activeMaxNodes)
     steps.push({ time: frontier[0]?.time ?? time.toISOString(), nodes: frontier })
+    if (budgetExhausted || Date.now() >= deadline) { budgetExhausted = true; break }
   }
 
   const best = frontier.slice().sort((a, b) => routeScore(a, target) - routeScore(b, target))[0]
@@ -346,11 +366,15 @@ export async function computeIsochrones(args: {
     bestRoute,
     reached: false,
     eta: null,
-    note: progressed
-      ? detourMode
-        ? 'Horizon atteint avant l’arrivée : un contournement maritime a été exploré mais n’a pas encore rejoint A.'
-        : 'Horizon atteint avant l’arrivée : meilleure route conservée avec contraintes et courant disponibles.'
-      : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure et la disponibilité de la météo au point D.',
+    note: budgetExhausted
+      ? progressed
+        ? 'Budget de calcul atteint : meilleure route maritime partielle conservée. Réduis l’horizon ou augmente le pas de temps pour approfondir.'
+        : 'Budget de calcul atteint avant de produire une route exploitable. Essaie un horizon plus court ou un pas de 2 h.'
+      : progressed
+        ? detourMode
+          ? 'Horizon atteint avant l’arrivée : un contournement maritime a été exploré mais n’a pas encore rejoint A.'
+          : 'Horizon atteint avant l’arrivée : meilleure route conservée avec contraintes et courant disponibles.'
+        : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure et la disponibilité de la météo au point D.',
     blockedLandCandidates,
     tssCrossingCandidates,
     constraintsAvailable: constraints.available,
