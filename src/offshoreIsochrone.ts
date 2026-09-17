@@ -68,6 +68,11 @@ const SOFT_MAX_NODES = 12
 const SOFT_HEADING_STEP = 30
 const COURSE_CHANGE_FREE = 75
 const COURSE_CHANGE_STRONG = 125
+const ROUTE_HISTORY_SKIP = 3
+const ROUTE_REVISIT_RADIUS_NM = 2.5
+const ROUTE_REVISIT_PENALTY = 18
+const ROUTE_CROSSING_PENALTY = 28
+const ROUTE_PROGRESS_SLACK_NM = 3
 
 function rad(v: number) { return v * Math.PI / 180 }
 function deg(v: number) { return v * 180 / Math.PI }
@@ -96,9 +101,53 @@ function asPoint(node: Pick<IsochroneNode, 'latitude' | 'longitude'>, name = 'N'
   return { id: name, name, latitude: String(node.latitude), longitude: String(node.longitude) }
 }
 
+function orientation(a: IsochroneNode, b: IsochroneNode, c: IsochroneNode) {
+  return (b.longitude - a.longitude) * (c.latitude - a.latitude) - (b.latitude - a.latitude) * (c.longitude - a.longitude)
+}
+
+function routeSegmentsCross(a: IsochroneNode, b: IsochroneNode, c: IsochroneNode, d: IsochroneNode) {
+  const o1 = orientation(a, b, c)
+  const o2 = orientation(a, b, d)
+  const o3 = orientation(c, d, a)
+  const o4 = orientation(c, d, b)
+  const epsilon = 1e-10
+  if (Math.abs(o1) < epsilon || Math.abs(o2) < epsilon || Math.abs(o3) < epsilon || Math.abs(o4) < epsilon) return false
+  return (o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0)
+}
+
+function trajectoryPenalty(node: IsochroneNode, target: OffshorePoint) {
+  const remaining = distanceAndBearing(asPoint(node), target).distanceNm
+  let bestHistoricalRemaining = remaining
+  let penalty = 0
+  let depth = 0
+  let cursor = node.parent
+
+  while (cursor) {
+    const cursorRemaining = distanceAndBearing(asPoint(cursor), target).distanceNm
+    bestHistoricalRemaining = Math.min(bestHistoricalRemaining, cursorRemaining)
+
+    if (depth >= ROUTE_HISTORY_SKIP) {
+      const revisitDistance = distanceAndBearing(asPoint(node), asPoint(cursor, 'H')).distanceNm
+      if (revisitDistance < ROUTE_REVISIT_RADIUS_NM) {
+        penalty += ROUTE_REVISIT_PENALTY * (1 - revisitDistance / ROUTE_REVISIT_RADIUS_NM)
+      }
+      if (node.parent && cursor.parent && routeSegmentsCross(node.parent, node, cursor.parent, cursor)) {
+        penalty += ROUTE_CROSSING_PENALTY
+      }
+    }
+
+    cursor = cursor.parent
+    depth += 1
+  }
+
+  const lostProgress = Math.max(0, remaining - bestHistoricalRemaining - ROUTE_PROGRESS_SLACK_NM)
+  penalty += lostProgress * 2.8
+  return penalty
+}
+
 function routeScore(node: IsochroneNode, target: OffshorePoint) {
   const remaining = distanceAndBearing(asPoint(node), target).distanceNm
-  let score = remaining + (node.tssCrossing ? 12 : 0)
+  let score = remaining + (node.tssCrossing ? 12 : 0) + trajectoryPenalty(node, target)
 
   if (node.parent) {
     const parentRemaining = distanceAndBearing(asPoint(node.parent), target).distanceNm
@@ -337,6 +386,10 @@ export async function computeIsochrones(args: {
           parent: node,
         }
 
+        const trajectoryCost = trajectoryPenalty(nextNode, target)
+        const extremeLoopThreshold = detourMode ? 58 : 42
+        if (trajectoryCost >= extremeLoopThreshold) continue
+
         const remaining = distanceAndBearing(asPoint(nextNode), target).distanceNm
         if (remaining <= Math.max(1, ground.speed * stepMinutes / 60)) {
           if (!local.reached || routeScore(nextNode, target) < routeScore(local.reached, target)) local.reached = nextNode
@@ -366,8 +419,8 @@ export async function computeIsochrones(args: {
         steps: [...steps, { time: reachedNode.time, nodes: [reachedNode] }],
         bestRoute: routeFrom(reachedNode), reached: true, eta: reachedNode.time,
         note: detourMode
-          ? 'Arrivée atteinte par le calcul isochrone après recherche élargie d’un contournement maritime.'
-          : 'Arrivée atteinte par le calcul isochrone avec contrôle côte, mer et courant local disponible.',
+          ? 'Arrivée atteinte par le calcul isochrone après recherche élargie d’un contournement maritime, avec contrôle des boucles et croisements de trajectoire.'
+          : 'Arrivée atteinte par le calcul isochrone avec contrôle côte, mer, courant et cohérence de trajectoire.',
         blockedLandCandidates, tssCrossingCandidates,
         constraintsAvailable: constraints.available, constraintsNote: constraints.note,
         shomCurrentSamples, fallbackCurrentSamples, shomAtlasLabels: [...shomAtlasLabels],
@@ -390,11 +443,11 @@ export async function computeIsochrones(args: {
     steps, bestRoute, reached: false, eta: null,
     note: budgetExhausted
       ? progressed
-        ? `Calcul interrompu à environ ${hoursDone} h sur ${maxHours} h par la limite de temps : meilleure route maritime partielle conservée. Le moteur privilégie désormais les branches qui continuent à progresser vers A et pénalise les grands retours de cap.`
+        ? `Calcul interrompu à environ ${hoursDone} h sur ${maxHours} h par la limite de temps : meilleure route maritime partielle conservée. Les boucles, retours sur trace et croisements inutiles sont désormais fortement pénalisés.`
         : `Calcul interrompu avant de produire une route exploitable (0 h sur ${maxHours} h). Essaie un pas de 2 h ou un horizon plus court.`
       : progressed
         ? detourMode
-          ? `Horizon atteint avant l’arrivée après ${hoursDone} h : un contournement maritime a été exploré mais n’a pas encore rejoint A.`
+          ? `Horizon atteint avant l’arrivée après ${hoursDone} h : un contournement maritime cohérent a été exploré mais n’a pas encore rejoint A.`
           : `Horizon atteint avant l’arrivée après ${hoursDone} h : meilleure route conservée avec contraintes et courant disponibles.`
         : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure et la disponibilité de la météo au point D.',
     blockedLandCandidates, tssCrossingCandidates,
