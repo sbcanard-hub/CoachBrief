@@ -1,5 +1,6 @@
 import type { CurrentHour } from './currentAnalysis'
 import { shomCurrentSourceForPoint } from './shomCurrent'
+import { nearestHighWater, type ShomHighWaterSchedules } from './shomHighWater'
 
 export type ShomCurrentResult = {
   hours: CurrentHour[]
@@ -21,6 +22,8 @@ export type ShomCurrentAtTime = {
   referencePort: string | null
   nearestPointKm: number | null
   phaseMinutes: number | null
+  referenceMode: 'port-schedule' | 'propagated' | 'none'
+  referenceHighWaterUsed: string | null
   note: string
 }
 
@@ -182,22 +185,31 @@ export async function fetchShomCurrentAtTime(
   coefficient: number,
   referenceHighWater: Date,
   target: Date,
+  referenceSchedules?: ShomHighWaterSchedules,
 ): Promise<ShomCurrentAtTime> {
   const atlas = shomCurrentSourceForPoint(latitude, longitude)
-  if (!atlas) return { speed: null, direction: null, source: 'none', atlasId: null, atlasLabel: null, referencePort: null, nearestPointKm: null, phaseMinutes: null, note: 'Hors zone d’atlas SHOM configurée.' }
+  const none = (note: string): ShomCurrentAtTime => ({
+    speed: null, direction: null, source: 'none', atlasId: atlas?.id ?? null, atlasLabel: atlas?.label ?? null,
+    referencePort: atlas?.referencePort ?? null, nearestPointKm: null, phaseMinutes: null,
+    referenceMode: 'none', referenceHighWaterUsed: null, note,
+  })
+  if (!atlas) return none('Hors zone d’atlas SHOM configurée.')
   if (!Number.isFinite(coefficient) || coefficient < 20 || coefficient > 120 || !Number.isFinite(referenceHighWater.getTime()) || !Number.isFinite(target.getTime())) {
-    return { speed: null, direction: null, source: 'none', atlasId: atlas.id, atlasLabel: atlas.label, referencePort: atlas.referencePort, nearestPointKm: null, phaseMinutes: null, note: 'Coefficient ou pleine mer de référence invalide.' }
+    return none('Coefficient ou pleine mer de référence invalide.')
   }
 
   const nearest = await nearestGridPoint(latitude, longitude, atlas.id)
-  if (!nearest) return { speed: null, direction: null, source: 'none', atlasId: atlas.id, atlasLabel: atlas.label, referencePort: atlas.referencePort, nearestPointKm: null, phaseMinutes: null, note: 'Atlas SHOM identifié, mais tuile locale absente.' }
+  if (!nearest) return none('Atlas SHOM identifié, mais tuile locale absente.')
 
-  const deltaMinutes = (target.getTime() - referenceHighWater.getTime()) / 60_000
-  const cycle = Math.round(deltaMinutes / SEMIDIURNAL_MINUTES)
-  const phase = deltaMinutes - cycle * SEMIDIURNAL_MINUTES
+  const scheduled = nearestHighWater(referenceSchedules?.[atlas.id], target)
+  const chosenReference = scheduled ?? referenceHighWater
+  const deltaMinutes = (target.getTime() - chosenReference.getTime()) / 60_000
+  const cycle = scheduled ? 0 : Math.round(deltaMinutes / SEMIDIURNAL_MINUTES)
+  const phase = scheduled ? deltaMinutes : deltaMinutes - cycle * SEMIDIURNAL_MINUTES
   const interpolated = interpolatePhase(coefficientRows(nearest.point, coefficient), phase)
   const current = uvToCurrent(interpolated.u, interpolated.v)
   const available = current.speed != null && current.direction != null
+  const mode: ShomCurrentAtTime['referenceMode'] = scheduled ? 'port-schedule' : 'propagated'
   return {
     speed: current.speed,
     direction: current.direction,
@@ -207,8 +219,10 @@ export async function fetchShomCurrentAtTime(
     referencePort: atlas.referencePort,
     nearestPointKm: nearest.distance,
     phaseMinutes: interpolated.phase,
+    referenceMode: mode,
+    referenceHighWaterUsed: chosenReference.toISOString(),
     note: available
-      ? `SHOM ${atlas.referencePort} · phase ${Math.round(interpolated.phase ?? phase)} min · grille à ${nearest.distance.toFixed(1).replace('.', ',')} km.`
+      ? `SHOM ${atlas.referencePort} · phase ${Math.round(interpolated.phase ?? phase)} min · PM ${mode === 'port-schedule' ? 'saisie' : 'propagée'} · grille à ${nearest.distance.toFixed(1).replace('.', ',')} km.`
       : 'Point SHOM trouvé mais vecteur de courant indisponible pour cette phase.',
   }
 }
