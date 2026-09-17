@@ -40,16 +40,64 @@ export function OffshoreRouteMap({ points, onPointChange, isochrones = null }: P
 
       const usable = points.filter(valid)
       const latLngs = usable.map((point) => [Number(point.latitude), Number(point.longitude)] as [number, number])
-      if (latLngs.length >= 2) leaflet.polyline(latLngs, { weight: 4, opacity: .55, dashArray: '8 7' }).addTo(group)
+
+      // Route géométrique saisie : volontairement neutre et en pointillés pour ne pas masquer le routage calculé.
+      if (latLngs.length >= 2) {
+        leaflet.polyline(latLngs, {
+          color: '#687386',
+          weight: 3,
+          opacity: .75,
+          dashArray: '9 8',
+        }).bindTooltip('Route directe / waypoints saisis').addTo(group)
+      }
 
       if (isochrones) {
+        // Fronts d'isochrones : fins et discrets.
         isochrones.steps.slice(1).forEach((step) => {
           const front = step.nodes.map((node) => [node.latitude, node.longitude] as [number, number])
-          if (front.length >= 2) leaflet.polyline(front, { weight: 1.5, opacity: .35 }).addTo(group)
-          else if (front.length === 1) leaflet.circleMarker(front[0], { radius: 2.5, opacity: .5, fillOpacity: .35 }).addTo(group)
+          if (front.length >= 2) {
+            leaflet.polyline(front, { color: '#287f9f', weight: 1.5, opacity: .35 }).addTo(group)
+          } else if (front.length === 1) {
+            leaflet.circleMarker(front[0], {
+              radius: 2.5,
+              color: '#287f9f',
+              opacity: .55,
+              fillColor: '#287f9f',
+              fillOpacity: .35,
+            }).addTo(group)
+          }
         })
+
         const routed = isochrones.bestRoute.map((node) => [node.latitude, node.longitude] as [number, number])
-        if (routed.length >= 2) leaflet.polyline(routed, { weight: 5, opacity: .95 }).bindTooltip('Route isochrone retenue').addTo(group)
+        if (routed.length >= 2) {
+          // Double trait = excellente lisibilité sur fond clair ou sombre, sans dépendre du rouge/vert.
+          leaflet.polyline(routed, {
+            color: '#ffffff',
+            weight: 9,
+            opacity: .9,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }).addTo(group)
+          leaflet.polyline(routed, {
+            color: '#6d3fc0',
+            weight: 5,
+            opacity: 1,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }).bindTooltip('Trajectoire idéale · route isochrone retenue', { sticky: true }).addTo(group)
+
+          routed.forEach((point, index) => {
+            if (index === 0 || index === routed.length - 1 || index % 4 !== 0) return
+            leaflet.circleMarker(point, {
+              radius: 2.7,
+              color: '#ffffff',
+              weight: 1.5,
+              fillColor: '#6d3fc0',
+              fillOpacity: 1,
+              opacity: 1,
+            }).addTo(group)
+          })
+        }
       }
 
       usable.forEach((point, index) => {
