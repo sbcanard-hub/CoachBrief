@@ -1,5 +1,6 @@
 export type GeoPoint = { lat: number; lon: number }
 export type CoastLine = { points: GeoPoint[] }
+export type LandMaskClassification = 'land' | 'sea' | 'uncertain'
 
 type IndexedSegment = {
   a: GeoPoint
@@ -122,13 +123,16 @@ function countCrossings(coastLines: CoastLine[], from: GeoPoint, to: GeoPoint) {
 }
 
 /**
- * Les ancres sont D et A, explicitement placées sur l'eau par l'utilisateur.
- * En partant d'une ancre marine, chaque franchissement de coastline change de
- * milieu. Un nombre impair de franchissements signifie donc que le point est
- * dans une surface terrestre. Les deux ancres doivent être d'accord afin de
- * neutraliser les tangences et les jonctions imparfaites de ways OSM.
+ * D et A servent d'ancres connues en mer. Deux votes identiques donnent une
+ * classification fiable. En cas de désaccord, le moteur peut appliquer un
+ * contrôle côtier local plus coûteux uniquement sur ce point incertain.
  */
-export function pointInsideLandMask(coastLines: CoastLine[], seaAnchors: GeoPoint[], point: GeoPoint) {
+export function classifyLandMask(coastLines: CoastLine[], seaAnchors: GeoPoint[], point: GeoPoint): LandMaskClassification {
   const votes = seaAnchors.slice(0, 2).map((anchor) => countCrossings(coastLines, anchor, point) % 2 === 1)
-  return votes.length >= 2 && votes.every(Boolean)
+  if (votes.length < 2 || votes[0] !== votes[1]) return 'uncertain'
+  return votes[0] ? 'land' : 'sea'
+}
+
+export function pointInsideLandMask(coastLines: CoastLine[], seaAnchors: GeoPoint[], point: GeoPoint) {
+  return classifyLandMask(coastLines, seaAnchors, point) === 'land'
 }
