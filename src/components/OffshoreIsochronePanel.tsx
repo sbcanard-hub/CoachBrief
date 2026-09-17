@@ -62,14 +62,17 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
         {state === 'loading' ? 'Calcul des isochrones…' : 'Calculer le routage'}
       </button>
     </div>
-    <p className="offshore-help">À chaque pas, CoachBrief recalcule le vent et le courant à la position atteinte, teste plusieurs caps autour de la route directe, applique la polaire du bateau puis conserve les positions les plus prometteuses.</p>
+    <p className="offshore-help">À chaque pas, CoachBrief recalcule vent, courant et mer, applique la polaire puis élimine les branches qui coupent une côte détectée. Les traversées de TSS détectées sont défavorisées dans le choix de route.</p>
     {state === 'error' && <p className="offshore-analysis-error">Le routage n’a pas pu être calculé avec les données disponibles.</p>}
     {result && <div className="offshore-isochrone-summary">
       <span>Isochrones <strong>{Math.max(0, result.steps.length - 1)}</strong></span>
       <span>Route retenue <strong>{Math.max(0, result.bestRoute.length - 1)} pas</strong></span>
       <span>Arrivée <strong>{result.reached ? fmtTime(result.eta) : 'hors horizon'}</strong></span>
+      <span>Coupures de terre écartées <strong>{result.blockedLandCandidates}</strong></span>
+      <span>Options coupant un TSS <strong>{result.tssCrossingCandidates}</strong></span>
       <p>{result.note}</p>
+      <p>{result.constraintsNote}</p>
     </div>}
-    <p className="offshore-source">Version actuelle : vent et courant Open-Meteo, polaire active du bateau, recherche par faisceau autour du cap vers l’objectif. Les zones interdites, la terre, la houle pénalisante et les champs SHOM fins seront ajoutés ensuite.</p>
+    <p className="offshore-source">Le ralentissement par la houle est une pénalité de performance indicative selon hauteur, période et angle d’incidence. Côtes/TSS : OpenStreetMap/Overpass quand disponible, à confirmer avec la cartographie nautique officielle. Les champs de courant SHOM fins restent la prochaine couche à connecter.</p>
   </section>
 }
