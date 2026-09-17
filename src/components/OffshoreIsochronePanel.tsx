@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Anchor, Clock3, Compass, Download, LoaderCircle, MapPin, Route } from 'lucide-react'
+import { Anchor, Clock3, Compass, Download, LoaderCircle, MapPin, Route, Wind } from 'lucide-react'
 import type { OffshorePoint } from '../offshore'
 import { computeIsochrones, type IsochroneResult } from '../offshoreIsochrone'
+import { getOffshoreWeatherModel, OFFSHORE_WEATHER_MODELS, offshoreWeatherModelLabel, setOffshoreWeatherModel, type OffshoreWeatherModel } from '../offshoreForecast'
 import type { PolarTable } from '../offshorePolar'
 import type { OffshoreIsochroneSettings } from '../offshoreSavedRoutes'
 import { parseHighWaterLines, SHOM_REFERENCE_PORTS, type ShomHighWaterSchedules } from '../shomHighWater'
@@ -136,6 +137,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
   const [tidalCoefficient, setTidalCoefficient] = useState(settings?.tidalCoefficient ?? '70')
   const [referenceHighWater, setReferenceHighWater] = useState(settings?.referenceHighWater ?? '')
   const [portHighWaters, setPortHighWaters] = useState<Record<string, string>>(settings?.portHighWaters ?? {})
+  const [weatherModel, setWeatherModel] = useState<OffshoreWeatherModel>(settings?.weatherModel ?? getOffshoreWeatherModel())
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [result, setResult] = useState<IsochroneResult | null>(null)
 
@@ -156,11 +158,14 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     setTidalCoefficient(settings.tidalCoefficient)
     setReferenceHighWater(settings.referenceHighWater)
     setPortHighWaters(settings.portHighWaters)
+    const restoredModel = settings.weatherModel ?? 'best_match'
+    setWeatherModel(restoredModel)
+    setOffshoreWeatherModel(restoredModel)
   }, [settingsRestoreKey])
 
   useEffect(() => {
-    onSettingsChange({ stepMinutes, maxHours, tidalCoefficient, referenceHighWater, portHighWaters })
-  }, [maxHours, onSettingsChange, portHighWaters, referenceHighWater, stepMinutes, tidalCoefficient])
+    onSettingsChange({ stepMinutes, maxHours, tidalCoefficient, referenceHighWater, portHighWaters, weatherModel })
+  }, [maxHours, onSettingsChange, portHighWaters, referenceHighWater, stepMinutes, tidalCoefficient, weatherModel])
 
   const schedules = useMemo<ShomHighWaterSchedules>(() => Object.fromEntries(
     SHOM_REFERENCE_PORTS.map(({ atlasId }) => [atlasId, parseHighWaterLines(portHighWaters[atlasId] ?? '')])
@@ -218,6 +223,14 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     URL.revokeObjectURL(url)
   }
 
+  function changeWeatherModel(model: OffshoreWeatherModel) {
+    setWeatherModel(model)
+    setOffshoreWeatherModel(model)
+    setState('idle')
+    setResult(null)
+    onResult(null)
+  }
+
   async function run() {
     const departure = new Date(`${departureDate}T${departureTime}:00`)
     if (!departureDate || !departureTime || !Number.isFinite(departure.getTime())) return
@@ -225,6 +238,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     const firstScheduled = Object.values(schedules).flat()[0] ?? null
     const highWater = genericHighWater && Number.isFinite(genericHighWater.getTime()) ? genericHighWater : firstScheduled
     const coefficient = Number(tidalCoefficient)
+    setOffshoreWeatherModel(weatherModel)
     setState('loading')
     setResult(null)
     onResult(null)
@@ -255,6 +269,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
       <Route size={24} />
     </div>
     <div className="offshore-isochrone-controls">
+      <label><span><Wind size={14} /> Modèle météo</span><select value={weatherModel} onChange={(e) => changeWeatherModel(e.target.value as OffshoreWeatherModel)}>{OFFSHORE_WEATHER_MODELS.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}</select></label>
       <label><span><Clock3 size={14} /> Pas de temps</span><select value={stepMinutes} onChange={(e) => setStepMinutes(e.target.value)}><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 h</option><option value="120">2 h</option></select></label>
       <label><span>Horizon</span><select value={maxHours} onChange={(e) => setMaxHours(e.target.value)}><option value="3">3 h</option><option value="6">6 h</option><option value="12">12 h</option><option value="24">24 h</option><option value="48">48 h</option><option value="72">72 h</option><option value="120">5 jours</option></select></label>
       <label><span><Anchor size={14} /> Coefficient marée</span><input type="number" min="20" max="120" value={tidalCoefficient} onChange={(e) => setTidalCoefficient(e.target.value)} /></label>
@@ -263,6 +278,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
         {state === 'loading' ? <LoaderCircle size={17} className="current-spin" /> : <Compass size={17} />}
         {state === 'loading' ? 'Calcul des isochrones…' : 'Calculer le routage'}
       </button>
+      <small>Vent utilisé : <strong>{offshoreWeatherModelLabel(weatherModel)}</strong>. Mer et houle restent issues d’Open-Meteo Marine ; le courant SHOM reste prioritaire quand il est disponible.</small>
       {directDistance != null && <small>{automaticPreset.label} · {fmtNumber(directDistance)} nm : réglage automatique {automaticPreset.stepMinutes} min / {automaticPreset.maxHours} h. Tu peux le modifier manuellement.</small>}
       {state === 'loading' && <small>Calcul adaptatif, limité à environ 25 s pour éviter un blocage prolongé sur mobile.</small>}
     </div>
@@ -293,6 +309,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     {result && <div className="offshore-isochrone-summary">
       <span>Isochrones <strong>{Math.max(0, result.steps.length - 1)}</strong></span>
       <span>Route retenue <strong>{Math.max(0, result.bestRoute.length - 1)} pas</strong></span>
+      <span>Modèle vent <strong>{offshoreWeatherModelLabel(weatherModel)}</strong></span>
       <span>Arrivée <strong>{result.reached ? fmtTime(result.eta) : 'hors horizon'}</strong></span>
       <span>Coupures de terre écartées <strong>{result.blockedLandCandidates}</strong></span>
       <span>Options coupant un TSS <strong>{result.tssCrossingCandidates}</strong></span>
@@ -320,7 +337,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
           <span>Passage prévu <b>{fmtTime(waypoint.time)}</b></span>
         </article>)}
       </div>
-      <p className="offshore-source">Ces waypoints sont liés à ce calcul météo. Relance le routage si l’heure de départ, la météo, la polaire ou les conditions de courant changent.</p>
+      <p className="offshore-source">Ces waypoints sont liés à ce calcul météo. Relance le routage si l’heure de départ, le modèle météo, la polaire ou les conditions de courant changent.</p>
     </div>}
 
     {routeDiagnostics.length > 0 && <div className="offshore-route-diagnostics">
