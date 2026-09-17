@@ -1,5 +1,5 @@
 import type { OffshorePoint } from './offshore'
-import type { OffshoreLegForecast } from './offshoreForecast'
+import type { OffshoreLegForecast, OffshoreWeatherModel } from './offshoreForecast'
 import type { IsochroneResult } from './offshoreIsochrone'
 import type { PolarTable } from './offshorePolar'
 import { notifyPersistentDataChanged } from './persistentDataEvents'
@@ -10,6 +10,7 @@ export type OffshoreIsochroneSettings = {
   tidalCoefficient: string
   referenceHighWater: string
   portHighWaters: Record<string, string>
+  weatherModel?: OffshoreWeatherModel
 }
 
 export type OffshoreSavedRoute = {
