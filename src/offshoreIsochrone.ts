@@ -1,5 +1,6 @@
 import type { OffshorePoint } from './offshore'
 import { distanceAndBearing } from './offshore'
+import { evaluateOffshoreSegment, fetchOffshoreConstraintProfile, wavePerformanceFactor } from './offshoreConstraints'
 import { fetchOffshorePointForecast } from './offshoreForecast'
 import { polarSpeed, trueWindAngle, type PolarTable } from './offshorePolar'
 
@@ -9,16 +10,31 @@ export type IsochroneNode = {
   time: string
   heading: number
   boatSpeed: number
+  polarSpeed: number
+  waveFactor: number
   groundSpeed: number
   windSpeed: number | null
   windDirection: number | null
+  waveHeight: number | null
+  waveDirection: number | null
   currentSpeed: number | null
   currentDirection: number | null
+  tssCrossing: boolean
   parent?: IsochroneNode
 }
 
 export type IsochroneStep = { time: string; nodes: IsochroneNode[] }
-export type IsochroneResult = { steps: IsochroneStep[]; bestRoute: IsochroneNode[]; reached: boolean; eta: string | null; note: string }
+export type IsochroneResult = {
+  steps: IsochroneStep[]
+  bestRoute: IsochroneNode[]
+  reached: boolean
+  eta: string | null
+  note: string
+  blockedLandCandidates: number
+  tssCrossingCandidates: number
+  constraintsAvailable: boolean
+  constraintsNote: string
+}
 
 const EARTH_RADIUS_NM = 3440.065
 function rad(v: number) { return v * Math.PI / 180 }
@@ -47,16 +63,21 @@ function asPoint(node: Pick<IsochroneNode, 'latitude' | 'longitude'>, name = 'N'
   return { id: name, name, latitude: String(node.latitude), longitude: String(node.longitude) }
 }
 
+function routeScore(node: IsochroneNode, target: OffshorePoint) {
+  const remaining = distanceAndBearing(asPoint(node), target).distanceNm
+  return remaining + (node.tssCrossing ? 12 : 0)
+}
+
 function prune(nodes: IsochroneNode[], target: OffshorePoint, maxNodes: number) {
   const sectors = new Map<number, IsochroneNode>()
   for (const node of nodes) {
     const geometry = distanceAndBearing(asPoint(node), target)
     const sector = Math.round(geometry.bearing / 15) * 15
     const current = sectors.get(sector)
-    if (!current || distanceAndBearing(asPoint(current), target).distanceNm > geometry.distanceNm) sectors.set(sector, node)
+    if (!current || routeScore(current, target) > routeScore(node, target)) sectors.set(sector, node)
   }
   return [...sectors.values()]
-    .sort((a, b) => distanceAndBearing(asPoint(a), target).distanceNm - distanceAndBearing(asPoint(b), target).distanceNm)
+    .sort((a, b) => routeScore(a, target) - routeScore(b, target))
     .slice(0, maxNodes)
 }
 
@@ -84,7 +105,10 @@ export async function computeIsochrones(args: {
   const maxNodes = args.maxNodes ?? 18
   const headingSpread = args.headingSpread ?? 60
   const headingStep = args.headingStep ?? 15
-  const startNode: IsochroneNode = { latitude: Number(start.latitude), longitude: Number(start.longitude), time: departure.toISOString(), heading: 0, boatSpeed: 0, groundSpeed: 0, windSpeed: null, windDirection: null, currentSpeed: null, currentDirection: null }
+  const constraints = await fetchOffshoreConstraintProfile(start, target)
+  let blockedLandCandidates = 0
+  let tssCrossingCandidates = 0
+  const startNode: IsochroneNode = { latitude: Number(start.latitude), longitude: Number(start.longitude), time: departure.toISOString(), heading: 0, boatSpeed: 0, polarSpeed: 0, waveFactor: 1, groundSpeed: 0, windSpeed: null, windDirection: null, waveHeight: null, waveDirection: null, currentSpeed: null, currentDirection: null, tssCrossing: false }
   let frontier = [startNode]
   const steps: IsochroneStep[] = [{ time: departure.toISOString(), nodes: frontier }]
   const iterations = Math.ceil(maxHours * 60 / stepMinutes)
@@ -99,14 +123,39 @@ export async function computeIsochrones(args: {
       for (let offset = -headingSpread; offset <= headingSpread; offset += headingStep) {
         const heading = norm(direct + offset)
         const twa = trueWindAngle(heading, env.windDirection)
-        const boatSpeed = polarSpeed(polar, twa, env.windSpeed)
+        const rawPolarSpeed = polarSpeed(polar, twa, env.windSpeed)
+        const waveFactor = wavePerformanceFactor(heading, env.waveHeight, env.waveDirection, env.wavePeriod)
+        const boatSpeed = rawPolarSpeed * waveFactor
         if (boatSpeed < 0.3) continue
         const ground = addCurrent(heading, boatSpeed, env.currentSpeed, env.currentDirection)
         const next = advance(node.latitude, node.longitude, ground.bearing, ground.speed * stepMinutes / 60)
-        const nextNode: IsochroneNode = { ...next, time: new Date(time.getTime() + stepMinutes * 60_000).toISOString(), heading, boatSpeed, groundSpeed: ground.speed, windSpeed: env.windSpeed, windDirection: env.windDirection, currentSpeed: env.currentSpeed, currentDirection: env.currentDirection, parent: node }
+        const segment = evaluateOffshoreSegment(constraints, { lat: node.latitude, lon: node.longitude }, { lat: next.latitude, lon: next.longitude })
+        if (segment.crossesLand) { blockedLandCandidates += 1; continue }
+        if (segment.crossesTss) tssCrossingCandidates += 1
+        const nextNode: IsochroneNode = {
+          ...next,
+          time: new Date(time.getTime() + stepMinutes * 60_000).toISOString(),
+          heading,
+          boatSpeed,
+          polarSpeed: rawPolarSpeed,
+          waveFactor,
+          groundSpeed: ground.speed,
+          windSpeed: env.windSpeed,
+          windDirection: env.windDirection,
+          waveHeight: env.waveHeight,
+          waveDirection: env.waveDirection,
+          currentSpeed: env.currentSpeed,
+          currentDirection: env.currentDirection,
+          tssCrossing: node.tssCrossing || segment.crossesTss,
+          parent: node,
+        }
         const remaining = distanceAndBearing(asPoint(nextNode), target).distanceNm
         if (remaining <= Math.max(1, ground.speed * stepMinutes / 60)) {
-          return { steps: [...steps, { time: nextNode.time, nodes: [nextNode] }], bestRoute: routeFrom(nextNode), reached: true, eta: nextNode.time, note: 'Arrivée atteinte par le calcul isochrone.' }
+          return {
+            steps: [...steps, { time: nextNode.time, nodes: [nextNode] }], bestRoute: routeFrom(nextNode), reached: true, eta: nextNode.time,
+            note: 'Arrivée atteinte par le calcul isochrone avec contrôle côte et pénalité de mer.',
+            blockedLandCandidates, tssCrossingCandidates, constraintsAvailable: constraints.available, constraintsNote: constraints.note,
+          }
         }
         candidates.push(nextNode)
       }
@@ -116,6 +165,16 @@ export async function computeIsochrones(args: {
     steps.push({ time: frontier[0]?.time ?? time.toISOString(), nodes: frontier })
   }
 
-  const best = frontier.slice().sort((a, b) => distanceAndBearing(asPoint(a), target).distanceNm - distanceAndBearing(asPoint(b), target).distanceNm)[0]
-  return { steps, bestRoute: routeFrom(best), reached: false, eta: null, note: best ? 'Horizon atteint avant l’arrivée : meilleure route conservée.' : 'Aucune route exploitable avec les données disponibles.' }
+  const best = frontier.slice().sort((a, b) => routeScore(a, target) - routeScore(b, target))[0]
+  return {
+    steps,
+    bestRoute: routeFrom(best),
+    reached: false,
+    eta: null,
+    note: best ? 'Horizon atteint avant l’arrivée : meilleure route conservée avec contraintes disponibles.' : 'Aucune route exploitable avec les données et contraintes disponibles.',
+    blockedLandCandidates,
+    tssCrossingCandidates,
+    constraintsAvailable: constraints.available,
+    constraintsNote: constraints.note,
+  }
 }
