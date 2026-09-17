@@ -2,14 +2,13 @@ import { useMemo, useState } from 'react'
 import { Gauge, Upload, Wind } from 'lucide-react'
 import type { OffshoreLeg } from '../offshore'
 import type { OffshoreLegForecast } from '../offshoreForecast'
-import { DEMO_POLAR, parsePolarCsv, polarSpeed, trueWindAngle, type PolarTable } from '../offshorePolar'
+import { parsePolarCsv, polarSpeed, trueWindAngle, type PolarTable } from '../offshorePolar'
 
-type Props = { legs: OffshoreLeg[]; forecasts: OffshoreLegForecast[] }
+type Props = { legs: OffshoreLeg[]; forecasts: OffshoreLegForecast[]; polar: PolarTable; onPolarChange: (polar: PolarTable) => void }
 
 function fmt(value: number | null, digits = 1) { return value == null ? '—' : value.toFixed(digits).replace('.', ',') }
 
-export function OffshorePolarPanel({ legs, forecasts }: Props) {
-  const [polar, setPolar] = useState<PolarTable>(DEMO_POLAR)
+export function OffshorePolarPanel({ legs, forecasts, polar, onPolarChange }: Props) {
   const [message, setMessage] = useState('Polaire de démonstration active. Importe la polaire réelle du bateau pour fiabiliser le routage.')
 
   const rows = useMemo(() => legs.map((leg) => {
@@ -28,7 +27,7 @@ export function OffshorePolarPanel({ legs, forecasts }: Props) {
     try {
       const text = await file.text()
       const parsed = parsePolarCsv(text, file.name.replace(/\.[^.]+$/, ''))
-      setPolar(parsed)
+      onPolarChange(parsed)
       setMessage(`Polaire « ${parsed.name} » chargée : ${parsed.rows.length} angles TWA × ${parsed.tws.length} forces TWS.`)
     } catch (error) {
       setMessage(error instanceof Error ? `Import impossible : ${error.message}` : 'Import impossible.')
@@ -56,7 +55,7 @@ export function OffshorePolarPanel({ legs, forecasts }: Props) {
           <span>Durée tronçon <b>{hours == null ? '—' : `${fmt(hours, 1)} h`}</b></span>
         </article>)}
       </div>
-      <p className="offshore-source">Cette première estimation suppose que les conditions échantillonnées au milieu du tronçon restent représentatives pendant le tronçon. L’étape suivante est l’isochrone : recalculer vent, courant et vitesse à chaque pas de temps et tester plusieurs caps.</p>
+      <p className="offshore-source">La polaire sélectionnée est aussi utilisée par le calcul d’isochrones ci-dessous.</p>
     </>}
   </section>
 }
