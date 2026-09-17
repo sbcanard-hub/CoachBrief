@@ -6,6 +6,7 @@ import { WindModelComparisonPanel } from './components/WindModelComparisonPanel'
 import { ForecastPanel } from './components/ForecastPanel'
 import { ThermalQuadrantPanel } from './components/ThermalQuadrantPanel'
 import { RaceRoundsPanel } from './components/RaceRoundsPanel'
+import { LandingPage } from './pages/LandingPage'
 import { HomePage } from './pages/HomePage'
 import { ResultsPage } from './pages/ResultsPage'
 import { SavedBriefingsPage } from './pages/SavedBriefingsPage'
@@ -82,7 +83,8 @@ export default function App() {
       <ScrollToTop />
       <Header />
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/regate" element={<HomePage />} />
         <Route path="/large" element={<OffshorePage />} />
         <Route path="/resultats" element={<ResultsRoute />} />
         <Route path="/briefings" element={<SavedBriefingsPage />} />
