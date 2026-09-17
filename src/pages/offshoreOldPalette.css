@@ -1,0 +1,42 @@
+.offshore-page {
+  color: #173b3a;
+}
+
+.offshore-kicker,
+.offshore-hero h1 em,
+.offshore-card-heading small,
+.offshore-card-heading > div > span,
+.offshore-point-index,
+.offshore-map-title svg,
+.offshore-leg-route svg,
+.offshore-polar-toolbar svg,
+.offshore-polar-empty svg {
+  color: #db6b45;
+}
+
+.offshore-card-heading > div > span,
+.offshore-point-index {
+  background: #fbede7;
+}
+
+.offshore-hero h1 {
+  color: #173b3a;
+}
+
+.offshore-hero p,
+.offshore-help,
+.offshore-source,
+.offshore-polar-toolbar p,
+.offshore-roadmap-grid p {
+  color: #667773;
+}
+
+.offshore-add,
+.offshore-file-button {
+  background: #173b3a;
+}
+
+.offshore-add:hover,
+.offshore-file-button:hover {
+  background: #25524e;
+}
