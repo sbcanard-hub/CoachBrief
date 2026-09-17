@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Anchor, ArrowRight, CalendarDays, Clock3, Compass, Gauge, LoaderCircle, MapPin, Plus, Route, Sailboat, Trash2, Waves, Wind } from 'lucide-react'
+import { Anchor, ArrowRight, CalendarDays, Clock3, Compass, Gauge, LoaderCircle, MapPin, Plus, Route, Sailboat, Search, Trash2, Waves, Wind } from 'lucide-react'
 import { OffshoreRouteMap } from '../components/OffshoreRouteMap'
 import { OffshorePolarPanel } from '../components/OffshorePolarPanel'
 import { OffshoreIsochronePanel } from '../components/OffshoreIsochronePanel'
 import { buildOffshoreLegs, estimateOffshoreEtaHours, totalOffshoreDistance, type OffshorePoint } from '../offshore'
 import { fetchOffshoreLegForecasts, type OffshoreLegForecast } from '../offshoreForecast'
+import { offshorePlaceLabel, searchOffshorePlaces, type OffshorePlaceResult } from '../offshoreGeocoding'
 import { DEMO_POLAR, type PolarTable } from '../offshorePolar'
 import type { IsochroneResult } from '../offshoreIsochrone'
 import './offshore.css'
@@ -42,6 +43,9 @@ export function OffshorePage() {
   const [forecastState, setForecastState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [polar, setPolar] = useState<PolarTable>(DEMO_POLAR)
   const [isochrones, setIsochrones] = useState<IsochroneResult | null>(null)
+  const [departureCity, setDepartureCity] = useState('')
+  const [cityResults, setCityResults] = useState<OffshorePlaceResult[]>([])
+  const [cityState, setCityState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
 
   const legs = useMemo(() => buildOffshoreLegs(points), [points])
   const totalDistance = useMemo(() => totalOffshoreDistance(legs), [legs])
@@ -74,6 +78,33 @@ export function OffshorePage() {
 
   function removePoint(id: string) {
     setPoints((current) => current.length <= 2 ? current : current.filter((point) => point.id !== id))
+    invalidateRouteAnalysis()
+  }
+
+  async function searchDepartureCity() {
+    if (departureCity.trim().length < 2) return
+    setCityState('loading')
+    setCityResults([])
+    try {
+      const results = await searchOffshorePlaces(departureCity)
+      setCityResults(results)
+      setCityState('ready')
+      if (results.length === 1) applyDeparturePlace(results[0])
+    } catch {
+      setCityState('error')
+    }
+  }
+
+  function applyDeparturePlace(place: OffshorePlaceResult) {
+    setDepartureCity(place.name)
+    setCityResults([])
+    setCityState('idle')
+    setPoints((current) => current.map((point, index) => index === 0 ? {
+      ...point,
+      name: place.name,
+      latitude: place.latitude.toFixed(6),
+      longitude: place.longitude.toFixed(6),
+    } : point))
     invalidateRouteAnalysis()
   }
 
@@ -120,6 +151,21 @@ export function OffshorePage() {
       <div className="offshore-card-heading">
         <div><span>02</span><div><small>Route</small><h2>Départ, waypoints et arrivée</h2></div></div>
         <MapPin size={24} />
+      </div>
+      <div className="offshore-departure-city">
+        <div>
+          <label htmlFor="offshore-departure-city"><span><MapPin size={15} /> Ville de départ</span></label>
+          <div className="offshore-city-search">
+            <input id="offshore-departure-city" value={departureCity} onChange={(e) => { setDepartureCity(e.target.value); setCityState('idle'); setCityResults([]) }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void searchDepartureCity() } }} placeholder="Ex. Antibes, Lorient, Saint-Malo…" />
+            <button type="button" onClick={() => void searchDepartureCity()} disabled={cityState === 'loading' || departureCity.trim().length < 2}>{cityState === 'loading' ? <LoaderCircle size={16} className="current-spin" /> : <Search size={16} />} Rechercher</button>
+          </div>
+        </div>
+        <p>Choisis la ville : CoachBrief positionne automatiquement le curseur <strong>D</strong>. Tu peux ensuite affiner le point directement sur la carte et ajouter autant de waypoints que nécessaire.</p>
+        {cityState === 'error' && <p className="offshore-city-error">La recherche de ville est momentanément indisponible. Les coordonnées restent modifiables manuellement.</p>}
+        {cityState === 'ready' && cityResults.length === 0 && <p className="offshore-city-error">Aucune ville trouvée pour cette recherche.</p>}
+        {cityResults.length > 0 && <div className="offshore-city-results">
+          {cityResults.map((place) => <button key={place.id} type="button" onClick={() => applyDeparturePlace(place)}><MapPin size={14} /><span>{offshorePlaceLabel(place)}</span><small>{place.latitude.toFixed(4)}, {place.longitude.toFixed(4)}</small></button>)}
+        </div>}
       </div>
       <div className="offshore-route-layout">
         <div>
