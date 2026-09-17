@@ -5,7 +5,7 @@ export type OffshorePlaceResult = {
   admin1: string | null
   latitude: number
   longitude: number
-  kind?: 'city' | 'port'
+  kind?: 'city' | 'port' | 'waypoint'
 }
 
 type OpenMeteoGeocodingResult = {
@@ -64,13 +64,30 @@ function harbourLike(item: NominatimResult) {
   return values.some((value) => ['marina', 'harbour', 'harbor', 'port', 'dock', 'pier'].includes(value))
 }
 
-export async function searchOffshorePorts(query: string): Promise<OffshorePlaceResult[]> {
+function mapNominatim(item: NominatimResult, index: number, kind: 'port' | 'waypoint'): OffshorePlaceResult | null {
+  const latitude = Number(item.lat)
+  const longitude = Number(item.lon)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+  const address = item.address ?? {}
+  const fallbackName = item.display_name?.split(',')[0]?.trim() || `${kind === 'port' ? 'Port' : 'Waypoint'} ${index + 1}`
+  return {
+    id: `osm-${kind}-${item.place_id ?? index}`,
+    name: item.name?.trim() || fallbackName,
+    country: address.country ?? null,
+    admin1: address.city ?? address.town ?? address.village ?? address.municipality ?? address.state ?? address.region ?? null,
+    latitude,
+    longitude,
+    kind,
+  }
+}
+
+async function searchNominatim(query: string, limit = 10) {
   const name = query.trim()
-  if (name.length < 2) return []
+  if (name.length < 2) return [] as NominatimResult[]
   const params = new URLSearchParams({
     q: name,
     format: 'jsonv2',
-    limit: '10',
+    limit: String(limit),
     addressdetails: '1',
     namedetails: '1',
     'accept-language': 'fr',
@@ -78,26 +95,25 @@ export async function searchOffshorePorts(query: string): Promise<OffshorePlaceR
   const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
     headers: { Accept: 'application/json' },
   })
-  if (!response.ok) throw new Error('Recherche de port indisponible')
-  const payload = await response.json() as NominatimResult[]
-  const filtered = payload.filter((item) => harbourLike(item)).slice(0, 6)
-  return filtered
-    .map((item, index) => {
-      const latitude = Number(item.lat)
-      const longitude = Number(item.lon)
-      const fallbackName = item.display_name?.split(',')[0]?.trim() || `Port ${index + 1}`
-      const address = item.address ?? {}
-      return {
-        id: `osm-${item.place_id ?? index}`,
-        name: item.name?.trim() || fallbackName,
-        country: address.country ?? null,
-        admin1: address.city ?? address.town ?? address.village ?? address.municipality ?? address.state ?? address.region ?? null,
-        latitude,
-        longitude,
-        kind: 'port' as const,
-      }
-    })
-    .filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude))
+  if (!response.ok) throw new Error('Recherche OpenStreetMap indisponible')
+  return await response.json() as NominatimResult[]
+}
+
+export async function searchOffshorePorts(query: string): Promise<OffshorePlaceResult[]> {
+  const payload = await searchNominatim(query, 10)
+  return payload
+    .filter((item) => harbourLike(item))
+    .slice(0, 6)
+    .map((item, index) => mapNominatim(item, index, 'port'))
+    .filter((item): item is OffshorePlaceResult => Boolean(item))
+}
+
+export async function searchOffshoreWaypoints(query: string): Promise<OffshorePlaceResult[]> {
+  const payload = await searchNominatim(query, 8)
+  return payload
+    .map((item, index) => mapNominatim(item, index, 'waypoint'))
+    .filter((item): item is OffshorePlaceResult => Boolean(item))
+    .slice(0, 6)
 }
 
 export function offshorePlaceLabel(place: OffshorePlaceResult) {
