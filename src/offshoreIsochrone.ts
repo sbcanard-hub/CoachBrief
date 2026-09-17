@@ -63,13 +63,16 @@ const DETOUR_MAX_NODES = 20
 const PRUNE_SECTOR_DEGREES = 15
 const PRUNE_NODES_PER_SECTOR = 2
 const DEFAULT_BUDGET_MS = 25_000
-const SOFT_BUDGET_RATIO = .55
+const SOFT_BUDGET_RATIO = .58
 const SOFT_MAX_NODES = 12
 const SOFT_HEADING_STEP = 30
+const COURSE_CHANGE_FREE = 75
+const COURSE_CHANGE_STRONG = 125
 
 function rad(v: number) { return v * Math.PI / 180 }
 function deg(v: number) { return v * 180 / Math.PI }
 function norm(v: number) { return ((v % 360) + 360) % 360 }
+function angleDiff(a: number, b: number) { return Math.abs((((a - b) % 360) + 540) % 360 - 180) }
 
 function advance(latitude: number, longitude: number, bearing: number, distanceNm: number) {
   const d = distanceNm / EARTH_RADIUS_NM
@@ -95,7 +98,20 @@ function asPoint(node: Pick<IsochroneNode, 'latitude' | 'longitude'>, name = 'N'
 
 function routeScore(node: IsochroneNode, target: OffshorePoint) {
   const remaining = distanceAndBearing(asPoint(node), target).distanceNm
-  return remaining + (node.tssCrossing ? 12 : 0)
+  let score = remaining + (node.tssCrossing ? 12 : 0)
+
+  if (node.parent) {
+    const parentRemaining = distanceAndBearing(asPoint(node.parent), target).distanceNm
+    const regression = Math.max(0, remaining - parentRemaining)
+    score += regression * 1.6
+
+    if (node.parent.parent) {
+      const turn = angleDiff(node.heading, node.parent.heading)
+      if (turn > COURSE_CHANGE_FREE) score += (turn - COURSE_CHANGE_FREE) * 0.035
+      if (turn > COURSE_CHANGE_STRONG) score += 5
+    }
+  }
+  return score
 }
 
 function prune(nodes: IsochroneNode[], target: OffshorePoint, maxNodes: number) {
@@ -122,25 +138,15 @@ function routeFrom(node: IsochroneNode | undefined) {
   return route.reverse()
 }
 
-function candidateHeadings(
-  direct: number,
-  windFromDirection: number,
-  polar: PolarTable,
-  headingSpread: number,
-  headingStep: number,
-) {
+function candidateHeadings(direct: number, windFromDirection: number, polar: PolarTable, headingSpread: number, headingStep: number) {
   const headings = new Set<number>()
-  for (let offset = -headingSpread; offset <= headingSpread; offset += headingStep) {
-    headings.add(norm(direct + offset))
-  }
-
+  for (let offset = -headingSpread; offset <= headingSpread; offset += headingStep) headings.add(norm(direct + offset))
   const minimumTwa = minimumSailableTwa(polar)
   const directTwa = trueWindAngle(direct, windFromDirection)
   if (minimumTwa > 0 && directTwa < minimumTwa + headingStep) {
     headings.add(norm(windFromDirection - minimumTwa))
     headings.add(norm(windFromDirection + minimumTwa))
   }
-
   return [...headings]
 }
 
@@ -149,13 +155,19 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, worker: (item
   let cursor = 0
   const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
     while (cursor < items.length) {
-      const index = cursor
-      cursor += 1
+      const index = cursor++
       results[index] = await worker(items[index])
     }
   })
   await Promise.all(runners)
   return results
+}
+
+function cacheCoord(value: number) { return (Math.round(value * 100) / 100).toFixed(2) }
+function modeledHours(route: IsochroneNode[], departure: Date) {
+  if (!route.length) return 0
+  const last = new Date(route[route.length - 1].time).getTime()
+  return Number.isFinite(last) ? Math.max(0, Math.round((last - departure.getTime()) / 3_600_000)) : 0
 }
 
 export async function computeIsochrones(args: {
@@ -198,6 +210,34 @@ export async function computeIsochrones(args: {
     && args.referenceHighWater != null
     && Number.isFinite(args.referenceHighWater.getTime())
 
+  const forecastCache = new Map<string, ReturnType<typeof fetchOffshorePointForecast>>()
+  const shomCache = new Map<string, ReturnType<typeof fetchShomCurrentAtTime>>()
+  const getForecast = (lat: number, lon: number, time: Date) => {
+    const key = `${cacheCoord(lat)}|${cacheCoord(lon)}|${time.toISOString()}`
+    let promise = forecastCache.get(key)
+    if (!promise) {
+      promise = fetchOffshorePointForecast(lat, lon, time)
+      forecastCache.set(key, promise)
+    }
+    return promise
+  }
+  const getShom = (lat: number, lon: number, time: Date) => {
+    const key = `${cacheCoord(lat)}|${cacheCoord(lon)}|${time.toISOString()}|${args.tidalCoefficient ?? ''}`
+    let promise = shomCache.get(key)
+    if (!promise) {
+      promise = fetchShomCurrentAtTime(
+        lat,
+        lon,
+        args.tidalCoefficient as number,
+        args.referenceHighWater as Date,
+        time,
+        args.referenceHighWaterSchedules,
+      )
+      shomCache.set(key, promise)
+    }
+    return promise
+  }
+
   let blockedLandCandidates = 0
   let tssCrossingCandidates = 0
   let shomCurrentSamples = 0
@@ -232,21 +272,14 @@ export async function computeIsochrones(args: {
       }
 
       if (Date.now() >= deadline) { budgetExhausted = true; return local }
-      const env = await fetchOffshorePointForecast(node.latitude, node.longitude, time)
+      const env = await getForecast(node.latitude, node.longitude, time)
       if (Date.now() >= deadline) { budgetExhausted = true; return local }
       let currentSpeed = env.currentSpeed
       let currentDirection = env.currentDirection
       let currentSource: IsochroneNode['currentSource'] = currentSpeed != null && currentDirection != null ? 'open-meteo' : 'none'
 
       if (useShom) {
-        const shom = await fetchShomCurrentAtTime(
-          node.latitude,
-          node.longitude,
-          args.tidalCoefficient as number,
-          args.referenceHighWater as Date,
-          time,
-          args.referenceHighWaterSchedules,
-        )
+        const shom = await getShom(node.latitude, node.longitude, time)
         if (shom.source === 'shom' && shom.speed != null && shom.direction != null) {
           currentSpeed = shom.speed
           currentDirection = shom.direction
@@ -325,29 +358,20 @@ export async function computeIsochrones(args: {
       shomScheduledReferenceSamples += expansion.shomScheduledReferenceSamples
       shomPropagatedReferenceSamples += expansion.shomPropagatedReferenceSamples
       expansion.shomAtlasLabels.forEach((label) => shomAtlasLabels.add(label))
-      if (expansion.reached && (!reachedNode || routeScore(expansion.reached, target) < routeScore(reachedNode, target))) {
-        reachedNode = expansion.reached
-      }
+      if (expansion.reached && (!reachedNode || routeScore(expansion.reached, target) < routeScore(reachedNode, target))) reachedNode = expansion.reached
     }
 
     if (reachedNode) {
       return {
         steps: [...steps, { time: reachedNode.time, nodes: [reachedNode] }],
-        bestRoute: routeFrom(reachedNode),
-        reached: true,
-        eta: reachedNode.time,
+        bestRoute: routeFrom(reachedNode), reached: true, eta: reachedNode.time,
         note: detourMode
           ? 'Arrivée atteinte par le calcul isochrone après recherche élargie d’un contournement maritime.'
           : 'Arrivée atteinte par le calcul isochrone avec contrôle côte, mer et courant local disponible.',
-        blockedLandCandidates,
-        tssCrossingCandidates,
-        constraintsAvailable: constraints.available,
-        constraintsNote: constraints.note,
-        shomCurrentSamples,
-        fallbackCurrentSamples,
-        shomAtlasLabels: [...shomAtlasLabels],
-        shomScheduledReferenceSamples,
-        shomPropagatedReferenceSamples,
+        blockedLandCandidates, tssCrossingCandidates,
+        constraintsAvailable: constraints.available, constraintsNote: constraints.note,
+        shomCurrentSamples, fallbackCurrentSamples, shomAtlasLabels: [...shomAtlasLabels],
+        shomScheduledReferenceSamples, shomPropagatedReferenceSamples,
       }
     }
 
@@ -361,28 +385,21 @@ export async function computeIsochrones(args: {
   const best = frontier.slice().sort((a, b) => routeScore(a, target) - routeScore(b, target))[0]
   const bestRoute = routeFrom(best)
   const progressed = bestRoute.length >= 2
+  const hoursDone = modeledHours(bestRoute, departure)
   return {
-    steps,
-    bestRoute,
-    reached: false,
-    eta: null,
+    steps, bestRoute, reached: false, eta: null,
     note: budgetExhausted
       ? progressed
-        ? 'Budget de calcul atteint : meilleure route maritime partielle conservée. Réduis l’horizon ou augmente le pas de temps pour approfondir.'
-        : 'Budget de calcul atteint avant de produire une route exploitable. Essaie un horizon plus court ou un pas de 2 h.'
+        ? `Calcul interrompu à environ ${hoursDone} h sur ${maxHours} h par la limite de temps : meilleure route maritime partielle conservée. Le moteur privilégie désormais les branches qui continuent à progresser vers A et pénalise les grands retours de cap.`
+        : `Calcul interrompu avant de produire une route exploitable (0 h sur ${maxHours} h). Essaie un pas de 2 h ou un horizon plus court.`
       : progressed
         ? detourMode
-          ? 'Horizon atteint avant l’arrivée : un contournement maritime a été exploré mais n’a pas encore rejoint A.'
-          : 'Horizon atteint avant l’arrivée : meilleure route conservée avec contraintes et courant disponibles.'
+          ? `Horizon atteint avant l’arrivée après ${hoursDone} h : un contournement maritime a été exploré mais n’a pas encore rejoint A.`
+          : `Horizon atteint avant l’arrivée après ${hoursDone} h : meilleure route conservée avec contraintes et courant disponibles.`
         : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure et la disponibilité de la météo au point D.',
-    blockedLandCandidates,
-    tssCrossingCandidates,
-    constraintsAvailable: constraints.available,
-    constraintsNote: constraints.note,
-    shomCurrentSamples,
-    fallbackCurrentSamples,
-    shomAtlasLabels: [...shomAtlasLabels],
-    shomScheduledReferenceSamples,
-    shomPropagatedReferenceSamples,
+    blockedLandCandidates, tssCrossingCandidates,
+    constraintsAvailable: constraints.available, constraintsNote: constraints.note,
+    shomCurrentSamples, fallbackCurrentSamples, shomAtlasLabels: [...shomAtlasLabels],
+    shomScheduledReferenceSamples, shomPropagatedReferenceSamples,
   }
 }
