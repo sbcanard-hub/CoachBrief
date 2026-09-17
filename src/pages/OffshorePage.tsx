@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Anchor, ArrowRight, CalendarDays, Clock3, Compass, Gauge, LoaderCircle, MapPin, Plus, Route, Sailboat, Trash2, Waves, Wind } from 'lucide-react'
 import { OffshoreRouteMap } from '../components/OffshoreRouteMap'
+import { OffshorePolarPanel } from '../components/OffshorePolarPanel'
 import { buildOffshoreLegs, estimateOffshoreEtaHours, totalOffshoreDistance, type OffshorePoint } from '../offshore'
 import { fetchOffshoreLegForecasts, type OffshoreLegForecast } from '../offshoreForecast'
 import './offshore.css'
@@ -101,7 +102,7 @@ export function OffshorePage() {
         <label><span>Type de bateau</span><select value={boatType} onChange={(e) => setBoatType(e.target.value)}><option>Monocoque</option><option>Multicoque</option><option>Mini 6.50</option><option>Class40</option><option>IRC / ORC</option><option>Autre</option></select></label>
         <label><span><Gauge size={15} /> Vitesse moyenne de travail</span><div className="offshore-unit"><input type="number" min="0.5" step="0.1" value={averageSpeed} onChange={(e) => { setAverageSpeed(e.target.value); setForecastState('idle'); setForecasts([]) }} /><b>nd</b></div></label>
       </div>
-      <p className="offshore-help">Cette vitesse sert à positionner une heure estimée de passage au milieu de chaque tronçon. Les polaires du bateau remplaceront ensuite cette hypothèse fixe.</p>
+      <p className="offshore-help">Cette vitesse sert à positionner une heure estimée de passage au milieu de chaque tronçon. Les polaires du bateau peuvent maintenant être importées pour calculer une vitesse cible selon TWA/TWS.</p>
     </section>
 
     <section className="offshore-card">
@@ -170,16 +171,18 @@ export function OffshorePage() {
           </article>
         })}
       </div>
-      {forecasts.length > 0 && <p className="offshore-source">Source actuelle : Open-Meteo Forecast + Marine. L’heure de passage est encore calculée avec la vitesse moyenne de travail ; elle sera recalculée par les polaires et le routage.</p>}
+      {forecasts.length > 0 && <p className="offshore-source">Source actuelle : Open-Meteo Forecast + Marine. L’heure de passage est encore calculée avec la vitesse moyenne de travail ; la polaire ci-dessous permet déjà une première correction de performance.</p>}
     </section>}
+
+    {legs.length > 0 && <OffshorePolarPanel legs={legs} forecasts={forecasts} />}
 
     <section className="offshore-roadmap">
       <h2>Étapes suivantes du mode large</h2>
       <div className="offshore-roadmap-grid">
-        <article><Wind /><strong>Routage multi-modèles</strong><p>Comparer plusieurs routes avec AROME, ECMWF, ICON et GFS et afficher les divergences de scénario.</p></article>
+        <article><Wind /><strong>Isochrones météo</strong><p>Recalculer les conditions à chaque pas de temps et tester plusieurs caps autour de la route directe.</p></article>
         <article><Anchor /><strong>Courants fins</strong><p>Appliquer SHOM sur les zones couvertes et les effets bathymétriques le long de chaque option de route.</p></article>
-        <article><Waves /><strong>Mer et houle</strong><p>Évaluer la mer de face, travers ou arrière, et son impact sur la vitesse cible.</p></article>
-        <article><Compass /><strong>Polaires et isochrones</strong><p>Importer les polaires du bateau puis générer des isochrones et comparer ETA, risque et robustesse.</p></article>
+        <article><Waves /><strong>Mer et houle</strong><p>Appliquer une pénalité de performance lorsque la mer de face ou de travers ralentit le bateau.</p></article>
+        <article><Compass /><strong>Comparaison des routes</strong><p>Comparer ETA, distance, changements de bord, risque météo et robustesse des scénarios.</p></article>
       </div>
     </section>
   </main>
