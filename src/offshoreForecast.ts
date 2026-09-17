@@ -1,5 +1,33 @@
 import type { OffshoreLeg } from './offshore'
 
+export type OffshoreWeatherModel = 'best_match' | 'ecmwf' | 'gfs' | 'icon' | 'meteofrance'
+
+export const OFFSHORE_WEATHER_MODELS: Array<{ value: OffshoreWeatherModel; label: string; detail: string }> = [
+  { value: 'best_match', label: 'Best Match', detail: 'Sélection automatique Open-Meteo selon la zone' },
+  { value: 'ecmwf', label: 'ECMWF IFS', detail: 'Modèle global ECMWF' },
+  { value: 'gfs', label: 'GFS NOAA', detail: 'Modèle global américain' },
+  { value: 'icon', label: 'ICON DWD', detail: 'ICON global + Europe selon la zone' },
+  { value: 'meteofrance', label: 'AROME / ARPEGE', detail: 'Météo-France : haute résolution en France, ARPEGE au large' },
+]
+
+const WEATHER_MODEL_STORAGE_KEY = 'coachbrief:offshore-weather-model:v1'
+
+export function offshoreWeatherModelLabel(model: OffshoreWeatherModel) {
+  return OFFSHORE_WEATHER_MODELS.find((item) => item.value === model)?.label ?? 'Best Match'
+}
+
+export function getOffshoreWeatherModel(): OffshoreWeatherModel {
+  try {
+    const value = window.localStorage.getItem(WEATHER_MODEL_STORAGE_KEY)
+    if (OFFSHORE_WEATHER_MODELS.some((item) => item.value === value)) return value as OffshoreWeatherModel
+  } catch { /* stockage indisponible */ }
+  return 'best_match'
+}
+
+export function setOffshoreWeatherModel(model: OffshoreWeatherModel) {
+  try { window.localStorage.setItem(WEATHER_MODEL_STORAGE_KEY, model) } catch { /* stockage indisponible */ }
+}
+
 export type OffshorePointForecast = {
   windSpeed: number | null
   windGust: number | null
@@ -83,6 +111,14 @@ function forecastGridPoint(latitude: number, longitude: number) {
   }
 }
 
+function atmosphereEndpoint(model: OffshoreWeatherModel) {
+  if (model === 'ecmwf') return 'https://api.open-meteo.com/v1/ecmwf'
+  if (model === 'gfs') return 'https://api.open-meteo.com/v1/gfs'
+  if (model === 'icon') return 'https://api.open-meteo.com/v1/dwd-icon'
+  if (model === 'meteofrance') return 'https://api.open-meteo.com/v1/meteofrance'
+  return 'https://api.open-meteo.com/v1/forecast'
+}
+
 async function fetchJsonWithTimeout<T>(url: string): Promise<T | null> {
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
@@ -97,18 +133,18 @@ async function fetchJsonWithTimeout<T>(url: string): Promise<T | null> {
   }
 }
 
-async function atmospherePayload(latitude: number, longitude: number, target: Date) {
+async function atmospherePayload(latitude: number, longitude: number, target: Date, model: OffshoreWeatherModel) {
   const date = isoDate(target)
   const point = forecastGridPoint(latitude, longitude)
-  const key = `${point.latitude}:${point.longitude}:${date}`
+  const key = `${model}:${point.latitude}:${point.longitude}:${date}`
   let pending = atmosphereCache.get(key)
   if (!pending) {
     const params = new URLSearchParams({
       latitude: String(point.latitude), longitude: String(point.longitude),
       hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
-      start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn',
+      start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn', cell_selection: 'sea',
     })
-    pending = fetchJsonWithTimeout<AtmospherePayload>(`https://api.open-meteo.com/v1/forecast?${params}`)
+    pending = fetchJsonWithTimeout<AtmospherePayload>(`${atmosphereEndpoint(model)}?${params}`)
     atmosphereCache.set(key, pending)
   }
   return pending
@@ -131,8 +167,8 @@ async function marinePayload(latitude: number, longitude: number, target: Date) 
   return pending
 }
 
-async function fetchAtmosphere(latitude: number, longitude: number, target: Date) {
-  const payload = await atmospherePayload(latitude, longitude, target)
+async function fetchAtmosphere(latitude: number, longitude: number, target: Date, model: OffshoreWeatherModel) {
+  const payload = await atmospherePayload(latitude, longitude, target, model)
   const times = payload?.hourly?.time ?? []
   if (!times.length) return null
   const index = nearestIndex(times, target)
@@ -157,8 +193,8 @@ async function fetchMarine(latitude: number, longitude: number, target: Date) {
   }
 }
 
-export async function fetchOffshorePointForecast(latitude: number, longitude: number, target: Date): Promise<OffshorePointForecast> {
-  const [air, marine] = await Promise.all([fetchAtmosphere(latitude, longitude, target), fetchMarine(latitude, longitude, target)])
+export async function fetchOffshorePointForecast(latitude: number, longitude: number, target: Date, model: OffshoreWeatherModel = getOffshoreWeatherModel()): Promise<OffshorePointForecast> {
+  const [air, marine] = await Promise.all([fetchAtmosphere(latitude, longitude, target, model), fetchMarine(latitude, longitude, target)])
   return {
     windSpeed: air?.windSpeed ?? null,
     windGust: air?.windGust ?? null,
@@ -182,11 +218,11 @@ export function offshoreLegEtas(legs: OffshoreLeg[], departure: Date, averageSpe
   })
 }
 
-export async function fetchOffshoreLegForecasts(legs: OffshoreLeg[], departure: Date, averageSpeed: number): Promise<OffshoreLegForecast[]> {
+export async function fetchOffshoreLegForecasts(legs: OffshoreLeg[], departure: Date, averageSpeed: number, model: OffshoreWeatherModel = getOffshoreWeatherModel()): Promise<OffshoreLegForecast[]> {
   const schedule = offshoreLegEtas(legs, departure, averageSpeed)
   return Promise.all(schedule.map(async ({ leg, target }) => {
     const point = midpoint(leg)
-    const env = await fetchOffshorePointForecast(point.latitude, point.longitude, target)
-    return { legIndex: leg.index, eta: target.toISOString(), latitude: point.latitude, longitude: point.longitude, ...env, source: 'Open-Meteo Forecast + Marine' }
+    const env = await fetchOffshorePointForecast(point.latitude, point.longitude, target, model)
+    return { legIndex: leg.index, eta: target.toISOString(), latitude: point.latitude, longitude: point.longitude, ...env, source: `${offshoreWeatherModelLabel(model)} via Open-Meteo + Marine` }
   }))
 }
