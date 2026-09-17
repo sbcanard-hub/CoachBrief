@@ -10,12 +10,33 @@
   color: #173b3a;
 }
 
+.module-home__hero h1::after {
+  content: '';
+  display: inline-block;
+  width: .16em;
+  height: .16em;
+  margin-left: .12em;
+  border-radius: 50%;
+  background: #db6b45;
+  vertical-align: .12em;
+}
+
+.module-home__hero-mark > span {
+  color: #57716c;
+  opacity: 1;
+}
+
 .module-home__eyebrow,
 .module-home__choice-kicker,
 .module-card__kicker,
 .module-home__field-kicker,
-.module-home__hero-mark > span {
-  color: #57716c;
+.module-home__signature,
+.module-card__action,
+.module-home__signature svg,
+.module-card__icon,
+.module-home__field-icon,
+.module-home__hero-mark svg {
+  color: #db6b45;
   opacity: 1;
 }
 
@@ -25,19 +46,6 @@
 .module-home__field-note p,
 .module-home__closing {
   color: #667773;
-  opacity: 1;
-}
-
-.module-home__signature,
-.module-card__action,
-.module-home__signature svg,
-.module-card__icon,
-.module-home__field-icon,
-.module-home__hero-mark svg {
-  color: #db6b45;
-}
-
-.module-home__signature {
   opacity: 1;
 }
 
