@@ -54,6 +54,7 @@ export function OffshorePage() {
   const routeStart = points[0]
   const routeTarget = points[points.length - 1]
   const routeEndpointsReady = Boolean(routeStart && routeTarget && validOffshorePoint(routeStart) && validOffshorePoint(routeTarget))
+  const hasValidIsochroneRoute = Boolean(isochrones && isochrones.bestRoute.length >= 2)
 
   function invalidateRouteAnalysis() {
     setForecastState('idle')
@@ -222,17 +223,18 @@ export function OffshorePage() {
           <button type="button" className="offshore-add" onClick={addWaypoint}><Plus size={17} /> Ajouter un waypoint manuel</button>
         </div>
         <div className="offshore-map-wrap">
-          <div className="offshore-map-title"><MapPin size={16} /><strong>Carte de route</strong><span>{isochrones ? 'Route directe en pointillés · routage isochrone en trait plein.' : 'Déplace les marqueurs pour ajuster les points.'}</span></div>
+          <div className="offshore-map-title"><MapPin size={16} /><strong>Carte de route</strong><span>{hasValidIsochroneRoute ? 'Route directe en pointillés · routage isochrone en trait plein.' : isochrones ? 'Route directe en pointillés · aucun routage maritime valide.' : 'Déplace les marqueurs pour ajuster les points.'}</span></div>
           <OffshoreRouteMap points={points} onPointChange={updatePointCoordinates} isochrones={isochrones} />
+          {isochrones && !hasValidIsochroneRoute && <p className="offshore-analysis-error">Aucun routage maritime valide trouvé avec ces paramètres. La ligne en pointillés représente uniquement la distance géométrique directe entre D et A ; elle n’est pas une route navigable.</p>}
         </div>
       </div>
     </section>
 
     <section className="offshore-summary">
       <div className="offshore-summary-main">
-        <span>Route calculée</span>
+        <span>Distance directe D → A</span>
         <strong>{formatNm(totalDistance)}</strong>
-        <small>Durée indicative à {Number(averageSpeed) || 0} nd : {formatDuration(etaHours)}</small>
+        <small>Temps théorique à {Number(averageSpeed) || 0} nd : {formatDuration(etaHours)} · hors contraintes de navigation</small>
       </div>
       <div><Compass size={20} /><span>{legs.length} tronçon{legs.length > 1 ? 's' : ''}</span></div>
       <div><Wind size={20} /><span>Météo au passage</span></div>
