@@ -3,6 +3,7 @@ import { Anchor, Clock3, Compass, Download, LoaderCircle, MapPin, Route } from '
 import type { OffshorePoint } from '../offshore'
 import { computeIsochrones, type IsochroneResult } from '../offshoreIsochrone'
 import type { PolarTable } from '../offshorePolar'
+import type { OffshoreIsochroneSettings } from '../offshoreSavedRoutes'
 import { parseHighWaterLines, SHOM_REFERENCE_PORTS, type ShomHighWaterSchedules } from '../shomHighWater'
 import './offshoreIsochrone.css'
 import './offshoreNavigationWaypoints.css'
@@ -13,6 +14,9 @@ type Props = {
   departureDate: string
   departureTime: string
   polar: PolarTable
+  settings: OffshoreIsochroneSettings | null
+  settingsRestoreKey: number
+  onSettingsChange: (settings: OffshoreIsochroneSettings) => void
   onResult: (result: IsochroneResult | null) => void
 }
 
@@ -122,16 +126,16 @@ function xmlEscape(value: string) {
   return value.replace(/[<>&'\"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '\"': '&quot;' })[character] ?? character)
 }
 
-export function OffshoreIsochronePanel({ start, target, departureDate, departureTime, polar, onResult }: Props) {
+export function OffshoreIsochronePanel({ start, target, departureDate, departureTime, polar, settings, settingsRestoreKey, onSettingsChange, onResult }: Props) {
   const directDistance = useMemo(() => directRouteDistanceNm(start, target), [start, target])
   const automaticPreset = useMemo(() => routingPreset(directDistance), [directDistance])
   const routeSignature = `${start.latitude}|${start.longitude}|${target.latitude}|${target.longitude}`
   const previousRouteSignature = useRef<string | null>(null)
-  const [stepMinutes, setStepMinutes] = useState(automaticPreset.stepMinutes)
-  const [maxHours, setMaxHours] = useState(automaticPreset.maxHours)
-  const [tidalCoefficient, setTidalCoefficient] = useState('70')
-  const [referenceHighWater, setReferenceHighWater] = useState('')
-  const [portHighWaters, setPortHighWaters] = useState<Record<string, string>>({})
+  const [stepMinutes, setStepMinutes] = useState(settings?.stepMinutes ?? automaticPreset.stepMinutes)
+  const [maxHours, setMaxHours] = useState(settings?.maxHours ?? automaticPreset.maxHours)
+  const [tidalCoefficient, setTidalCoefficient] = useState(settings?.tidalCoefficient ?? '70')
+  const [referenceHighWater, setReferenceHighWater] = useState(settings?.referenceHighWater ?? '')
+  const [portHighWaters, setPortHighWaters] = useState<Record<string, string>>(settings?.portHighWaters ?? {})
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [result, setResult] = useState<IsochroneResult | null>(null)
 
@@ -144,6 +148,19 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     setResult(null)
     onResult(null)
   }, [automaticPreset.maxHours, automaticPreset.stepMinutes, onResult, routeSignature])
+
+  useEffect(() => {
+    if (!settings || settingsRestoreKey <= 0) return
+    setStepMinutes(settings.stepMinutes)
+    setMaxHours(settings.maxHours)
+    setTidalCoefficient(settings.tidalCoefficient)
+    setReferenceHighWater(settings.referenceHighWater)
+    setPortHighWaters(settings.portHighWaters)
+  }, [settingsRestoreKey])
+
+  useEffect(() => {
+    onSettingsChange({ stepMinutes, maxHours, tidalCoefficient, referenceHighWater, portHighWaters })
+  }, [maxHours, onSettingsChange, portHighWaters, referenceHighWater, stepMinutes, tidalCoefficient])
 
   const schedules = useMemo<ShomHighWaterSchedules>(() => Object.fromEntries(
     SHOM_REFERENCE_PORTS.map(({ atlasId }) => [atlasId, parseHighWaterLines(portHighWaters[atlasId] ?? '')])
