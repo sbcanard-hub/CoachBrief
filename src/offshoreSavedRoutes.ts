@@ -4,6 +4,14 @@ import type { IsochroneResult } from './offshoreIsochrone'
 import type { PolarTable } from './offshorePolar'
 import { notifyPersistentDataChanged } from './persistentDataEvents'
 
+export type OffshoreIsochroneSettings = {
+  stepMinutes: string
+  maxHours: string
+  tidalCoefficient: string
+  referenceHighWater: string
+  portHighWaters: Record<string, string>
+}
+
 export type OffshoreSavedRoute = {
   version: 1
   id: string
@@ -20,6 +28,7 @@ export type OffshoreSavedRoute = {
   forecasts: OffshoreLegForecast[]
   polar: PolarTable
   isochrones: IsochroneResult | null
+  isochroneSettings?: OffshoreIsochroneSettings
 }
 
 const STORAGE_KEY = 'coachbrief:offshore-routes:v1'
