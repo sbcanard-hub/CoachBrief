@@ -201,8 +201,7 @@ export async function computeIsochrones(args: {
         const ground = addCurrent(heading, boatSpeed, currentSpeed, currentDirection)
         const next = advance(node.latitude, node.longitude, ground.bearing, ground.speed * stepMinutes / 60)
         const segment = evaluateOffshoreSegment(constraints, { lat: node.latitude, lon: node.longitude }, { lat: next.latitude, lon: next.longitude })
-        const isDepartureStep = node.parent == null
-        if (segment.crossesLand && !isDepartureStep) { blockedLandCandidates += 1; continue }
+        if (segment.crossesLand) { blockedLandCandidates += 1; continue }
         if (segment.crossesTss) tssCrossingCandidates += 1
         const nextNode: IsochroneNode = {
           ...next,
@@ -250,7 +249,7 @@ export async function computeIsochrones(args: {
     eta: null,
     note: progressed
       ? 'Horizon atteint avant l’arrivée : meilleure route conservée avec contraintes et courant disponibles.'
-      : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure et la disponibilité de la météo au point D.',
+      : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure, place le point de départ sur l’eau et contrôle la disponibilité de la météo au point D.',
     blockedLandCandidates,
     tssCrossingCandidates,
     constraintsAvailable: constraints.available,
