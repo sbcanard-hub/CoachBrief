@@ -5,7 +5,7 @@ import { OffshorePolarPanel } from '../components/OffshorePolarPanel'
 import { OffshoreIsochronePanel } from '../components/OffshoreIsochronePanel'
 import { OffshorePlaceSearch } from '../components/OffshorePlaceSearch'
 import { OffshoreWaypointSearch } from '../components/OffshoreWaypointSearch'
-import { buildOffshoreLegs, estimateOffshoreEtaHours, totalOffshoreDistance, type OffshorePoint } from '../offshore'
+import { buildOffshoreLegs, estimateOffshoreEtaHours, totalOffshoreDistance, validOffshorePoint, type OffshorePoint } from '../offshore'
 import { fetchOffshoreLegForecasts, type OffshoreLegForecast } from '../offshoreForecast'
 import type { OffshorePlaceResult } from '../offshoreGeocoding'
 import { DEMO_POLAR, type PolarTable } from '../offshorePolar'
@@ -51,6 +51,9 @@ export function OffshorePage() {
   const legs = useMemo(() => buildOffshoreLegs(points), [points])
   const totalDistance = useMemo(() => totalOffshoreDistance(legs), [legs])
   const etaHours = useMemo(() => estimateOffshoreEtaHours(totalDistance, Number(averageSpeed)), [totalDistance, averageSpeed])
+  const routeStart = points[0]
+  const routeTarget = points[points.length - 1]
+  const routeEndpointsReady = Boolean(routeStart && routeTarget && validOffshorePoint(routeStart) && validOffshorePoint(routeTarget))
 
   function invalidateRouteAnalysis() {
     setForecastState('idle')
@@ -271,7 +274,7 @@ export function OffshorePage() {
 
     {legs.length > 0 && <OffshorePolarPanel legs={legs} forecasts={forecasts} polar={polar} onPolarChange={(next) => { setPolar(next); setIsochrones(null) }} />}
 
-    {legs.length > 0 && <OffshoreIsochronePanel start={legs[0].from} target={legs[legs.length - 1].to} departureDate={departureDate} departureTime={departureTime} polar={polar} onResult={setIsochrones} />}
+    {routeEndpointsReady && <OffshoreIsochronePanel start={routeStart} target={routeTarget} departureDate={departureDate} departureTime={departureTime} polar={polar} onResult={setIsochrones} />}
 
     <section className="offshore-roadmap">
       <h2>Étapes suivantes du mode large</h2>
