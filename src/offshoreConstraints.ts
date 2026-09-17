@@ -1,5 +1,5 @@
 import type { OffshorePoint } from './offshore'
-import { pointInsideLandMask } from './landMask'
+import { classifyLandMask } from './landMask'
 
 type GeoPoint = { lat: number; lon: number }
 type ConstraintKind = 'coastline' | 'tss'
@@ -28,7 +28,7 @@ const ENDPOINTS = [
 ]
 
 const EARTH_KM_PER_DEGREE = 111.32
-const LAND_SAMPLE_SPACING_KM = .75
+const LAND_SAMPLE_SPACING_KM = 1.5
 const MAX_INTERIOR_CLASSIFICATION_DISTANCE_KM = 15
 const COAST_VOTE_NEAREST_SEGMENTS = 7
 const COAST_VOTE_MIN_SEGMENTS = 3
@@ -127,7 +127,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         coastLines,
         tssLines: lines.filter((line) => line.kind === 'tss'),
         seaAnchors,
-        note: 'Côtes et TSS OpenStreetMap. Contrôle terre/mer par masque topologique à partir de D et A, complété par intersection et vote côtier.',
+        note: 'Côtes et TSS OpenStreetMap. Masque topologique indexé ; contrôle côtier local uniquement en cas d’ambiguïté.',
       }
     }
   } catch {
@@ -144,7 +144,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         coastLines,
         tssLines: [],
         seaAnchors,
-        note: 'Côtes OpenStreetMap chargées en secours. Masque topologique terre/mer actif ; TSS indisponibles pour ce calcul.',
+        note: 'Côtes OpenStreetMap chargées en secours. Masque topologique indexé actif ; TSS indisponibles pour ce calcul.',
       }
     }
   } catch {
@@ -232,10 +232,11 @@ function coastVoteSaysLand(coastLines: ConstraintLine[], point: GeoPoint) {
 }
 
 function likelyOnLand(profile: OffshoreConstraintProfile, point: GeoPoint) {
-  // Le masque de parité joue le rôle d'un point-in-polygon sans avoir à fermer artificiellement
-  // les ways de coastline : D et A sont des ancres connues en mer et chaque franchissement
-  // de côte alterne mer/terre.
-  if (pointInsideLandMask(profile.coastLines, profile.seaAnchors, point)) return true
+  const classification = classifyLandMask(profile.coastLines, profile.seaAnchors, point)
+  if (classification === 'land') return true
+  if (classification === 'sea') return false
+  // Le vote local, nettement plus coûteux, n'est calculé que lorsque les deux ancres
+  // topologiques ne sont pas d'accord à cause d'une tangence ou d'un trou de coastline.
   return coastVoteSaysLand(profile.coastLines, point)
 }
 
