@@ -3,6 +3,7 @@ import { Clock3, Compass, LoaderCircle, Route } from 'lucide-react'
 import type { OffshorePoint } from '../offshore'
 import { computeIsochrones, type IsochroneResult } from '../offshoreIsochrone'
 import type { PolarTable } from '../offshorePolar'
+import './offshoreIsochrone.css'
 
 type Props = {
   start: OffshorePoint
