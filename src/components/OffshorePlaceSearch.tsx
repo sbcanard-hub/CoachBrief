@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Anchor, LoaderCircle, MapPin, Search } from 'lucide-react'
 import { offshorePlaceLabel, searchOffshorePlaces, searchOffshorePorts, type OffshorePlaceResult } from '../offshoreGeocoding'
 
@@ -55,5 +56,3 @@ export function OffshorePlaceSearch({ title, marker, placeholder, onSelect }: Pr
     </div>}
   </div>
 }
-
-import { useState } from 'react'
