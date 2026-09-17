@@ -4,6 +4,7 @@ import { OffshoreRouteMap } from '../components/OffshoreRouteMap'
 import { OffshorePolarPanel } from '../components/OffshorePolarPanel'
 import { OffshoreIsochronePanel } from '../components/OffshoreIsochronePanel'
 import { OffshorePlaceSearch } from '../components/OffshorePlaceSearch'
+import { OffshoreWaypointSearch } from '../components/OffshoreWaypointSearch'
 import { buildOffshoreLegs, estimateOffshoreEtaHours, totalOffshoreDistance, type OffshorePoint } from '../offshore'
 import { fetchOffshoreLegForecasts, type OffshoreLegForecast } from '../offshoreForecast'
 import type { OffshorePlaceResult } from '../offshoreGeocoding'
@@ -69,6 +70,20 @@ export function OffshorePage() {
     setPoints((current) => {
       const next = [...current]
       next.splice(Math.max(1, next.length - 1), 0, makePoint(`Waypoint ${Math.max(1, next.length - 1)}`))
+      return next
+    })
+    invalidateRouteAnalysis()
+  }
+
+  function addNamedWaypoint(place: OffshorePlaceResult) {
+    setPoints((current) => {
+      const next = [...current]
+      next.splice(Math.max(1, next.length - 1), 0, {
+        id: crypto.randomUUID(),
+        name: place.name,
+        latitude: place.latitude.toFixed(6),
+        longitude: place.longitude.toFixed(6),
+      })
       return next
     })
     invalidateRouteAnalysis()
@@ -142,6 +157,7 @@ export function OffshorePage() {
         <OffshorePlaceSearch title="Arrivée" marker="A" placeholder="Ex. Lorient ou Port de La Trinité…" onSelect={(place) => applyPlace(place, 'arrival')} />
       </div>
       <p className="offshore-help offshore-route-search-help">La recherche place automatiquement D ou A. Les coordonnées restent modifiables à la main, les marqueurs peuvent être déplacés sur la carte et les waypoints intermédiaires restent indépendants.</p>
+      <OffshoreWaypointSearch onSelect={addNamedWaypoint} />
       <div className="offshore-route-layout">
         <div>
           <div className="offshore-points">
@@ -153,7 +169,7 @@ export function OffshorePage() {
               {index > 0 && index < points.length - 1 && <button type="button" className="offshore-icon-button" onClick={() => removePoint(point.id)} aria-label={`Supprimer ${point.name}`}><Trash2 size={17} /></button>}
             </article>)}
           </div>
-          <button type="button" className="offshore-add" onClick={addWaypoint}><Plus size={17} /> Ajouter un waypoint</button>
+          <button type="button" className="offshore-add" onClick={addWaypoint}><Plus size={17} /> Ajouter un waypoint manuel</button>
         </div>
         <div className="offshore-map-wrap">
           <div className="offshore-map-title"><MapPin size={16} /><strong>Carte de route</strong><span>{isochrones ? 'Route directe en pointillés · routage isochrone en trait plein.' : 'Déplace les marqueurs pour ajuster les points.'}</span></div>
