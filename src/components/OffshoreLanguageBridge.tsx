@@ -64,12 +64,12 @@ const translations: Record<OffshoreLanguage, TranslationSet> = {
     'Distance directe D → A': 'Distancia directa D → A', 'Route météo calculée': 'Ruta meteorológica calculada', 'Route météo partielle': 'Ruta meteorológica parcial',
     'Météo au passage': 'Meteorología en ruta', 'Polaire bateau': 'Polar del barco',
     'La polaire sélectionnée est aussi utilisée par le calcul d’isochrones ci-dessous.': 'La polar seleccionada también se usa en el cálculo de isócronas de abajo.',
-    'Routage météo': 'Routing meteorológico', 'Isochrones': 'Isócronas', 'Pas de temps': 'Paso de tiempo', 'Horizon': 'Orizzonte', 'Coefficient marée': 'Coeficiente de marea',
+    'Routage météo': 'Routing meteorológico', 'Isochrones': 'Isócronas', 'Pas de temps': 'Paso de tiempo', 'Horizon': 'Horizonte', 'Coefficient marée': 'Coeficiente de marea',
     'PM générique de secours': 'Pleamar genérica de respaldo', 'Calculer le routage': 'Calcular el routing', 'Calcul des isochrones…': 'Calculando isócronas…',
     'Pleines mers par port de référence SHOM': 'Pleamares por puerto SHOM de referencia', 'Aucune PM saisie': 'No se ha introducido ninguna pleamar',
     'Pourquoi cette route météo ?': '¿Por qué esta ruta meteorológica?', 'Cap': 'Rumbo', 'Vent': 'Viento', 'Polaire': 'Polar', 'Après mer': 'Tras penalización por mar', 'Vitesse sol': 'Velocidad sobre el fondo', 'Courant': 'Corriente',
     'Route retenue': 'Ruta seleccionada', 'Coupures de terre écartées': 'Cruces de tierra descartados', 'Options coupant un TSS': 'Opciones que cruzan un TSS', 'Échantillons courant SHOM': 'Muestras de corriente SHOM',
-    'Aucun routage maritime valide trouvé avec ces paramètres. La ligne en pointillés représente uniquement la distance géométrique directe entre D et A ; elle n’est pas une route navigable.': 'No se encontró un routing marítimo válido encontrado con estos parámetros. La línea discontinua representa únicamente la distancia geométrica directa entre D y A; no es una ruta navegable.',
+    'Aucun routage maritime valide trouvé avec ces paramètres. La ligne en pointillés représente uniquement la distance géométrique directe entre D et A ; elle n’est pas une route navigable.': 'No se encontró un routing marítimo válido con estos parámetros. La línea discontinua representa únicamente la distancia geométrica directa entre D y A; no es una ruta navegable.',
   },
 }
 
@@ -167,7 +167,13 @@ export function OffshoreLanguageBridge() {
     }
     translate()
     const observer = new MutationObserver(() => queueMicrotask(translate))
-    observer.observe(document.body, { childList: true, subtree: true })
+    observer.observe(document.body, {
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['placeholder', 'title', 'aria-label'],
+      subtree: true,
+    })
     return () => observer.disconnect()
   }, [language, location.pathname])
 
