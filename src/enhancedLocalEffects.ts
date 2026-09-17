@@ -12,6 +12,9 @@ export type EnhancedLocalEffectsAnalysis = LocalEffectsAnalysis & {
   waterInteractionLabel: string
 }
 
+type HeadlandSignal = { bearing: number; distance: number; contrast: number }
+type CoastalFunnelSignal = { bearing: number; widthDeg: number; flankFetch: number; centerFetch: number }
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
@@ -41,26 +44,29 @@ function sectorAt(sectors: WaterGeometrySector[], index: number) {
   return sectors[(index + length) % length]
 }
 
-function detectHeadland(profile: WaterGeometryProfile) {
+function detectHeadland(profile: WaterGeometryProfile): HeadlandSignal | null {
   const sectors = profile.sectors
-  let best: { bearing: number; distance: number; contrast: number } | null = null
-  sectors.forEach((sector, index) => {
-    if (!sector.shorelineDetected || sector.fetchKm > 4) return
+  let best: HeadlandSignal | null = null
+  for (let index = 0; index < sectors.length; index += 1) {
+    const sector = sectors[index]
+    if (!sector.shorelineDetected || sector.fetchKm > 4) continue
     const left = sectorAt(sectors, index - 1)
     const right = sectorAt(sectors, index + 1)
     const flankMean = (left.fetchKm + right.fetchKm) / 2
     const contrast = flankMean - sector.fetchKm
-    if (contrast < 2.5) return
-    if (!best || contrast > best.contrast) best = { bearing: sector.bearing, distance: sector.fetchKm, contrast }
-  })
+    if (contrast < 2.5) continue
+    const candidate: HeadlandSignal = { bearing: sector.bearing, distance: sector.fetchKm, contrast }
+    if (best == null || candidate.contrast > best.contrast) best = candidate
+  }
   return best
 }
 
-function detectCoastalFunnel(profile: WaterGeometryProfile) {
+function detectCoastalFunnel(profile: WaterGeometryProfile): CoastalFunnelSignal | null {
   const sectors = profile.sectors
-  let best: { bearing: number; widthDeg: number; flankFetch: number; centerFetch: number } | null = null
-  sectors.forEach((sector, index) => {
-    if (sector.fetchKm < 6) return
+  let best: CoastalFunnelSignal | null = null
+  for (let index = 0; index < sectors.length; index += 1) {
+    const sector = sectors[index]
+    if (sector.fetchKm < 6) continue
     const left1 = sectorAt(sectors, index - 1)
     const right1 = sectorAt(sectors, index + 1)
     const left2 = sectorAt(sectors, index - 2)
@@ -68,12 +74,10 @@ function detectCoastalFunnel(profile: WaterGeometryProfile) {
     const nearFlanks = Math.min(left1.fetchKm, right1.fetchKm)
     const outerFlanks = Math.min(left2.fetchKm, right2.fetchKm)
     const flankFetch = Math.min(nearFlanks, outerFlanks)
-    if (flankFetch > 5 || sector.fetchKm - flankFetch < 4) return
-    const widthDeg = 45
-    if (!best || sector.fetchKm - flankFetch > best.centerFetch - best.flankFetch) {
-      best = { bearing: sector.bearing, widthDeg, flankFetch, centerFetch: sector.fetchKm }
-    }
-  })
+    if (flankFetch > 5 || sector.fetchKm - flankFetch < 4) continue
+    const candidate: CoastalFunnelSignal = { bearing: sector.bearing, widthDeg: 45, flankFetch, centerFetch: sector.fetchKm }
+    if (best == null || candidate.centerFetch - candidate.flankFetch > best.centerFetch - best.flankFetch) best = candidate
+  }
   return best
 }
 
