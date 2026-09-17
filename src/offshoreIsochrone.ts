@@ -3,6 +3,7 @@ import { distanceAndBearing } from './offshore'
 import { evaluateOffshoreSegment, fetchOffshoreConstraintProfile, wavePerformanceFactor } from './offshoreConstraints'
 import { fetchOffshorePointForecast } from './offshoreForecast'
 import { polarSpeed, trueWindAngle, type PolarTable } from './offshorePolar'
+import { fetchShomCurrentAtTime } from './shomCurrentGrid'
 
 export type IsochroneNode = {
   latitude: number
@@ -19,6 +20,7 @@ export type IsochroneNode = {
   waveDirection: number | null
   currentSpeed: number | null
   currentDirection: number | null
+  currentSource: 'shom' | 'open-meteo' | 'none'
   tssCrossing: boolean
   parent?: IsochroneNode
 }
@@ -34,6 +36,9 @@ export type IsochroneResult = {
   tssCrossingCandidates: number
   constraintsAvailable: boolean
   constraintsNote: string
+  shomCurrentSamples: number
+  fallbackCurrentSamples: number
+  shomAtlasLabels: string[]
 }
 
 const EARTH_RADIUS_NM = 3440.065
@@ -98,6 +103,8 @@ export async function computeIsochrones(args: {
   maxNodes?: number
   headingSpread?: number
   headingStep?: number
+  tidalCoefficient?: number | null
+  referenceHighWater?: Date | null
 }): Promise<IsochroneResult> {
   const { start, target, departure, polar } = args
   const stepMinutes = args.stepMinutes ?? 60
@@ -106,9 +113,17 @@ export async function computeIsochrones(args: {
   const headingSpread = args.headingSpread ?? 60
   const headingStep = args.headingStep ?? 15
   const constraints = await fetchOffshoreConstraintProfile(start, target)
+  const useShom = args.tidalCoefficient != null && Number.isFinite(args.tidalCoefficient) && args.referenceHighWater != null && Number.isFinite(args.referenceHighWater.getTime())
   let blockedLandCandidates = 0
   let tssCrossingCandidates = 0
-  const startNode: IsochroneNode = { latitude: Number(start.latitude), longitude: Number(start.longitude), time: departure.toISOString(), heading: 0, boatSpeed: 0, polarSpeed: 0, waveFactor: 1, groundSpeed: 0, windSpeed: null, windDirection: null, waveHeight: null, waveDirection: null, currentSpeed: null, currentDirection: null, tssCrossing: false }
+  let shomCurrentSamples = 0
+  let fallbackCurrentSamples = 0
+  const shomAtlasLabels = new Set<string>()
+  const startNode: IsochroneNode = {
+    latitude: Number(start.latitude), longitude: Number(start.longitude), time: departure.toISOString(), heading: 0,
+    boatSpeed: 0, polarSpeed: 0, waveFactor: 1, groundSpeed: 0, windSpeed: null, windDirection: null,
+    waveHeight: null, waveDirection: null, currentSpeed: null, currentDirection: null, currentSource: 'none', tssCrossing: false,
+  }
   let frontier = [startNode]
   const steps: IsochroneStep[] = [{ time: departure.toISOString(), nodes: frontier }]
   const iterations = Math.ceil(maxHours * 60 / stepMinutes)
@@ -118,6 +133,24 @@ export async function computeIsochrones(args: {
     const candidates: IsochroneNode[] = []
     for (const node of frontier) {
       const env = await fetchOffshorePointForecast(node.latitude, node.longitude, time)
+      let currentSpeed = env.currentSpeed
+      let currentDirection = env.currentDirection
+      let currentSource: IsochroneNode['currentSource'] = currentSpeed != null && currentDirection != null ? 'open-meteo' : 'none'
+      if (useShom) {
+        const shom = await fetchShomCurrentAtTime(node.latitude, node.longitude, args.tidalCoefficient as number, args.referenceHighWater as Date, time)
+        if (shom.source === 'shom' && shom.speed != null && shom.direction != null) {
+          currentSpeed = shom.speed
+          currentDirection = shom.direction
+          currentSource = 'shom'
+          shomCurrentSamples += 1
+          if (shom.atlasLabel) shomAtlasLabels.add(shom.atlasLabel)
+        } else if (currentSource === 'open-meteo') {
+          fallbackCurrentSamples += 1
+        }
+      } else if (currentSource === 'open-meteo') {
+        fallbackCurrentSamples += 1
+      }
+
       const direct = distanceAndBearing(asPoint(node), target).bearing
       if (env.windDirection == null || env.windSpeed == null) continue
       for (let offset = -headingSpread; offset <= headingSpread; offset += headingStep) {
@@ -127,7 +160,7 @@ export async function computeIsochrones(args: {
         const waveFactor = wavePerformanceFactor(heading, env.waveHeight, env.waveDirection, env.wavePeriod)
         const boatSpeed = rawPolarSpeed * waveFactor
         if (boatSpeed < 0.3) continue
-        const ground = addCurrent(heading, boatSpeed, env.currentSpeed, env.currentDirection)
+        const ground = addCurrent(heading, boatSpeed, currentSpeed, currentDirection)
         const next = advance(node.latitude, node.longitude, ground.bearing, ground.speed * stepMinutes / 60)
         const segment = evaluateOffshoreSegment(constraints, { lat: node.latitude, lon: node.longitude }, { lat: next.latitude, lon: next.longitude })
         if (segment.crossesLand) { blockedLandCandidates += 1; continue }
@@ -144,8 +177,9 @@ export async function computeIsochrones(args: {
           windDirection: env.windDirection,
           waveHeight: env.waveHeight,
           waveDirection: env.waveDirection,
-          currentSpeed: env.currentSpeed,
-          currentDirection: env.currentDirection,
+          currentSpeed,
+          currentDirection,
+          currentSource,
           tssCrossing: node.tssCrossing || segment.crossesTss,
           parent: node,
         }
@@ -153,8 +187,9 @@ export async function computeIsochrones(args: {
         if (remaining <= Math.max(1, ground.speed * stepMinutes / 60)) {
           return {
             steps: [...steps, { time: nextNode.time, nodes: [nextNode] }], bestRoute: routeFrom(nextNode), reached: true, eta: nextNode.time,
-            note: 'Arrivée atteinte par le calcul isochrone avec contrôle côte et pénalité de mer.',
+            note: 'Arrivée atteinte par le calcul isochrone avec contrôle côte, mer et courant local disponible.',
             blockedLandCandidates, tssCrossingCandidates, constraintsAvailable: constraints.available, constraintsNote: constraints.note,
+            shomCurrentSamples, fallbackCurrentSamples, shomAtlasLabels: [...shomAtlasLabels],
           }
         }
         candidates.push(nextNode)
@@ -171,10 +206,13 @@ export async function computeIsochrones(args: {
     bestRoute: routeFrom(best),
     reached: false,
     eta: null,
-    note: best ? 'Horizon atteint avant l’arrivée : meilleure route conservée avec contraintes disponibles.' : 'Aucune route exploitable avec les données et contraintes disponibles.',
+    note: best ? 'Horizon atteint avant l’arrivée : meilleure route conservée avec contraintes et courant disponibles.' : 'Aucune route exploitable avec les données et contraintes disponibles.',
     blockedLandCandidates,
     tssCrossingCandidates,
     constraintsAvailable: constraints.available,
     constraintsNote: constraints.note,
+    shomCurrentSamples,
+    fallbackCurrentSamples,
+    shomAtlasLabels: [...shomAtlasLabels],
   }
 }
