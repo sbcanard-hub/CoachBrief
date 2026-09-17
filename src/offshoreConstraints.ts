@@ -26,11 +26,11 @@ const ENDPOINTS = [
 ]
 
 const EARTH_KM_PER_DEGREE = 111.32
-const LAND_SAMPLE_SPACING_KM = 3
-// La classification gauche/droite d'une coastline OSM est fragile près des découpages de ways.
-// On ne l'utilise désormais que dans une bande quasi nulle autour de la côte (50 m) :
-// les vraies intersections géométriques restent, elles, toujours bloquantes.
-const MAX_INTERIOR_CLASSIFICATION_DISTANCE_KM = .05
+const LAND_SAMPLE_SPACING_KM = 1
+const MAX_INTERIOR_CLASSIFICATION_DISTANCE_KM = 15
+const COAST_VOTE_NEAREST_SEGMENTS = 7
+const COAST_VOTE_MIN_SEGMENTS = 3
+const COAST_VOTE_LAND_RATIO = .72
 const MIN_CONSECUTIVE_LAND_SAMPLES = 2
 
 function num(value: string) {
@@ -123,7 +123,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         available: true,
         coastLines,
         tssLines: lines.filter((line) => line.kind === 'tss'),
-        note: 'Côtes et dispositifs de séparation du trafic issus d’OpenStreetMap. Les intersections réelles avec la côte sont bloquées ; le filtre d’orientation est limité à 50 m.',
+        note: 'Côtes et dispositifs de séparation du trafic issus d’OpenStreetMap. Contrôle côtier par intersection réelle et vote majoritaire sur les segments côtiers voisins.',
       }
     }
   } catch {
@@ -139,7 +139,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         available: true,
         coastLines,
         tssLines: [],
-        note: 'Côtes OpenStreetMap chargées en mode de secours. Les intersections réelles avec la côte restent bloquées ; les TSS n’ont pas pu être chargés pour ce calcul.',
+        note: 'Côtes OpenStreetMap chargées en mode de secours. Contrôle terre/mer renforcé actif ; les TSS n’ont pas pu être chargés pour ce calcul.',
       }
     }
   } catch {
@@ -201,11 +201,11 @@ function pointSegmentDistanceSquared(point: { x: number; y: number }, a: { x: nu
   return (point.x - x) ** 2 + (point.y - y) ** 2
 }
 
-// Dans OSM, une coastline est orientée avec la terre à gauche et la mer à droite.
-// Cette classification n'est qu'un filet de sécurité à très courte distance de la côte.
+// OSM oriente normalement une coastline avec la terre à gauche et la mer à droite.
+// Un seul segment peut toutefois être trompeur dans une baie, près d'une île ou à la jonction de ways.
+// On vote donc parmi plusieurs segments proches et on exige une majorité forte avant de classer un point à terre.
 function likelyOnLand(coastLines: ConstraintLine[], point: GeoPoint) {
-  let bestDistance = Number.POSITIVE_INFINITY
-  let bestSide = 0
+  const candidates: Array<{ distanceKm: number; land: boolean }> = []
   for (const line of coastLines) {
     for (let i = 1; i < line.points.length; i += 1) {
       const a = line.points[i - 1]
@@ -214,16 +214,19 @@ function likelyOnLand(coastLines: ConstraintLine[], point: GeoPoint) {
       const pa = project(a, ref)
       const pb = project(b, ref)
       const pp = project(point, ref)
-      const distance = pointSegmentDistanceSquared(pp, pa, pb)
-      if (distance < bestDistance) {
-        bestDistance = distance
-        bestSide = orientation(pa, pb, pp)
+      const distanceKm = Math.sqrt(pointSegmentDistanceSquared(pp, pa, pb)) * EARTH_KM_PER_DEGREE
+      if (distanceKm <= MAX_INTERIOR_CLASSIFICATION_DISTANCE_KM) {
+        candidates.push({ distanceKm, land: orientation(pa, pb, pp) > 0 })
       }
     }
   }
-  if (!Number.isFinite(bestDistance)) return false
-  const distanceKm = Math.sqrt(bestDistance) * EARTH_KM_PER_DEGREE
-  return distanceKm <= MAX_INTERIOR_CLASSIFICATION_DISTANCE_KM && bestSide > 0
+
+  candidates.sort((a, b) => a.distanceKm - b.distanceKm)
+  const nearest = candidates.slice(0, COAST_VOTE_NEAREST_SEGMENTS)
+  if (nearest.length < COAST_VOTE_MIN_SEGMENTS) return false
+
+  const landVotes = nearest.reduce((sum, item) => sum + (item.land ? 1 : 0), 0)
+  return landVotes / nearest.length >= COAST_VOTE_LAND_RATIO
 }
 
 function samplesAlong(from: GeoPoint, to: GeoPoint) {
@@ -244,7 +247,8 @@ function crossesLandOrInterior(coastLines: ConstraintLine[], from: GeoPoint, to:
   // Une intersection réelle avec la côte reste toujours bloquante.
   if (crosses(coastLines, from, to)) return true
 
-  // Le test d'orientation n'est plus autorisé à éliminer des branches en mer ouverte.
+  // Pour les trous de géométrie ou les grands sauts entre deux nœuds, on contrôle l'intérieur
+  // tous les ~1 km et on exige deux classifications terrestres consécutives.
   let consecutiveLandSamples = 0
   for (const point of samplesAlong(from, to)) {
     if (likelyOnLand(coastLines, point)) {
