@@ -1,4 +1,5 @@
 import type { OffshorePoint } from './offshore'
+import { pointInsideLandMask } from './landMask'
 
 type GeoPoint = { lat: number; lon: number }
 type ConstraintKind = 'coastline' | 'tss'
@@ -17,6 +18,7 @@ export type OffshoreConstraintProfile = {
   available: boolean
   coastLines: ConstraintLine[]
   tssLines: ConstraintLine[]
+  seaAnchors: GeoPoint[]
   note: string
 }
 
@@ -26,7 +28,7 @@ const ENDPOINTS = [
 ]
 
 const EARTH_KM_PER_DEGREE = 111.32
-const LAND_SAMPLE_SPACING_KM = 1
+const LAND_SAMPLE_SPACING_KM = .75
 const MAX_INTERIOR_CLASSIFICATION_DISTANCE_KM = 15
 const COAST_VOTE_NEAREST_SEGMENTS = 7
 const COAST_VOTE_MIN_SEGMENTS = 3
@@ -111,7 +113,8 @@ function extract(payload: OverpassResponse): ConstraintLine[] {
 export async function fetchOffshoreConstraintProfile(start: OffshorePoint, target: OffshorePoint): Promise<OffshoreConstraintProfile> {
   const a = validPoint(start)
   const b = validPoint(target)
-  if (!a || !b) return { source: 'OpenStreetMap / Overpass', available: false, coastLines: [], tssLines: [], note: 'Coordonnées insuffisantes.' }
+  if (!a || !b) return { source: 'OpenStreetMap / Overpass', available: false, coastLines: [], tssLines: [], seaAnchors: [], note: 'Coordonnées insuffisantes.' }
+  const seaAnchors = [a, b]
 
   try {
     const payload = await fetchOverpass(queryFor(a, b))
@@ -123,7 +126,8 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         available: true,
         coastLines,
         tssLines: lines.filter((line) => line.kind === 'tss'),
-        note: 'Côtes et dispositifs de séparation du trafic issus d’OpenStreetMap. Contrôle côtier par intersection réelle et vote majoritaire sur les segments côtiers voisins.',
+        seaAnchors,
+        note: 'Côtes et TSS OpenStreetMap. Contrôle terre/mer par masque topologique à partir de D et A, complété par intersection et vote côtier.',
       }
     }
   } catch {
@@ -139,7 +143,8 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
         available: true,
         coastLines,
         tssLines: [],
-        note: 'Côtes OpenStreetMap chargées en mode de secours. Contrôle terre/mer renforcé actif ; les TSS n’ont pas pu être chargés pour ce calcul.',
+        seaAnchors,
+        note: 'Côtes OpenStreetMap chargées en secours. Masque topologique terre/mer actif ; TSS indisponibles pour ce calcul.',
       }
     }
   } catch {
@@ -151,6 +156,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
     available: false,
     coastLines: [],
     tssLines: [],
+    seaAnchors,
     note: 'Côtes indisponibles : routage interrompu par sécurité afin de ne jamais proposer une trajectoire passant sur terre.',
   }
 }
@@ -201,10 +207,7 @@ function pointSegmentDistanceSquared(point: { x: number; y: number }, a: { x: nu
   return (point.x - x) ** 2 + (point.y - y) ** 2
 }
 
-// OSM oriente normalement une coastline avec la terre à gauche et la mer à droite.
-// Un seul segment peut toutefois être trompeur dans une baie, près d'une île ou à la jonction de ways.
-// On vote donc parmi plusieurs segments proches et on exige une majorité forte avant de classer un point à terre.
-function likelyOnLand(coastLines: ConstraintLine[], point: GeoPoint) {
+function coastVoteSaysLand(coastLines: ConstraintLine[], point: GeoPoint) {
   const candidates: Array<{ distanceKm: number; land: boolean }> = []
   for (const line of coastLines) {
     for (let i = 1; i < line.points.length; i += 1) {
@@ -224,9 +227,16 @@ function likelyOnLand(coastLines: ConstraintLine[], point: GeoPoint) {
   candidates.sort((a, b) => a.distanceKm - b.distanceKm)
   const nearest = candidates.slice(0, COAST_VOTE_NEAREST_SEGMENTS)
   if (nearest.length < COAST_VOTE_MIN_SEGMENTS) return false
-
   const landVotes = nearest.reduce((sum, item) => sum + (item.land ? 1 : 0), 0)
   return landVotes / nearest.length >= COAST_VOTE_LAND_RATIO
+}
+
+function likelyOnLand(profile: OffshoreConstraintProfile, point: GeoPoint) {
+  // Le masque de parité joue le rôle d'un point-in-polygon sans avoir à fermer artificiellement
+  // les ways de coastline : D et A sont des ancres connues en mer et chaque franchissement
+  // de côte alterne mer/terre.
+  if (pointInsideLandMask(profile.coastLines, profile.seaAnchors, point)) return true
+  return coastVoteSaysLand(profile.coastLines, point)
 }
 
 function samplesAlong(from: GeoPoint, to: GeoPoint) {
@@ -243,15 +253,12 @@ function samplesAlong(from: GeoPoint, to: GeoPoint) {
   return samples
 }
 
-function crossesLandOrInterior(coastLines: ConstraintLine[], from: GeoPoint, to: GeoPoint) {
-  // Une intersection réelle avec la côte reste toujours bloquante.
-  if (crosses(coastLines, from, to)) return true
+function crossesLandOrInterior(profile: OffshoreConstraintProfile, from: GeoPoint, to: GeoPoint) {
+  if (crosses(profile.coastLines, from, to)) return true
 
-  // Pour les trous de géométrie ou les grands sauts entre deux nœuds, on contrôle l'intérieur
-  // tous les ~1 km et on exige deux classifications terrestres consécutives.
   let consecutiveLandSamples = 0
   for (const point of samplesAlong(from, to)) {
-    if (likelyOnLand(coastLines, point)) {
+    if (likelyOnLand(profile, point)) {
       consecutiveLandSamples += 1
       if (consecutiveLandSamples >= MIN_CONSECUTIVE_LAND_SAMPLES) return true
     } else {
@@ -266,7 +273,7 @@ export function evaluateOffshoreSegment(profile: OffshoreConstraintProfile | nul
     return { crossesLand: true, crossesTss: false }
   }
   return {
-    crossesLand: crossesLandOrInterior(profile.coastLines, from, to),
+    crossesLand: crossesLandOrInterior(profile, from, to),
     crossesTss: crosses(profile.tssLines, from, to),
   }
 }
