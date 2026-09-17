@@ -53,6 +53,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
         polar,
         stepMinutes: Math.max(30, Number(stepMinutes) || 60),
         maxHours: Math.max(6, Number(maxHours) || 48),
+        budgetMs: 25_000,
         tidalCoefficient: Number.isFinite(coefficient) ? coefficient : null,
         referenceHighWater: highWater,
         referenceHighWaterSchedules: schedules,
@@ -79,21 +80,27 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
         {state === 'loading' ? <LoaderCircle size={17} className="current-spin" /> : <Compass size={17} />}
         {state === 'loading' ? 'Calcul des isochrones…' : 'Calculer le routage'}
       </button>
+      {state === 'loading' && <small>Calcul adaptatif, limité à environ 25 s pour éviter un blocage prolongé sur mobile.</small>}
     </div>
 
     <div className="offshore-shom-schedules">
       <div className="offshore-shom-schedules-title"><Anchor size={16} /><div><strong>Pleines mers par port de référence SHOM</strong><small>Une date/heure par ligne. CoachBrief choisit la PM la plus proche de chaque nœud de routage.</small></div></div>
       <div className="offshore-shom-schedule-grid">
-        {SHOM_REFERENCE_PORTS.map(({ atlasId, port }) => <label key={atlasId}>
-          <span>{port}</span>
-          <textarea
-            rows={3}
-            value={portHighWaters[atlasId] ?? ''}
-            onChange={(e) => setPortHighWaters((current) => ({ ...current, [atlasId]: e.target.value }))}
-            placeholder={'2026-09-17T10:25\n2026-09-17T22:48\n2026-09-18T11:10'}
-          />
-          <small>{schedules[atlasId]?.length ?? 0} PM valide{(schedules[atlasId]?.length ?? 0) > 1 ? 's' : ''}</small>
-        </label>)}
+        {SHOM_REFERENCE_PORTS.map(({ atlasId, port }) => {
+          const validCount = schedules[atlasId]?.length ?? 0
+          const hasInput = Boolean((portHighWaters[atlasId] ?? '').trim())
+          return <label key={atlasId}>
+            <span>{port}</span>
+            {!hasInput && <small>Exemple ci-dessous — ces horaires ne sont pas utilisés tant que le champ reste vide.</small>}
+            <textarea
+              rows={3}
+              value={portHighWaters[atlasId] ?? ''}
+              onChange={(e) => setPortHighWaters((current) => ({ ...current, [atlasId]: e.target.value }))}
+              placeholder={'2026-09-17T10:25\n2026-09-17T22:48\n2026-09-18T11:10'}
+            />
+            <small>{hasInput ? `${validCount} PM valide${validCount > 1 ? 's' : ''}` : 'Aucune PM saisie'}</small>
+          </label>
+        })}
       </div>
     </div>
 
