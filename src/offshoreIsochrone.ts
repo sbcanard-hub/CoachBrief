@@ -44,7 +44,21 @@ export type IsochroneResult = {
   shomPropagatedReferenceSamples: number
 }
 
+type ExpansionResult = {
+  candidates: IsochroneNode[]
+  reached: IsochroneNode | null
+  blockedLandCandidates: number
+  tssCrossingCandidates: number
+  shomCurrentSamples: number
+  fallbackCurrentSamples: number
+  shomScheduledReferenceSamples: number
+  shomPropagatedReferenceSamples: number
+  shomAtlasLabels: string[]
+}
+
 const EARTH_RADIUS_NM = 3440.065
+const NODE_CONCURRENCY = 6
+
 function rad(v: number) { return v * Math.PI / 180 }
 function deg(v: number) { return v * 180 / Math.PI }
 function norm(v: number) { return ((v % 360) + 360) % 360 }
@@ -111,12 +125,25 @@ function candidateHeadings(
   const minimumTwa = minimumSailableTwa(polar)
   const directTwa = trueWindAngle(direct, windFromDirection)
   if (minimumTwa > 0 && directTwa < minimumTwa + headingStep) {
-    // La cible est dans, ou tout près, de la zone interdite : tester explicitement les deux bords de près.
     headings.add(norm(windFromDirection - minimumTwa))
     headings.add(norm(windFromDirection + minimumTwa))
   }
 
   return [...headings]
+}
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>) {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor
+      cursor += 1
+      results[index] = await worker(items[index])
+    }
+  })
+  await Promise.all(runners)
+  return results
 }
 
 export async function computeIsochrones(args: {
@@ -140,7 +167,11 @@ export async function computeIsochrones(args: {
   const headingSpread = args.headingSpread ?? 60
   const headingStep = args.headingStep ?? 15
   const constraints = await fetchOffshoreConstraintProfile(start, target)
-  const useShom = args.tidalCoefficient != null && Number.isFinite(args.tidalCoefficient) && args.referenceHighWater != null && Number.isFinite(args.referenceHighWater.getTime())
+  const useShom = args.tidalCoefficient != null
+    && Number.isFinite(args.tidalCoefficient)
+    && args.referenceHighWater != null
+    && Number.isFinite(args.referenceHighWater.getTime())
+
   let blockedLandCandidates = 0
   let tssCrossingCandidates = 0
   let shomCurrentSamples = 0
@@ -148,6 +179,7 @@ export async function computeIsochrones(args: {
   let shomScheduledReferenceSamples = 0
   let shomPropagatedReferenceSamples = 0
   const shomAtlasLabels = new Set<string>()
+
   const startNode: IsochroneNode = {
     latitude: Number(start.latitude), longitude: Number(start.longitude), time: departure.toISOString(), heading: 0,
     boatSpeed: 0, polarSpeed: 0, waveFactor: 1, groundSpeed: 0, windSpeed: null, windDirection: null,
@@ -159,12 +191,21 @@ export async function computeIsochrones(args: {
 
   for (let step = 1; step <= iterations; step += 1) {
     const time = new Date(departure.getTime() + (step - 1) * stepMinutes * 60_000)
-    const candidates: IsochroneNode[] = []
-    for (const node of frontier) {
+
+    const expansions = await mapWithConcurrency(frontier, NODE_CONCURRENCY, async (node): Promise<ExpansionResult> => {
+      const local: ExpansionResult = {
+        candidates: [], reached: null,
+        blockedLandCandidates: 0, tssCrossingCandidates: 0,
+        shomCurrentSamples: 0, fallbackCurrentSamples: 0,
+        shomScheduledReferenceSamples: 0, shomPropagatedReferenceSamples: 0,
+        shomAtlasLabels: [],
+      }
+
       const env = await fetchOffshorePointForecast(node.latitude, node.longitude, time)
       let currentSpeed = env.currentSpeed
       let currentDirection = env.currentDirection
       let currentSource: IsochroneNode['currentSource'] = currentSpeed != null && currentDirection != null ? 'open-meteo' : 'none'
+
       if (useShom) {
         const shom = await fetchShomCurrentAtTime(
           node.latitude,
@@ -178,19 +219,20 @@ export async function computeIsochrones(args: {
           currentSpeed = shom.speed
           currentDirection = shom.direction
           currentSource = 'shom'
-          shomCurrentSamples += 1
-          if (shom.referenceMode === 'port-schedule') shomScheduledReferenceSamples += 1
-          if (shom.referenceMode === 'propagated') shomPropagatedReferenceSamples += 1
-          if (shom.atlasLabel) shomAtlasLabels.add(shom.atlasLabel)
+          local.shomCurrentSamples += 1
+          if (shom.referenceMode === 'port-schedule') local.shomScheduledReferenceSamples += 1
+          if (shom.referenceMode === 'propagated') local.shomPropagatedReferenceSamples += 1
+          if (shom.atlasLabel) local.shomAtlasLabels.push(shom.atlasLabel)
         } else if (currentSource === 'open-meteo') {
-          fallbackCurrentSamples += 1
+          local.fallbackCurrentSamples += 1
         }
       } else if (currentSource === 'open-meteo') {
-        fallbackCurrentSamples += 1
+        local.fallbackCurrentSamples += 1
       }
 
       const direct = distanceAndBearing(asPoint(node), target).bearing
-      if (env.windDirection == null || env.windSpeed == null) continue
+      if (env.windDirection == null || env.windSpeed == null) return local
+
       const headings = candidateHeadings(direct, env.windDirection, polar, headingSpread, headingStep)
       for (const heading of headings) {
         const twa = trueWindAngle(heading, env.windDirection)
@@ -198,11 +240,17 @@ export async function computeIsochrones(args: {
         const waveFactor = wavePerformanceFactor(heading, env.waveHeight, env.waveDirection, env.wavePeriod)
         const boatSpeed = rawPolarSpeed * waveFactor
         if (boatSpeed < 0.3) continue
+
         const ground = addCurrent(heading, boatSpeed, currentSpeed, currentDirection)
         const next = advance(node.latitude, node.longitude, ground.bearing, ground.speed * stepMinutes / 60)
-        const segment = evaluateOffshoreSegment(constraints, { lat: node.latitude, lon: node.longitude }, { lat: next.latitude, lon: next.longitude })
-        if (segment.crossesLand) { blockedLandCandidates += 1; continue }
-        if (segment.crossesTss) tssCrossingCandidates += 1
+        const segment = evaluateOffshoreSegment(
+          constraints,
+          { lat: node.latitude, lon: node.longitude },
+          { lat: next.latitude, lon: next.longitude },
+        )
+        if (segment.crossesLand) { local.blockedLandCandidates += 1; continue }
+        if (segment.crossesTss) local.tssCrossingCandidates += 1
+
         const nextNode: IsochroneNode = {
           ...next,
           time: new Date(time.getTime() + stepMinutes * 60_000).toISOString(),
@@ -221,19 +269,52 @@ export async function computeIsochrones(args: {
           tssCrossing: node.tssCrossing || segment.crossesTss,
           parent: node,
         }
+
         const remaining = distanceAndBearing(asPoint(nextNode), target).distanceNm
         if (remaining <= Math.max(1, ground.speed * stepMinutes / 60)) {
-          return {
-            steps: [...steps, { time: nextNode.time, nodes: [nextNode] }], bestRoute: routeFrom(nextNode), reached: true, eta: nextNode.time,
-            note: 'Arrivée atteinte par le calcul isochrone avec contrôle côte, mer et courant local disponible.',
-            blockedLandCandidates, tssCrossingCandidates, constraintsAvailable: constraints.available, constraintsNote: constraints.note,
-            shomCurrentSamples, fallbackCurrentSamples, shomAtlasLabels: [...shomAtlasLabels],
-            shomScheduledReferenceSamples, shomPropagatedReferenceSamples,
-          }
+          if (!local.reached || routeScore(nextNode, target) < routeScore(local.reached, target)) local.reached = nextNode
+        } else {
+          local.candidates.push(nextNode)
         }
-        candidates.push(nextNode)
+      }
+      return local
+    })
+
+    const candidates: IsochroneNode[] = []
+    let reachedNode: IsochroneNode | null = null
+    for (const expansion of expansions) {
+      candidates.push(...expansion.candidates)
+      blockedLandCandidates += expansion.blockedLandCandidates
+      tssCrossingCandidates += expansion.tssCrossingCandidates
+      shomCurrentSamples += expansion.shomCurrentSamples
+      fallbackCurrentSamples += expansion.fallbackCurrentSamples
+      shomScheduledReferenceSamples += expansion.shomScheduledReferenceSamples
+      shomPropagatedReferenceSamples += expansion.shomPropagatedReferenceSamples
+      expansion.shomAtlasLabels.forEach((label) => shomAtlasLabels.add(label))
+      if (expansion.reached && (!reachedNode || routeScore(expansion.reached, target) < routeScore(reachedNode, target))) {
+        reachedNode = expansion.reached
       }
     }
+
+    if (reachedNode) {
+      return {
+        steps: [...steps, { time: reachedNode.time, nodes: [reachedNode] }],
+        bestRoute: routeFrom(reachedNode),
+        reached: true,
+        eta: reachedNode.time,
+        note: 'Arrivée atteinte par le calcul isochrone avec contrôle côte, mer et courant local disponible.',
+        blockedLandCandidates,
+        tssCrossingCandidates,
+        constraintsAvailable: constraints.available,
+        constraintsNote: constraints.note,
+        shomCurrentSamples,
+        fallbackCurrentSamples,
+        shomAtlasLabels: [...shomAtlasLabels],
+        shomScheduledReferenceSamples,
+        shomPropagatedReferenceSamples,
+      }
+    }
+
     if (!candidates.length) break
     frontier = prune(candidates, target, maxNodes)
     steps.push({ time: frontier[0]?.time ?? time.toISOString(), nodes: frontier })
