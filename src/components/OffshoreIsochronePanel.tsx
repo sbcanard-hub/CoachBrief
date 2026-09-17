@@ -8,6 +8,7 @@ import type { OffshoreIsochroneSettings } from '../offshoreSavedRoutes'
 import { parseHighWaterLines, SHOM_REFERENCE_PORTS, type ShomHighWaterSchedules } from '../shomHighWater'
 import './offshoreIsochrone.css'
 import './offshoreNavigationWaypoints.css'
+import './offshoreMultiModel.css'
 
 type Props = {
   start: OffshorePoint
@@ -30,6 +31,15 @@ type NavigationWaypoint = {
   legDistanceNm: number
   cumulativeDistanceNm: number
   reason: 'cap' | 'distance' | 'arrival'
+}
+
+type ModelComparison = {
+  model: OffshoreWeatherModel
+  result: IsochroneResult | null
+  error: boolean
+  distanceNm: number | null
+  durationHours: number | null
+  meanSeparationNm: number | null
 }
 
 function fmtTime(value: string | null) {
@@ -76,6 +86,33 @@ function directRouteDistanceNm(start: OffshorePoint, target: OffshorePoint) {
     { latitude: latitudeA, longitude: longitudeA },
     { latitude: latitudeB, longitude: longitudeB },
   )
+}
+
+function routeDistanceNm(result: IsochroneResult | null) {
+  if (!result || result.bestRoute.length < 2) return null
+  let total = 0
+  for (let index = 1; index < result.bestRoute.length; index += 1) total += distanceNm(result.bestRoute[index - 1], result.bestRoute[index])
+  return total
+}
+
+function routeDurationHours(result: IsochroneResult | null) {
+  if (!result || result.bestRoute.length < 2) return null
+  const first = new Date(result.bestRoute[0].time).getTime()
+  const last = new Date(result.bestRoute[result.bestRoute.length - 1].time).getTime()
+  return Number.isFinite(first) && Number.isFinite(last) && last >= first ? (last - first) / 3_600_000 : null
+}
+
+function routeSeparationNm(reference: IsochroneResult | null, candidate: IsochroneResult | null) {
+  if (!reference || !candidate || reference.bestRoute.length < 2 || candidate.bestRoute.length < 2) return null
+  const samples = 8
+  let total = 0
+  for (let index = 0; index < samples; index += 1) {
+    const fraction = index / (samples - 1)
+    const referenceIndex = Math.round(fraction * (reference.bestRoute.length - 1))
+    const candidateIndex = Math.round(fraction * (candidate.bestRoute.length - 1))
+    total += distanceNm(reference.bestRoute[referenceIndex], candidate.bestRoute[candidateIndex])
+  }
+  return total / samples
 }
 
 function routingPreset(distance: number | null) {
@@ -140,6 +177,8 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
   const [weatherModel, setWeatherModel] = useState<OffshoreWeatherModel>(settings?.weatherModel ?? getOffshoreWeatherModel())
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [result, setResult] = useState<IsochroneResult | null>(null)
+  const [comparisonState, setComparisonState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [comparisons, setComparisons] = useState<ModelComparison[]>([])
 
   useEffect(() => {
     if (previousRouteSignature.current === routeSignature) return
@@ -148,6 +187,8 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     setMaxHours(automaticPreset.maxHours)
     setState('idle')
     setResult(null)
+    setComparisonState('idle')
+    setComparisons([])
     onResult(null)
   }, [automaticPreset.maxHours, automaticPreset.stepMinutes, onResult, routeSignature])
 
@@ -203,6 +244,21 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     }
   }, [result])
 
+  const comparisonSummary = useMemo(() => {
+    const successful = comparisons.filter((item) => item.result && item.result.bestRoute.length >= 2)
+    if (successful.length < 2) return null
+    const separations = successful.map((item) => item.meanSeparationNm).filter((value): value is number => value != null)
+    const etas = successful.map((item) => item.result?.eta ? new Date(item.result.eta).getTime() : NaN).filter(Number.isFinite)
+    const maxSeparation = separations.length ? Math.max(...separations) : null
+    const etaSpreadMinutes = etas.length >= 2 ? (Math.max(...etas) - Math.min(...etas)) / 60_000 : null
+    const agreement = (maxSeparation ?? 0) <= 5 && (etaSpreadMinutes ?? 0) <= 60
+      ? 'Accord fort entre les modèles'
+      : (maxSeparation ?? 0) <= 15 && (etaSpreadMinutes ?? 0) <= 180
+        ? 'Accord moyen entre les modèles'
+        : 'Divergence notable entre les modèles'
+    return { successful: successful.length, maxSeparation, etaSpreadMinutes, agreement }
+  }, [comparisons])
+
   const navWaypoints = useMemo(() => navigationWaypoints(result), [result])
 
   function exportGpx() {
@@ -228,16 +284,24 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     setOffshoreWeatherModel(model)
     setState('idle')
     setResult(null)
+    setComparisonState('idle')
+    setComparisons([])
     onResult(null)
   }
 
-  async function run() {
+  function routingContext() {
     const departure = new Date(`${departureDate}T${departureTime}:00`)
-    if (!departureDate || !departureTime || !Number.isFinite(departure.getTime())) return
+    if (!departureDate || !departureTime || !Number.isFinite(departure.getTime())) return null
     const genericHighWater = referenceHighWater ? new Date(referenceHighWater) : null
     const firstScheduled = Object.values(schedules).flat()[0] ?? null
     const highWater = genericHighWater && Number.isFinite(genericHighWater.getTime()) ? genericHighWater : firstScheduled
     const coefficient = Number(tidalCoefficient)
+    return { departure, highWater, coefficient: Number.isFinite(coefficient) ? coefficient : null }
+  }
+
+  async function run() {
+    const context = routingContext()
+    if (!context) return
     setOffshoreWeatherModel(weatherModel)
     setState('loading')
     setResult(null)
@@ -246,13 +310,13 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
       const next = await computeIsochrones({
         start,
         target,
-        departure,
+        departure: context.departure,
         polar,
         stepMinutes: Math.max(10, Number(stepMinutes) || 60),
         maxHours: Math.max(3, Number(maxHours) || 48),
         budgetMs: 25_000,
-        tidalCoefficient: Number.isFinite(coefficient) ? coefficient : null,
-        referenceHighWater: highWater,
+        tidalCoefficient: context.coefficient,
+        referenceHighWater: context.highWater,
         referenceHighWaterSchedules: schedules,
       })
       setResult(next)
@@ -260,6 +324,53 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
       setState('ready')
     } catch {
       setState('error')
+    }
+  }
+
+  async function compareModels() {
+    const context = routingContext()
+    if (!context) return
+    const selectedModel = weatherModel
+    setComparisonState('loading')
+    setComparisons([])
+    const collected: ModelComparison[] = []
+
+    try {
+      for (const model of OFFSHORE_WEATHER_MODELS) {
+        setOffshoreWeatherModel(model.value)
+        try {
+          const next = await computeIsochrones({
+            start,
+            target,
+            departure: context.departure,
+            polar,
+            stepMinutes: Math.max(10, Number(stepMinutes) || 60),
+            maxHours: Math.max(3, Number(maxHours) || 48),
+            maxNodes: 12,
+            headingStep: 30,
+            budgetMs: 9_000,
+            tidalCoefficient: context.coefficient,
+            referenceHighWater: context.highWater,
+            referenceHighWaterSchedules: schedules,
+          })
+          collected.push({ model: model.value, result: next, error: false, distanceNm: routeDistanceNm(next), durationHours: routeDurationHours(next), meanSeparationNm: null })
+        } catch {
+          collected.push({ model: model.value, result: null, error: true, distanceNm: null, durationHours: null, meanSeparationNm: null })
+        }
+        setComparisons([...collected])
+      }
+
+      const reference = collected.find((item) => item.model === selectedModel && item.result?.bestRoute.length && item.result.bestRoute.length >= 2)
+        ?? collected.find((item) => item.result?.bestRoute.length && item.result.bestRoute.length >= 2)
+        ?? null
+      const enriched = collected.map((item) => ({
+        ...item,
+        meanSeparationNm: reference ? routeSeparationNm(reference.result, item.result) : null,
+      }))
+      setComparisons(enriched)
+      setComparisonState(enriched.some((item) => item.result) ? 'ready' : 'error')
+    } finally {
+      setOffshoreWeatherModel(selectedModel)
     }
   }
 
@@ -274,13 +385,54 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
       <label><span>Horizon</span><select value={maxHours} onChange={(e) => setMaxHours(e.target.value)}><option value="3">3 h</option><option value="6">6 h</option><option value="12">12 h</option><option value="24">24 h</option><option value="48">48 h</option><option value="72">72 h</option><option value="120">5 jours</option></select></label>
       <label><span><Anchor size={14} /> Coefficient marée</span><input type="number" min="20" max="120" value={tidalCoefficient} onChange={(e) => setTidalCoefficient(e.target.value)} /></label>
       <label className="offshore-high-water"><span>PM générique de secours</span><input type="datetime-local" value={referenceHighWater} onChange={(e) => setReferenceHighWater(e.target.value)} /></label>
-      <button type="button" className="offshore-add" onClick={() => void run()} disabled={state === 'loading' || !departureDate || !departureTime}>
+      <button type="button" className="offshore-add" onClick={() => void run()} disabled={state === 'loading' || comparisonState === 'loading' || !departureDate || !departureTime}>
         {state === 'loading' ? <LoaderCircle size={17} className="current-spin" /> : <Compass size={17} />}
         {state === 'loading' ? 'Calcul des isochrones…' : 'Calculer le routage'}
       </button>
       <small>Vent utilisé : <strong>{offshoreWeatherModelLabel(weatherModel)}</strong>. Mer et houle restent issues d’Open-Meteo Marine ; le courant SHOM reste prioritaire quand il est disponible.</small>
       {directDistance != null && <small>{automaticPreset.label} · {fmtNumber(directDistance)} nm : réglage automatique {automaticPreset.stepMinutes} min / {automaticPreset.maxHours} h. Tu peux le modifier manuellement.</small>}
       {state === 'loading' && <small>Calcul adaptatif, limité à environ 25 s pour éviter un blocage prolongé sur mobile.</small>}
+    </div>
+
+    <div className="offshore-model-compare">
+      <div className="offshore-model-compare-heading">
+        <div>
+          <strong>Comparer les modèles météo</strong>
+          <small>CoachBrief refait un routage allégé avec Best Match, ECMWF, GFS, ICON et Météo-France. Le but est de vérifier si la stratégie reste proche malgré l’incertitude météo.</small>
+        </div>
+        <div className="offshore-model-compare-actions">
+          <button type="button" className="offshore-add" onClick={() => void compareModels()} disabled={comparisonState === 'loading' || state === 'loading' || !departureDate || !departureTime}>
+            {comparisonState === 'loading' ? <LoaderCircle size={17} className="current-spin" /> : <Wind size={17} />}
+            {comparisonState === 'loading' ? 'Comparaison en cours…' : comparisons.length ? 'Relancer la comparaison' : 'Comparer les 5 modèles'}
+          </button>
+        </div>
+      </div>
+      {comparisonState === 'loading' && <p className="offshore-source">Les modèles sont calculés l’un après l’autre pour éviter les conflits de source météo. Sur mobile, la comparaison complète peut prendre environ 30 à 45 s.</p>}
+      {comparisonState === 'error' && <p className="offshore-analysis-error">Aucun des modèles n’a pu produire un routage exploitable avec ces paramètres.</p>}
+      {comparisons.length > 0 && <div className="offshore-model-compare-grid">
+        {comparisons.map((comparison) => <article key={comparison.model} className={`offshore-model-result${comparison.model === weatherModel ? ' is-reference' : ''}${comparison.error ? ' is-error' : ''}`}>
+          <div className="offshore-model-result-head">
+            <strong>{offshoreWeatherModelLabel(comparison.model)}</strong>
+            {comparison.model === weatherModel && <small>modèle sélectionné</small>}
+          </div>
+          {comparison.result ? <>
+            <div className="offshore-model-result-metrics">
+              <span>Arrivée<b>{comparison.result.reached ? fmtTime(comparison.result.eta) : 'hors horizon'}</b></span>
+              <span>Distance route<b>{comparison.distanceNm == null ? '—' : `${fmtNumber(comparison.distanceNm)} nm`}</b></span>
+              <span>Durée calculée<b>{comparison.durationHours == null ? '—' : `${fmtNumber(comparison.durationHours)} h`}</b></span>
+              <span>Écart moyen de route<b>{comparison.meanSeparationNm == null ? '—' : `${fmtNumber(comparison.meanSeparationNm)} nm`}</b></span>
+            </div>
+            <p>{comparison.result.reached ? 'Le modèle trouve une arrivée dans l’horizon demandé.' : 'Le moteur n’atteint pas l’arrivée dans l’horizon avec ce modèle.'}</p>
+            {comparison.model !== weatherModel && <button type="button" className="offshore-add" onClick={() => changeWeatherModel(comparison.model)}>Choisir ce modèle</button>}
+          </> : <p>Ce modèle n’a pas fourni assez de données pour ce routage.</p>}
+        </article>)}
+      </div>}
+      {comparisonSummary && <div className="offshore-model-agreement">
+        <strong>{comparisonSummary.agreement}</strong> · {comparisonSummary.successful} modèles exploitables
+        {comparisonSummary.maxSeparation != null ? ` · écart de route max moyen ${fmtNumber(comparisonSummary.maxSeparation)} nm` : ''}
+        {comparisonSummary.etaSpreadMinutes != null ? ` · dispersion ETA ${fmtNumber(comparisonSummary.etaSpreadMinutes, 0)} min` : ''}.
+        <br />Un accord fort indique que plusieurs modèles conduisent à une stratégie proche ; une divergence notable invite à considérer plusieurs scénarios plutôt qu’une route unique.
+      </div>}
     </div>
 
     <div className="offshore-shom-schedules">
