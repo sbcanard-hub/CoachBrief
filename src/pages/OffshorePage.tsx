@@ -34,6 +34,23 @@ function formatEta(value: string) {
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date) : '—'
 }
 
+function routeDistanceNm(route: IsochroneResult['bestRoute']) {
+  let total = 0
+  const radiusNm = 3440.065
+  const rad = (value: number) => value * Math.PI / 180
+  for (let index = 1; index < route.length; index += 1) {
+    const previous = route[index - 1]
+    const current = route[index]
+    const lat1 = rad(previous.latitude)
+    const lat2 = rad(current.latitude)
+    const dLat = lat2 - lat1
+    const dLon = rad(current.longitude - previous.longitude)
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+    total += 2 * radiusNm * Math.asin(Math.min(1, Math.sqrt(a)))
+  }
+  return total
+}
+
 export function OffshorePage() {
   const [raceName, setRaceName] = useState('')
   const [departureDate, setDepartureDate] = useState('')
@@ -55,6 +72,23 @@ export function OffshorePage() {
   const routeTarget = points[points.length - 1]
   const routeEndpointsReady = Boolean(routeStart && routeTarget && validOffshorePoint(routeStart) && validOffshorePoint(routeTarget))
   const hasValidIsochroneRoute = Boolean(isochrones && isochrones.bestRoute.length >= 2)
+  const isochroneMetrics = useMemo(() => {
+    if (!isochrones || isochrones.bestRoute.length < 2) return null
+    const route = isochrones.bestRoute
+    const firstTime = new Date(route[0].time).getTime()
+    const lastTime = new Date(route[route.length - 1].time).getTime()
+    const durationHours = Number.isFinite(firstTime) && Number.isFinite(lastTime) && lastTime >= firstTime
+      ? (lastTime - firstTime) / 3_600_000
+      : null
+    const distanceNm = routeDistanceNm(route)
+    return {
+      distanceNm,
+      durationHours,
+      eta: isochrones.eta ?? route[route.length - 1].time,
+      deltaNm: distanceNm - totalDistance,
+      reached: isochrones.reached,
+    }
+  }, [isochrones, totalDistance])
 
   function invalidateRouteAnalysis() {
     setForecastState('idle')
@@ -236,6 +270,15 @@ export function OffshorePage() {
         <strong>{formatNm(totalDistance)}</strong>
         <small>Temps théorique à {Number(averageSpeed) || 0} nd : {formatDuration(etaHours)} · hors contraintes de navigation</small>
       </div>
+      {isochroneMetrics && <div className="offshore-summary-main">
+        <span>{isochroneMetrics.reached ? 'Route météo calculée' : 'Route météo partielle'}</span>
+        <strong>{formatNm(isochroneMetrics.distanceNm)}</strong>
+        <small>
+          {isochroneMetrics.durationHours != null ? `Durée : ${formatDuration(isochroneMetrics.durationHours)}` : 'Durée indisponible'}
+          {isochroneMetrics.reached ? ` · ETA : ${formatEta(isochroneMetrics.eta)}` : ''}
+          {Math.abs(isochroneMetrics.deltaNm) >= 0.1 ? ` · écart vs directe : ${isochroneMetrics.deltaNm >= 0 ? '+' : ''}${formatNumber(isochroneMetrics.deltaNm)} nm` : ''}
+        </small>
+      </div>}
       <div><Compass size={20} /><span>{legs.length} tronçon{legs.length > 1 ? 's' : ''}</span></div>
       <div><Wind size={20} /><span>Météo au passage</span></div>
       <div><Waves size={20} /><span>Mer + houle au passage</span></div>
