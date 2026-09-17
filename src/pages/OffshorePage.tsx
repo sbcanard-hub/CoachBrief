@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Anchor, ArrowRight, CalendarDays, ChevronDown, ChevronUp, Clock3, Compass, Gauge, GripVertical, LoaderCircle, MapPin, Plus, Route, Sailboat, Trash2, Waves, Wind } from 'lucide-react'
+import { Anchor, ArrowRight, CalendarDays, ChevronDown, ChevronUp, Clock3, Compass, Crosshair, Gauge, GripVertical, LoaderCircle, MapPin, Plus, Route, Sailboat, Trash2, Waves, Wind } from 'lucide-react'
 import { OffshoreRouteMap } from '../components/OffshoreRouteMap'
 import { OffshorePolarPanel } from '../components/OffshorePolarPanel'
 import { OffshoreIsochronePanel } from '../components/OffshoreIsochronePanel'
@@ -64,6 +64,8 @@ export function OffshorePage() {
   const [polar, setPolar] = useState<PolarTable>(DEMO_POLAR)
   const [isochrones, setIsochrones] = useState<IsochroneResult | null>(null)
   const [draggedWaypointId, setDraggedWaypointId] = useState<string | null>(null)
+  const [geolocationState, setGeolocationState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [geolocationMessage, setGeolocationMessage] = useState('')
 
   const legs = useMemo(() => buildOffshoreLegs(points), [points])
   const totalDistance = useMemo(() => totalOffshoreDistance(legs), [legs])
@@ -105,6 +107,38 @@ export function OffshorePage() {
     setPoints((current) => current.map((point) => point.id === id ? { ...point, latitude, longitude } : point))
     setForecastState('idle'); setForecasts([]); setIsochrones(null)
   }, [])
+
+  function useCurrentDeparturePosition() {
+    if (!('geolocation' in navigator)) {
+      setGeolocationState('error')
+      setGeolocationMessage('La géolocalisation n’est pas disponible sur cet appareil.')
+      return
+    }
+
+    setGeolocationState('loading')
+    setGeolocationMessage('Recherche de ta position…')
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords
+        setPoints((current) => current.map((point, index) => index === 0 ? {
+          ...point,
+          name: 'Ma position',
+          latitude: latitude.toFixed(6),
+          longitude: longitude.toFixed(6),
+        } : point))
+        invalidateRouteAnalysis()
+        setGeolocationState('ready')
+        setGeolocationMessage(`Départ placé sur ta position · précision ± ${Math.max(1, Math.round(accuracy))} m`)
+      },
+      (error) => {
+        setGeolocationState('error')
+        if (error.code === error.PERMISSION_DENIED) setGeolocationMessage('Autorise la localisation dans le navigateur pour utiliser ta position de départ.')
+        else if (error.code === error.TIMEOUT) setGeolocationMessage('La localisation a pris trop de temps. Réessaie dans un endroit avec une meilleure réception GPS.')
+        else setGeolocationMessage('Impossible de récupérer ta position pour le moment.')
+      },
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 15_000 },
+    )
+  }
 
   function addWaypoint() {
     setPoints((current) => {
@@ -174,6 +208,10 @@ export function OffshorePage() {
       }
     }))
     invalidateRouteAnalysis()
+    if (endpoint === 'departure') {
+      setGeolocationState('idle')
+      setGeolocationMessage('')
+    }
   }
 
   async function analyseRoute() {
@@ -223,6 +261,17 @@ export function OffshorePage() {
       <div className="offshore-place-search-grid">
         <OffshorePlaceSearch title="Départ" marker="D" placeholder="Ex. Antibes ou Port Vauban…" onSelect={(place) => applyPlace(place, 'departure')} />
         <OffshorePlaceSearch title="Arrivée" marker="A" placeholder="Ex. Lorient ou Port de La Trinité…" onSelect={(place) => applyPlace(place, 'arrival')} />
+      </div>
+      <div className="offshore-analysis-action">
+        <div>
+          <strong>Départ depuis ta position actuelle</strong>
+          <p>Sur le bateau ou au port, CoachBrief peut placer directement D à la position GPS du téléphone.</p>
+          {geolocationMessage && <small className={geolocationState === 'error' ? 'offshore-analysis-error' : 'offshore-source'}>{geolocationMessage}</small>}
+        </div>
+        <button type="button" className="offshore-add" onClick={useCurrentDeparturePosition} disabled={geolocationState === 'loading'}>
+          {geolocationState === 'loading' ? <LoaderCircle size={17} className="current-spin" /> : <Crosshair size={17} />}
+          {geolocationState === 'loading' ? 'Localisation…' : 'Utiliser ma position'}
+        </button>
       </div>
       <p className="offshore-help offshore-route-search-help">La recherche place automatiquement D ou A. Les coordonnées restent modifiables à la main, les marqueurs peuvent être déplacés sur la carte et les waypoints intermédiaires restent indépendants.</p>
       <OffshoreWaypointSearch onSelect={addNamedWaypoint} />
