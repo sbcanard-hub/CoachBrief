@@ -6,6 +6,7 @@ import { importTrainingSessions, loadTrainingSessions } from './training'
 import type { TrainingSession } from './training'
 import { importSailorJournal, loadSailorJournal } from './sailorJournal'
 import type { SailorJournalData } from './sailorJournal'
+import { importOffshoreSavedRoutes, loadOffshoreSavedRoutes, type OffshoreSavedRoute } from './offshoreSavedRoutes'
 
 export type CoachBriefPortableBundle = {
   format: 'coachbrief-portable'
@@ -15,6 +16,7 @@ export type CoachBriefPortableBundle = {
   knowledgePreferences: KnowledgePreferences
   trainingSessions?: TrainingSession[]
   sailorJournal?: SailorJournalData
+  offshoreRoutes?: OffshoreSavedRoute[]
 }
 
 function isPortableBundle(value: unknown): value is CoachBriefPortableBundle {
@@ -36,6 +38,7 @@ export function exportPortableCoachBriefData(): CoachBriefPortableBundle {
     knowledgePreferences: loadKnowledgePreferences(),
     trainingSessions: loadTrainingSessions(),
     sailorJournal: loadSailorJournal(),
+    offshoreRoutes: loadOffshoreSavedRoutes(),
   }
 }
 
@@ -52,5 +55,6 @@ export function importPortableCoachBriefData(text: string, mode: 'merge' | 'repl
   saveKnowledgePreferences(parsed.knowledgePreferences)
   importTrainingSessions(parsed.trainingSessions || [], mode)
   importSailorJournal(parsed.sailorJournal, mode)
+  importOffshoreSavedRoutes(parsed.offshoreRoutes, mode)
   return result
 }

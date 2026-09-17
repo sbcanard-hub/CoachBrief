@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
-import { Anchor, ArrowRight, CalendarDays, ChevronDown, ChevronUp, Clock3, Compass, Crosshair, Gauge, GripVertical, LoaderCircle, MapPin, Plus, Route, Sailboat, Trash2, Waves, Wind } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Anchor, ArrowRight, CalendarDays, ChevronDown, ChevronUp, Clock3, Compass, Crosshair, FolderOpen, Gauge, GripVertical, LoaderCircle, MapPin, Plus, Route, Sailboat, Save, Trash2, Waves, Wind } from 'lucide-react'
 import { OffshoreRouteMap } from '../components/OffshoreRouteMap'
 import { OffshorePolarPanel } from '../components/OffshorePolarPanel'
 import { OffshoreIsochronePanel } from '../components/OffshoreIsochronePanel'
@@ -10,8 +10,11 @@ import { fetchOffshoreLegForecasts, type OffshoreLegForecast } from '../offshore
 import type { OffshorePlaceResult } from '../offshoreGeocoding'
 import { DEMO_POLAR, type PolarTable } from '../offshorePolar'
 import type { IsochroneResult } from '../offshoreIsochrone'
+import { deleteOffshoreSavedRoute, loadOffshoreSavedRoutes, saveOffshoreRoute, type OffshoreSavedRoute } from '../offshoreSavedRoutes'
 import './offshore.css'
 import './offshoreWaypointReorder.css'
+
+const OFFSHORE_AUTOSAVE_KEY = 'coachbrief:offshore-autosave:v1'
 
 function makePoint(name = ''): OffshorePoint {
   return { id: crypto.randomUUID(), name, latitude: '', longitude: '' }
@@ -74,6 +77,14 @@ export function OffshorePage() {
   const [draggedWaypointId, setDraggedWaypointId] = useState<string | null>(null)
   const [geolocationState, setGeolocationState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [geolocationMessage, setGeolocationMessage] = useState('')
+  const [savedRoutes, setSavedRoutes] = useState<OffshoreSavedRoute[]>(() => loadOffshoreSavedRoutes())
+  const [currentSavedRouteId, setCurrentSavedRouteId] = useState<string | null>(null)
+  const [selectedSavedRouteId, setSelectedSavedRouteId] = useState('')
+  const [savedRouteName, setSavedRouteName] = useState('')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [autoSave, setAutoSave] = useState(() => {
+    try { return window.localStorage.getItem(OFFSHORE_AUTOSAVE_KEY) === '1' } catch { return false }
+  })
 
   const legs = useMemo(() => buildOffshoreLegs(points), [points])
   const totalDistance = useMemo(() => totalOffshoreDistance(legs), [legs])
@@ -105,6 +116,76 @@ export function OffshorePage() {
     setForecasts([])
     setIsochrones(null)
   }
+
+  function routeSnapshot() {
+    return {
+      raceName,
+      departureDate,
+      departureTime,
+      boatName,
+      boatType,
+      averageSpeed,
+      points,
+      forecasts,
+      polar,
+      isochrones,
+    }
+  }
+
+  function saveCurrentRoute(saveAs = false, silent = false) {
+    const fallbackName = raceName.trim() || `${points[0]?.name || 'Départ'} → ${points[points.length - 1]?.name || 'Arrivée'}`
+    const saved = saveOffshoreRoute(routeSnapshot(), {
+      id: currentSavedRouteId,
+      name: savedRouteName.trim() || fallbackName,
+      saveAs,
+    })
+    setCurrentSavedRouteId(saved.id)
+    setSelectedSavedRouteId(saved.id)
+    setSavedRouteName(saved.name)
+    setSavedRoutes(loadOffshoreSavedRoutes())
+    if (!silent) setSaveMessage(saveAs ? 'Nouvelle copie enregistrée.' : 'Route enregistrée.')
+    return saved
+  }
+
+  function openSavedRoute() {
+    const saved = savedRoutes.find((item) => item.id === selectedSavedRouteId)
+    if (!saved) return
+    setRaceName(saved.raceName)
+    setDepartureDate(saved.departureDate)
+    setDepartureTime(saved.departureTime)
+    setBoatName(saved.boatName)
+    setBoatType(saved.boatType)
+    setAverageSpeed(saved.averageSpeed)
+    setPoints(saved.points)
+    setForecasts(saved.forecasts)
+    setForecastState(saved.forecasts.length ? 'ready' : 'idle')
+    setPolar(saved.polar)
+    setIsochrones(saved.isochrones)
+    setCurrentSavedRouteId(saved.id)
+    setSavedRouteName(saved.name)
+    setGeolocationState('idle')
+    setGeolocationMessage('')
+    setSaveMessage(`Route « ${saved.name} » ouverte.`)
+  }
+
+  function removeSavedRoute() {
+    if (!selectedSavedRouteId) return
+    deleteOffshoreSavedRoute(selectedSavedRouteId)
+    if (currentSavedRouteId === selectedSavedRouteId) setCurrentSavedRouteId(null)
+    setSelectedSavedRouteId('')
+    setSavedRoutes(loadOffshoreSavedRoutes())
+    setSaveMessage('Route supprimée de cet appareil.')
+  }
+
+  useEffect(() => {
+    try { window.localStorage.setItem(OFFSHORE_AUTOSAVE_KEY, autoSave ? '1' : '0') } catch { /* stockage indisponible */ }
+  }, [autoSave])
+
+  useEffect(() => {
+    if (!autoSave || !currentSavedRouteId) return
+    const timeout = window.setTimeout(() => saveCurrentRoute(false, true), 800)
+    return () => window.clearTimeout(timeout)
+  }, [autoSave, currentSavedRouteId, raceName, departureDate, departureTime, boatName, boatType, averageSpeed, points, forecasts, polar, isochrones])
 
   function updatePoint(id: string, key: keyof OffshorePoint, value: string) {
     setPoints((current) => current.map((point) => point.id === id ? { ...point, [key]: value } : point))
@@ -246,6 +327,32 @@ export function OffshorePage() {
       <div className="offshore-kicker"><Route size={17} /> CoachBrief · Course au large</div>
       <h1>Préparer une route qui évolue <em>dans le temps et dans l’espace</em></h1>
       <p>Cette interface est séparée du petit parcours : on raisonne ici en route, tronçons, météo évolutive, courant, état de mer, caps, détroits et timing de passage.</p>
+    </section>
+
+    <section className="offshore-card">
+      <div className="offshore-card-heading">
+        <div><span>00</span><div><small>Sauvegarde</small><h2>Mes routes au large</h2></div></div>
+        <Save size={24} />
+      </div>
+      <div className="offshore-grid offshore-grid-3">
+        <label><span>Nom de la route</span><input value={savedRouteName} onChange={(e) => setSavedRouteName(e.target.value)} placeholder={raceName || 'Ex. Antibes → Calvi'} /></label>
+        <label><span>Routes enregistrées</span><select value={selectedSavedRouteId} onChange={(e) => setSelectedSavedRouteId(e.target.value)}><option value="">Choisir une route…</option>{savedRoutes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label><span>Sauvegarde automatique</span><select value={autoSave ? 'on' : 'off'} onChange={(e) => setAutoSave(e.target.value === 'on')}><option value="off">Manuelle</option><option value="on">Automatique</option></select></label>
+      </div>
+      <div className="offshore-analysis-action">
+        <div>
+          <strong>{currentSavedRouteId ? 'Route liée à une sauvegarde' : 'Nouvelle préparation'}</strong>
+          <p>Enregistre le bateau, D/A et waypoints, l’analyse météo, la polaire active et le dernier routage calculé.</p>
+          {saveMessage && <small className="offshore-source">{saveMessage}</small>}
+        </div>
+        <div className="offshore-waypoint-actions">
+          <button type="button" className="offshore-add" onClick={() => saveCurrentRoute(false)}><Save size={16} /> Enregistrer</button>
+          <button type="button" className="offshore-add" onClick={() => saveCurrentRoute(true)}><Plus size={16} /> Enregistrer sous</button>
+          <button type="button" className="offshore-add" onClick={openSavedRoute} disabled={!selectedSavedRouteId}><FolderOpen size={16} /> Ouvrir</button>
+          <button type="button" className="offshore-icon-button" onClick={removeSavedRoute} disabled={!selectedSavedRouteId} aria-label="Supprimer la route sélectionnée" title="Supprimer"><Trash2 size={17} /></button>
+        </div>
+      </div>
+      <p className="offshore-help">Ces routes sont enregistrées sur l’appareil. Elles sont aussi incluses dans la sauvegarde globale CoachBrief : si la synchronisation Firebase est activée, elles suivent la même sauvegarde cloud que les briefings.</p>
     </section>
 
     <section className="offshore-card">
