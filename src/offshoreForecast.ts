@@ -19,6 +19,31 @@ export type OffshoreLegForecast = OffshorePointForecast & {
   source: string
 }
 
+type AtmospherePayload = {
+  hourly?: {
+    time?: string[]
+    wind_speed_10m?: Array<number | null>
+    wind_direction_10m?: Array<number | null>
+    wind_gusts_10m?: Array<number | null>
+  }
+}
+
+type MarinePayload = {
+  hourly?: {
+    time?: string[]
+    wave_height?: Array<number | null>
+    wave_direction?: Array<number | null>
+    wave_period?: Array<number | null>
+    ocean_current_velocity?: Array<number | null>
+    ocean_current_direction?: Array<number | null>
+  }
+}
+
+const REQUEST_TIMEOUT_MS = 8_000
+const GRID_PRECISION_DEG = 0.1
+const atmosphereCache = new Map<string, Promise<AtmospherePayload | null>>()
+const marineCache = new Map<string, Promise<MarinePayload | null>>()
+
 function safeNumber(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
@@ -47,50 +72,89 @@ function midpoint(leg: OffshoreLeg) {
   }
 }
 
-async function fetchAtmosphere(latitude: number, longitude: number, target: Date) {
-  const date = isoDate(target)
-  const params = new URLSearchParams({
-    latitude: String(latitude), longitude: String(longitude),
-    hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
-    start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn',
-  })
+function gridCoordinate(value: number) {
+  return Math.round(value / GRID_PRECISION_DEG) * GRID_PRECISION_DEG
+}
+
+function forecastGridPoint(latitude: number, longitude: number) {
+  return {
+    latitude: Number(gridCoordinate(latitude).toFixed(1)),
+    longitude: Number(gridCoordinate(longitude).toFixed(1)),
+  }
+}
+
+async function fetchJsonWithTimeout<T>(url: string): Promise<T | null> {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`)
+    const response = await fetch(url, { signal: controller.signal })
     if (!response.ok) return null
-    const payload = await response.json() as { hourly?: { time?: string[]; wind_speed_10m?: Array<number | null>; wind_direction_10m?: Array<number | null>; wind_gusts_10m?: Array<number | null> } }
-    const times = payload.hourly?.time ?? []
-    if (!times.length) return null
-    const index = nearestIndex(times, target)
-    return {
-      windSpeed: safeNumber(payload.hourly?.wind_speed_10m?.[index]),
-      windDirection: safeNumber(payload.hourly?.wind_direction_10m?.[index]),
-      windGust: safeNumber(payload.hourly?.wind_gusts_10m?.[index]),
-    }
-  } catch { return null }
+    return await response.json() as T
+  } catch {
+    return null
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
+
+async function atmospherePayload(latitude: number, longitude: number, target: Date) {
+  const date = isoDate(target)
+  const point = forecastGridPoint(latitude, longitude)
+  const key = `${point.latitude}:${point.longitude}:${date}`
+  let pending = atmosphereCache.get(key)
+  if (!pending) {
+    const params = new URLSearchParams({
+      latitude: String(point.latitude), longitude: String(point.longitude),
+      hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+      start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn',
+    })
+    pending = fetchJsonWithTimeout<AtmospherePayload>(`https://api.open-meteo.com/v1/forecast?${params}`)
+    atmosphereCache.set(key, pending)
+  }
+  return pending
+}
+
+async function marinePayload(latitude: number, longitude: number, target: Date) {
+  const date = isoDate(target)
+  const point = forecastGridPoint(latitude, longitude)
+  const key = `${point.latitude}:${point.longitude}:${date}`
+  let pending = marineCache.get(key)
+  if (!pending) {
+    const params = new URLSearchParams({
+      latitude: String(point.latitude), longitude: String(point.longitude),
+      hourly: 'wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction',
+      start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn', cell_selection: 'sea',
+    })
+    pending = fetchJsonWithTimeout<MarinePayload>(`https://marine-api.open-meteo.com/v1/marine?${params}`)
+    marineCache.set(key, pending)
+  }
+  return pending
+}
+
+async function fetchAtmosphere(latitude: number, longitude: number, target: Date) {
+  const payload = await atmospherePayload(latitude, longitude, target)
+  const times = payload?.hourly?.time ?? []
+  if (!times.length) return null
+  const index = nearestIndex(times, target)
+  return {
+    windSpeed: safeNumber(payload?.hourly?.wind_speed_10m?.[index]),
+    windDirection: safeNumber(payload?.hourly?.wind_direction_10m?.[index]),
+    windGust: safeNumber(payload?.hourly?.wind_gusts_10m?.[index]),
+  }
 }
 
 async function fetchMarine(latitude: number, longitude: number, target: Date) {
-  const date = isoDate(target)
-  const params = new URLSearchParams({
-    latitude: String(latitude), longitude: String(longitude),
-    hourly: 'wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction',
-    start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn', cell_selection: 'sea',
-  })
-  try {
-    const response = await fetch(`https://marine-api.open-meteo.com/v1/marine?${params}`)
-    if (!response.ok) return null
-    const payload = await response.json() as { hourly?: { time?: string[]; wave_height?: Array<number | null>; wave_direction?: Array<number | null>; wave_period?: Array<number | null>; ocean_current_velocity?: Array<number | null>; ocean_current_direction?: Array<number | null> } }
-    const times = payload.hourly?.time ?? []
-    if (!times.length) return null
-    const index = nearestIndex(times, target)
-    return {
-      waveHeight: safeNumber(payload.hourly?.wave_height?.[index]),
-      waveDirection: safeNumber(payload.hourly?.wave_direction?.[index]),
-      wavePeriod: safeNumber(payload.hourly?.wave_period?.[index]),
-      currentSpeed: safeNumber(payload.hourly?.ocean_current_velocity?.[index]),
-      currentDirection: safeNumber(payload.hourly?.ocean_current_direction?.[index]),
-    }
-  } catch { return null }
+  const payload = await marinePayload(latitude, longitude, target)
+  const times = payload?.hourly?.time ?? []
+  if (!times.length) return null
+  const index = nearestIndex(times, target)
+  return {
+    waveHeight: safeNumber(payload?.hourly?.wave_height?.[index]),
+    waveDirection: safeNumber(payload?.hourly?.wave_direction?.[index]),
+    wavePeriod: safeNumber(payload?.hourly?.wave_period?.[index]),
+    currentSpeed: safeNumber(payload?.hourly?.ocean_current_velocity?.[index]),
+    currentDirection: safeNumber(payload?.hourly?.ocean_current_direction?.[index]),
+  }
 }
 
 export async function fetchOffshorePointForecast(latitude: number, longitude: number, target: Date): Promise<OffshorePointForecast> {
