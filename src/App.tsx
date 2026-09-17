@@ -1,6 +1,7 @@
 import { useLayoutEffect } from 'react'
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import { Header } from './components/Header'
+import { OffshoreLanguageBridge } from './components/OffshoreLanguageBridge'
 import { SiteLearningPanel } from './components/SiteLearningPanel'
 import { WindModelComparisonPanel } from './components/WindModelComparisonPanel'
 import { ForecastPanel } from './components/ForecastPanel'
@@ -82,6 +83,7 @@ export default function App() {
     <div className="app-shell">
       <ScrollToTop />
       <Header />
+      <OffshoreLanguageBridge />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/regate" element={<HomePage />} />
