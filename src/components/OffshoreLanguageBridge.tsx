@@ -74,7 +74,9 @@ const translations: Record<OffshoreLanguage, TranslationSet> = {
 }
 
 const originalText = new WeakMap<Text, string>()
+const lastRenderedText = new WeakMap<Text, string>()
 const originalAttributes = new WeakMap<Element, Record<string, string>>()
+const lastRenderedAttributes = new WeakMap<Element, Record<string, string>>()
 
 function translateDynamic(value: string, language: OffshoreLanguage) {
   const dictionary = translations[language]
@@ -107,8 +109,9 @@ function translated(value: string, language: Language) {
 function translateTextNode(node: Text, language: Language) {
   const current = node.nodeValue ?? ''
   if (!current.trim()) return
+  const previousRendered = lastRenderedText.get(node)
   let original = originalText.get(node)
-  if (original == null) {
+  if (original == null || (previousRendered != null && current !== previousRendered)) {
     original = current
     originalText.set(node, original)
   }
@@ -116,6 +119,7 @@ function translateTextNode(node: Text, language: Language) {
   const trailing = original.match(/\s*$/)?.[0] ?? ''
   const next = `${leading}${translated(original.trim(), language)}${trailing}`
   if (node.nodeValue !== next) node.nodeValue = next
+  lastRenderedText.set(node, next)
 }
 
 function translateAttributes(element: Element, language: Language) {
@@ -125,12 +129,18 @@ function translateAttributes(element: Element, language: Language) {
     originals = {}
     originalAttributes.set(element, originals)
   }
+  let rendered = lastRenderedAttributes.get(element)
+  if (!rendered) {
+    rendered = {}
+    lastRenderedAttributes.set(element, rendered)
+  }
   for (const attribute of attributes) {
     const current = element.getAttribute(attribute)
     if (!current) continue
-    if (!(attribute in originals)) originals[attribute] = current
+    if (!(attribute in originals) || (attribute in rendered && current !== rendered[attribute])) originals[attribute] = current
     const next = translated(originals[attribute], language)
     if (current !== next) element.setAttribute(attribute, next)
+    rendered[attribute] = next
   }
 }
 
@@ -157,7 +167,13 @@ export function OffshoreLanguageBridge() {
     }
     translate()
     const observer = new MutationObserver(() => queueMicrotask(translate))
-    observer.observe(document.body, { childList: true, subtree: true })
+    observer.observe(document.body, {
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['placeholder', 'title', 'aria-label'],
+      subtree: true,
+    })
     return () => observer.disconnect()
   }, [language, location.pathname])
 
