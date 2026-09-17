@@ -16,18 +16,42 @@ type UpperAir = {
   source: string
 }
 
+type ThermalImpact = 'favorable' | 'neutral' | 'limiting' | 'unknown'
+
+type ThermalFactor = {
+  label: string
+  value: string
+  impact: ThermalImpact
+  reason: string
+  priority: number
+}
+
 type Copy = {
   title: string; eyebrow: string; general: string; synoptic: string; fronts: string; terrain: string; left: string; right: string
   temperatures: string; air: string; sea: string; stability: string; flow: string; upperWind: string; solarNoon: string; cadrans: string
   unavailable: string; loading: string; strong: string; medium: string; weak: string; stable: string; neutral: string; unstable: string
   onshore: string; offshore: string; alongshore: string; mixed: string; highConfidence: string; mediumConfidence: string; lowConfidence: string
+  thermalPotential: string; whyPotential: string; mainLimiter: string; score: string; favorable: string; limiting: string; unknown: string
+  terrainFactor: string; stabilityFactor: string; deltaFactor: string; windFactor: string
 }
 
 const copy: Record<Language, Copy> = {
-  fr: { title: 'Prévision générale', eyebrow: 'Du synoptique au thermique', general: 'Situation générale', synoptic: 'Lecture synoptique', fronts: 'Fronts possibles', terrain: 'Topographie', left: 'Gauche', right: 'Droite', temperatures: 'Températures', air: 'Air', sea: 'Eau', stability: 'Stabilité', flow: 'Vent terre / mer', upperWind: 'Vent en altitude', solarNoon: 'Milieu solaire', cadrans: 'Cadrans & thermique', unavailable: 'Indisponible', loading: 'Chargement…', strong: 'fort', medium: 'modéré', weak: 'faible', stable: 'stable', neutral: 'neutre / mixte', unstable: 'instable', onshore: 'mer → terre', offshore: 'terre → mer', alongshore: 'parallèle à la côte', mixed: 'mixte', highConfidence: 'confiance élevée', mediumConfidence: 'confiance moyenne', lowConfidence: 'confiance faible' },
-  en: { title: 'General forecast', eyebrow: 'From synoptic scale to sea breeze', general: 'General situation', synoptic: 'Synoptic reading', fronts: 'Possible fronts', terrain: 'Topography', left: 'Left', right: 'Right', temperatures: 'Temperatures', air: 'Air', sea: 'Water', stability: 'Stability', flow: 'Land / sea flow', upperWind: 'Upper wind', solarNoon: 'Solar noon', cadrans: 'Clock theory & thermal', unavailable: 'Unavailable', loading: 'Loading…', strong: 'strong', medium: 'moderate', weak: 'weak', stable: 'stable', neutral: 'neutral / mixed', unstable: 'unstable', onshore: 'sea → land', offshore: 'land → sea', alongshore: 'alongshore', mixed: 'mixed', highConfidence: 'high confidence', mediumConfidence: 'medium confidence', lowConfidence: 'low confidence' },
-  it: { title: 'Previsione generale', eyebrow: 'Dal sinottico alla brezza termica', general: 'Situazione generale', synoptic: 'Lettura sinottica', fronts: 'Fronti possibili', terrain: 'Topografia', left: 'Sinistra', right: 'Destra', temperatures: 'Temperature', air: 'Aria', sea: 'Acqua', stability: 'Stabilità', flow: 'Vento terra / mare', upperWind: 'Vento in quota', solarNoon: 'Mezzogiorno solare', cadrans: 'Quadranti & termica', unavailable: 'Non disponibile', loading: 'Caricamento…', strong: 'forte', medium: 'moderato', weak: 'debole', stable: 'stabile', neutral: 'neutro / misto', unstable: 'instabile', onshore: 'mare → terra', offshore: 'terra → mare', alongshore: 'lungo costa', mixed: 'misto', highConfidence: 'confidenza alta', mediumConfidence: 'confidenza media', lowConfidence: 'confidenza bassa' },
-  es: { title: 'Previsión general', eyebrow: 'De la escala sinóptica a la brisa térmica', general: 'Situación general', synoptic: 'Lectura sinóptica', fronts: 'Frentes posibles', terrain: 'Topografía', left: 'Izquierda', right: 'Derecha', temperatures: 'Temperaturas', air: 'Aire', sea: 'Agua', stability: 'Estabilidad', flow: 'Viento tierra / mar', upperWind: 'Viento en altura', solarNoon: 'Mediodía solar', cadrans: 'Cuadrantes y térmica', unavailable: 'No disponible', loading: 'Cargando…', strong: 'fuerte', medium: 'moderado', weak: 'débil', stable: 'estable', neutral: 'neutro / mixto', unstable: 'inestable', onshore: 'mar → tierra', offshore: 'tierra → mar', alongshore: 'paralelo a costa', mixed: 'mixto', highConfidence: 'confianza alta', mediumConfidence: 'confianza media', lowConfidence: 'confianza baja' },
+  fr: {
+    title: 'Prévision générale', eyebrow: 'Du synoptique au thermique', general: 'Situation générale', synoptic: 'Lecture synoptique', fronts: 'Fronts possibles', terrain: 'Topographie', left: 'Gauche', right: 'Droite', temperatures: 'Températures', air: 'Air', sea: 'Eau', stability: 'Stabilité', flow: 'Vent terre / mer', upperWind: 'Vent en altitude', solarNoon: 'Milieu solaire', cadrans: 'Cadrans & thermique', unavailable: 'Indisponible', loading: 'Chargement…', strong: 'fort', medium: 'modéré', weak: 'faible', stable: 'stable', neutral: 'neutre / mixte', unstable: 'instable', onshore: 'mer → terre', offshore: 'terre → mer', alongshore: 'parallèle à la côte', mixed: 'mixte', highConfidence: 'confiance élevée', mediumConfidence: 'confiance moyenne', lowConfidence: 'confiance faible',
+    thermalPotential: 'Potentiel thermique', whyPotential: 'Pourquoi ce potentiel ?', mainLimiter: 'Facteur limitant principal', score: 'Score thermique', favorable: 'favorable', limiting: 'limitant', unknown: 'non disponible', terrainFactor: 'Signal thermique du relief', stabilityFactor: 'Stabilité de la masse d’air', deltaFactor: 'Contraste air / mer', windFactor: 'Vent synoptique en surface',
+  },
+  en: {
+    title: 'General forecast', eyebrow: 'From synoptic scale to sea breeze', general: 'General situation', synoptic: 'Synoptic reading', fronts: 'Possible fronts', terrain: 'Topography', left: 'Left', right: 'Right', temperatures: 'Temperatures', air: 'Air', sea: 'Water', stability: 'Stability', flow: 'Land / sea flow', upperWind: 'Upper wind', solarNoon: 'Solar noon', cadrans: 'Clock theory & thermal', unavailable: 'Unavailable', loading: 'Loading…', strong: 'strong', medium: 'moderate', weak: 'weak', stable: 'stable', neutral: 'neutral / mixed', unstable: 'unstable', onshore: 'sea → land', offshore: 'land → sea', alongshore: 'alongshore', mixed: 'mixed', highConfidence: 'high confidence', mediumConfidence: 'medium confidence', lowConfidence: 'low confidence',
+    thermalPotential: 'Thermal potential', whyPotential: 'Why this potential?', mainLimiter: 'Main limiting factor', score: 'Thermal score', favorable: 'favourable', limiting: 'limiting', unknown: 'unavailable', terrainFactor: 'Terrain thermal signal', stabilityFactor: 'Air-mass stability', deltaFactor: 'Air / sea contrast', windFactor: 'Surface synoptic wind',
+  },
+  it: {
+    title: 'Previsione generale', eyebrow: 'Dal sinottico alla brezza termica', general: 'Situazione generale', synoptic: 'Lettura sinottica', fronts: 'Fronti possibili', terrain: 'Topografia', left: 'Sinistra', right: 'Destra', temperatures: 'Temperature', air: 'Aria', sea: 'Acqua', stability: 'Stabilità', flow: 'Vento terra / mare', upperWind: 'Vento in quota', solarNoon: 'Mezzogiorno solare', cadrans: 'Quadranti & termica', unavailable: 'Non disponibile', loading: 'Caricamento…', strong: 'forte', medium: 'moderato', weak: 'debole', stable: 'stabile', neutral: 'neutro / misto', unstable: 'instabile', onshore: 'mare → terra', offshore: 'terra → mare', alongshore: 'lungo costa', mixed: 'misto', highConfidence: 'confidenza alta', mediumConfidence: 'confidenza media', lowConfidence: 'confidenza bassa',
+    thermalPotential: 'Potenziale termico', whyPotential: 'Perché questo potenziale?', mainLimiter: 'Fattore limitante principale', score: 'Punteggio termico', favorable: 'favorevole', limiting: 'limitante', unknown: 'non disponibile', terrainFactor: 'Segnale termico del rilievo', stabilityFactor: 'Stabilità della massa d’aria', deltaFactor: 'Contrasto aria / mare', windFactor: 'Vento sinottico al suolo',
+  },
+  es: {
+    title: 'Previsión general', eyebrow: 'De la escala sinóptica a la brisa térmica', general: 'Situación general', synoptic: 'Lectura sinóptica', fronts: 'Frentes posibles', terrain: 'Topografía', left: 'Izquierda', right: 'Derecha', temperatures: 'Temperaturas', air: 'Aire', sea: 'Agua', stability: 'Estabilidad', flow: 'Viento tierra / mar', upperWind: 'Viento en altura', solarNoon: 'Mediodía solar', cadrans: 'Cuadrantes y térmica', unavailable: 'No disponible', loading: 'Cargando…', strong: 'fuerte', medium: 'moderado', weak: 'débil', stable: 'estable', neutral: 'neutro / mixto', unstable: 'inestable', onshore: 'mar → tierra', offshore: 'tierra → mar', alongshore: 'paralelo a costa', mixed: 'mixto', highConfidence: 'confianza alta', mediumConfidence: 'confianza media', lowConfidence: 'confianza baja',
+    thermalPotential: 'Potencial térmico', whyPotential: '¿Por qué este potencial?', mainLimiter: 'Factor limitante principal', score: 'Puntuación térmica', favorable: 'favorable', limiting: 'limitante', unknown: 'no disponible', terrainFactor: 'Señal térmica del relieve', stabilityFactor: 'Estabilidad de la masa de aire', deltaFactor: 'Contraste aire / mar', windFactor: 'Viento sinóptico en superficie',
+  },
 }
 
 function normalize(value: number) { return ((value % 360) + 360) % 360 }
@@ -133,20 +157,78 @@ export function ForecastPanel({ request, weather }: { request: BriefingRequest; 
     let front = 'Signal frontal faible à l’heure de la manche.'
     if (weather.pressureTrend === 'baisse' && weather.race.cloudCover >= 70 && gustSpread >= 5) front = 'Signal frontal modéré : baisse de pression, forte nébulosité et rafales. À confirmer sur une carte synoptique.'
     else if (weather.pressureTrend === 'baisse' && (weather.race.cloudCover >= 55 || gustSpread >= 5)) front = 'Front ou ligne perturbée possible : signal incomplet, à surveiller sur le synoptique.'
+
     const lapse = upperAir?.temp850 != null && upperAir.height850 != null && upperAir.height850 > 300 ? (weather.race.temperature - upperAir.temp850) / (upperAir.height850 / 1000) : null
     let stability: 'stable' | 'neutral' | 'unstable' = 'neutral'
     if (lapse != null) stability = lapse >= 7 ? 'unstable' : lapse <= 5.5 ? 'stable' : 'neutral'
     else if (delta != null) stability = delta >= 3 && weather.race.cloudCover < 60 ? 'unstable' : delta <= 0 || weather.race.cloudCover > 80 ? 'stable' : 'neutral'
+
     const flow = terrain?.coastalFlow || 'mixed'
-    const thermalScore = (terrain?.thermalPotential === 'high' ? 2 : terrain?.thermalPotential === 'medium' ? 1 : 0) + (stability === 'unstable' ? 2 : stability === 'neutral' ? 1 : 0) + (delta != null && delta >= 2 ? 1 : 0) + (weather.race.speed <= 12 ? 1 : 0)
+    const terrainPoints = terrain?.thermalPotential === 'high' ? 2 : terrain?.thermalPotential === 'medium' ? 1 : 0
+    const stabilityPoints = stability === 'unstable' ? 2 : stability === 'neutral' ? 1 : 0
+    const deltaPoints = delta != null && delta >= 2 ? 1 : 0
+    const windPoints = weather.race.speed <= 12 ? 1 : 0
+    const thermalScore = terrainPoints + stabilityPoints + deltaPoints + windPoints
     const thermal = thermalScore >= 5 ? 'strong' : thermalScore >= 3 ? 'medium' : 'weak'
+
+    const thermalFactors: ThermalFactor[] = [
+      {
+        label: c.terrainFactor,
+        value: terrain?.thermalPotential === 'high' ? c.strong : terrain?.thermalPotential === 'medium' ? c.medium : terrain ? c.weak : c.unknown,
+        impact: !terrain ? 'unknown' : terrainPoints === 2 ? 'favorable' : terrainPoints === 1 ? 'neutral' : 'limiting',
+        reason: !terrain
+          ? c.unknown
+          : terrainPoints === 2
+            ? 'Le relief et l’exposition locale soutiennent nettement le développement thermique.'
+            : terrainPoints === 1
+              ? 'Le relief apporte un soutien thermique modéré.'
+              : 'Le relief et l’exposition locale apportent peu d’aide au déclenchement de la brise.',
+        priority: !terrain ? 1 : terrainPoints === 0 ? 4 : terrainPoints === 1 ? 2 : 0,
+      },
+      {
+        label: c.stabilityFactor,
+        value: stability === 'unstable' ? c.unstable : stability === 'stable' ? c.stable : c.neutral,
+        impact: stability === 'unstable' ? 'favorable' : stability === 'stable' ? 'limiting' : 'neutral',
+        reason: stability === 'unstable'
+          ? 'La masse d’air favorise les mouvements verticaux et le mélange thermique.'
+          : stability === 'stable'
+            ? 'La stabilité freine les mouvements verticaux et retarde l’installation de la circulation thermique.'
+            : 'La stabilité n’aide ni ne bloque fortement le thermique.',
+        priority: stability === 'stable' ? 5 : stability === 'neutral' ? 2 : 0,
+      },
+      {
+        label: c.deltaFactor,
+        value: delta == null ? c.unknown : `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} °C`,
+        impact: delta == null ? 'unknown' : delta >= 2 ? 'favorable' : delta < 1 ? 'limiting' : 'neutral',
+        reason: delta == null
+          ? 'Température de mer indisponible : ce facteur ne peut pas être confirmé.'
+          : delta >= 2
+            ? 'Le contraste air-mer fournit un moteur thermique utile.'
+            : delta < 1
+              ? 'Le contraste air-mer est faible : le moteur thermique manque d’énergie.'
+              : 'Le contraste air-mer existe mais reste limité.',
+        priority: delta == null ? 1 : delta < 1 ? 5 : delta < 2 ? 3 : 0,
+      },
+      {
+        label: c.windFactor,
+        value: `${Math.round(weather.race.speed)} kt`,
+        impact: weather.race.speed <= 12 ? 'favorable' : 'limiting',
+        reason: weather.race.speed <= 12
+          ? 'Le vent synoptique reste assez faible pour laisser une circulation thermique se développer.'
+          : 'Le vent synoptique est assez soutenu pour concurrencer ou masquer la brise thermique.',
+        priority: weather.race.speed > 12 ? 5 : weather.race.speed > 9 ? 2 : 0,
+      },
+    ]
+
+    const limiter = [...thermalFactors].filter((factor) => factor.impact === 'limiting').sort((a, b) => b.priority - a.priority)[0] ?? null
     const cadrans = thermal === 'strong'
-      ? `Thermique favorable : surveiller son établissement autour du midi solaire, puis une rotation progressive vers le flux marin. La bascule réelle prime sur le modèle pour choisir le cadran actif.`
+      ? 'Thermique favorable : surveiller son établissement autour du midi solaire, puis une rotation progressive vers le flux marin. La bascule réelle prime sur le modèle pour choisir le cadran actif.'
       : thermal === 'medium'
-        ? `Thermique possible mais concurrencé par le synoptique. Utiliser le midi solaire comme repère et vérifier sur l’eau si la rotation accélère avant de privilégier un cadran.`
-        : `Thermique peu dominant : le cadran synoptique devrait rester prioritaire. Rechercher surtout les effets de relief, les oscillations et les zones de pression.`
-    return { terrain, sea, delta, synoptic, front, lapse, stability, flow, thermal, cadrans }
-  }, [weather, upperAir])
+        ? 'Thermique possible mais concurrencé par le synoptique. Utiliser le midi solaire comme repère et vérifier sur l’eau si la rotation accélère avant de privilégier un cadran.'
+        : 'Thermique peu dominant : le cadran synoptique devrait rester prioritaire. Rechercher surtout les effets de relief, les oscillations et les zones de pression.'
+
+    return { terrain, sea, delta, synoptic, front, lapse, stability, flow, thermal, thermalScore, thermalFactors, limiter, cadrans }
+  }, [weather, upperAir, c])
 
   if (!weather || !analysis) return <section className="forecast-panel"><p>{c.loading}</p></section>
   const confidence = analysis.terrain?.confidence === 'high' ? c.highConfidence : analysis.terrain?.confidence === 'medium' ? c.mediumConfidence : c.lowConfidence
@@ -154,20 +236,39 @@ export function ForecastPanel({ request, weather }: { request: BriefingRequest; 
   const stabilityLabel = analysis.stability === 'unstable' ? c.unstable : analysis.stability === 'stable' ? c.stable : c.neutral
   const thermalLabel = analysis.thermal === 'strong' ? c.strong : analysis.thermal === 'medium' ? c.medium : c.weak
   const noon = solarNoon(request.date, weather.longitude, weather.timezone)
+  const impactLabel = (impact: ThermalImpact) => impact === 'favorable' ? c.favorable : impact === 'limiting' ? c.limiting : impact === 'unknown' ? c.unknown : c.neutral
 
   return <section className="forecast-panel" aria-labelledby="forecast-title">
     <header className="forecast-panel__header"><div><span>{c.eyebrow}</span><h2 id="forecast-title">{c.title}</h2></div><strong>{weather.model?.shortLabel || 'Best Match'}</strong></header>
     <div className="forecast-panel__grid">
       <article className="forecast-card forecast-card--wide"><div className="forecast-card__title"><Gauge size={18}/><span>{c.general}</span></div><strong>{Math.round(weather.race.pressure)} hPa · {weather.pressureTrend}</strong><p>{analysis.synoptic}</p></article>
-      <article><div className="forecast-card__title"><CloudSun size={18}/><span>{c.fronts}</span></div><p>{analysis.front}</p></article>
-      <article><div className="forecast-card__title"><Mountain size={18}/><span>{c.terrain}</span></div><strong>{analysis.terrain ? `${c.left} ${Math.round(analysis.terrain.leftMean)} m · ${c.right} ${Math.round(analysis.terrain.rightMean)} m` : c.unavailable}</strong>{analysis.terrain && <p>Relief max. {analysis.terrain.maxElevation} m · {confidence}.</p>}</article>
-      <article><div className="forecast-card__title"><Thermometer size={18}/><span>{c.temperatures}</span></div><strong>{c.air} {Math.round(weather.race.temperature)} °C · {c.sea} {analysis.sea == null ? '—' : `${analysis.sea.toFixed(1)} °C`}</strong>{analysis.delta != null && <p>ΔT air-eau {analysis.delta >= 0 ? '+' : ''}{analysis.delta.toFixed(1)} °C.</p>}</article>
-      <article><div className="forecast-card__title"><Layers3 size={18}/><span>{c.stability}</span></div><strong>{stabilityLabel}</strong><p>{analysis.lapse == null ? 'Diagnostic de surface air/eau et nébulosité.' : `Gradient 2 m → 850 hPa ≈ ${analysis.lapse.toFixed(1)} °C/km.`}</p></article>
-      <article><div className="forecast-card__title"><Waves size={18}/><span>{c.flow}</span></div><strong>{flowLabel}</strong><p>{analysis.terrain ? `Diagnostic automatique du relief dans un rayon de ${analysis.terrain.radiusKm} km.` : c.unavailable}</p></article>
-      <article><div className="forecast-card__title"><Wind size={18}/><span>{c.upperWind}</span></div>{upperState === 'loading' ? <strong>{c.loading}</strong> : upperAir ? <><strong>850 hPa · {deg(upperAir.direction850)} · {upperAir.speed850 == null ? '—' : `${Math.round(upperAir.speed850)} kt`}</strong><p>700 hPa · {deg(upperAir.direction700)} · {upperAir.speed700 == null ? '—' : `${Math.round(upperAir.speed700)} kt`} · {upperAir.source}</p></> : <strong>{c.unavailable}</strong>}</article>
-      <article><div className="forecast-card__title"><Sun size={18}/><span>{c.solarNoon}</span></div><strong>{noon}</strong><p>{weather.timezone}</p></article>
-      <article className="forecast-card forecast-card--wide forecast-card--thermal"><div className="forecast-card__title"><Compass size={18}/><span>{c.cadrans}</span></div><strong>Potentiel thermique : {thermalLabel}</strong><p>{analysis.cadrans}</p><div className="forecast-card__thermal-row"><span><Navigation size={15}/> Vent surface {deg(weather.race.direction)}</span><span><Sun size={15}/> Midi solaire {noon}</span><span><Wind size={15}/> Rotation modèle {Math.round(signedAngle(weather.scenario.windStart, weather.scenario.windEnd))}°</span></div></article>
+      <article className="forecast-card"><div className="forecast-card__title"><CloudSun size={18}/><span>{c.fronts}</span></div><p>{analysis.front}</p></article>
+      <article className="forecast-card"><div className="forecast-card__title"><Mountain size={18}/><span>{c.terrain}</span></div><strong>{analysis.terrain ? `${c.left} ${Math.round(analysis.terrain.leftMean)} m · ${c.right} ${Math.round(analysis.terrain.rightMean)} m` : c.unavailable}</strong>{analysis.terrain && <p>Relief max. {analysis.terrain.maxElevation} m · {confidence}.</p>}</article>
+      <article className="forecast-card"><div className="forecast-card__title"><Thermometer size={18}/><span>{c.temperatures}</span></div><strong>{c.air} {Math.round(weather.race.temperature)} °C · {c.sea} {analysis.sea == null ? '—' : `${analysis.sea.toFixed(1)} °C`}</strong>{analysis.delta != null && <p>ΔT air-eau {analysis.delta >= 0 ? '+' : ''}{analysis.delta.toFixed(1)} °C.</p>}</article>
+      <article className="forecast-card"><div className="forecast-card__title"><Layers3 size={18}/><span>{c.stability}</span></div><strong>{stabilityLabel}</strong><p>{analysis.lapse == null ? 'Diagnostic de surface air/eau et nébulosité.' : `Gradient 2 m → 850 hPa ≈ ${analysis.lapse.toFixed(1)} °C/km.`}</p></article>
+      <article className="forecast-card"><div className="forecast-card__title"><Waves size={18}/><span>{c.flow}</span></div><strong>{flowLabel}</strong><p>{analysis.terrain ? `Diagnostic automatique du relief dans un rayon de ${analysis.terrain.radiusKm} km.` : c.unavailable}</p></article>
+      <article className="forecast-card"><div className="forecast-card__title"><Wind size={18}/><span>{c.upperWind}</span></div>{upperState === 'loading' ? <strong>{c.loading}</strong> : upperAir ? <><strong>850 hPa · {deg(upperAir.direction850)} · {upperAir.speed850 == null ? '—' : `${Math.round(upperAir.speed850)} kt`}</strong><p>700 hPa · {deg(upperAir.direction700)} · {upperAir.speed700 == null ? '—' : `${Math.round(upperAir.speed700)} kt`} · {upperAir.source}</p></> : <strong>{c.unavailable}</strong>}</article>
+      <article className="forecast-card"><div className="forecast-card__title"><Sun size={18}/><span>{c.solarNoon}</span></div><strong>{noon}</strong><p>{weather.timezone}</p></article>
+      <article className="forecast-card forecast-card--wide forecast-card--thermal">
+        <div className="forecast-card__title"><Compass size={18}/><span>{c.cadrans}</span></div>
+        <strong>{c.thermalPotential} : {thermalLabel}</strong>
+        <p>{analysis.cadrans}</p>
+        <div className="forecast-card__thermal-explanation">
+          <div className="forecast-card__thermal-explanation-head">
+            <strong>{c.whyPotential}</strong>
+            <span>{c.score} {analysis.thermalScore}/6</span>
+          </div>
+          <div className="forecast-card__thermal-factors">
+            {analysis.thermalFactors.map((factor) => <div className={`forecast-card__thermal-factor forecast-card__thermal-factor--${factor.impact}`} key={factor.label}>
+              <div><strong>{factor.label}</strong><span>{factor.value} · {impactLabel(factor.impact)}</span></div>
+              <p>{factor.reason}</p>
+            </div>)}
+          </div>
+          {analysis.limiter && <p className="forecast-card__thermal-limiter"><strong>{c.mainLimiter} :</strong> {analysis.limiter.label} — {analysis.limiter.reason}</p>}
+        </div>
+        <div className="forecast-card__thermal-row"><span><Navigation size={15}/> Vent surface {deg(weather.race.direction)}</span><span><Sun size={15}/> Midi solaire {noon}</span><span><Wind size={15}/> Rotation modèle {Math.round(signedAngle(weather.scenario.windStart, weather.scenario.windEnd))}°</span></div>
+      </article>
     </div>
-    <p className="forecast-panel__note">Lecture d’aide à la décision : les signaux de front et de stabilité sont des diagnostics automatiques à confirmer avec l’observation et les cartes météo officielles.</p>
+    <p className="forecast-panel__note">Lecture d’aide à la décision : les signaux de front, de stabilité et le potentiel thermique sont des diagnostics automatiques à confirmer avec l’observation et les cartes météo officielles.</p>
   </section>
 }
