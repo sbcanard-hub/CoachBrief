@@ -34,6 +34,14 @@ function formatEta(value: string) {
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date) : '—'
 }
 
+function localDateAndTime(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return {
+    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  }
+}
+
 function routeDistanceNm(route: IsochroneResult['bestRoute']) {
   let total = 0
   const radiusNm = 3440.065
@@ -120,15 +128,18 @@ export function OffshorePage() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude, accuracy } = position.coords
+        const now = localDateAndTime(new Date())
         setPoints((current) => current.map((point, index) => index === 0 ? {
           ...point,
           name: 'Ma position',
           latitude: latitude.toFixed(6),
           longitude: longitude.toFixed(6),
         } : point))
+        if (!departureDate) setDepartureDate(now.date)
+        if (!departureTime) setDepartureTime(now.time)
         invalidateRouteAnalysis()
         setGeolocationState('ready')
-        setGeolocationMessage(`Départ placé sur ta position · précision ± ${Math.max(1, Math.round(accuracy))} m`)
+        setGeolocationMessage(`Départ placé sur ta position · précision ± ${Math.max(1, Math.round(accuracy))} m · date et heure de départ prêtes`)
       },
       (error) => {
         setGeolocationState('error')
