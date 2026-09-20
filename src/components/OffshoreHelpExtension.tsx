@@ -1,8 +1,6 @@
 import { useEffect } from 'react'
 import { usePreferences } from '../preferences'
 
-type Entry = { question: string; answer: string; keywords: string }
-
 const copy = {
   fr: {
     category: 'Course au large',

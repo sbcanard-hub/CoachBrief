@@ -11,8 +11,7 @@ import './offshoreNavigationWaypoints.css'
 import './offshoreMultiModel.css'
 
 type Props = {
-  start: OffshorePoint
-  target: OffshorePoint
+  points: OffshorePoint[]
   departureDate: string
   departureTime: string
   polar: PolarTable
@@ -161,13 +160,36 @@ function navigationWaypoints(result: IsochroneResult | null) {
 }
 
 function xmlEscape(value: string) {
-  return value.replace(/[<>&'\"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '\"': '&quot;' })[character] ?? character)
+  return value.replace(/[<>&'"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character] ?? character)
 }
 
-export function OffshoreIsochronePanel({ start, target, departureDate, departureTime, polar, settings, settingsRestoreKey, onSettingsChange, onResult }: Props) {
+function mergeLegResults(results: IsochroneResult[]): IsochroneResult {
+  const reached = results.length > 0 && results.every((item) => item.reached)
+  const bestRoute = results.flatMap((item, index) => index === 0 ? item.bestRoute : item.bestRoute.slice(1))
+  return {
+    steps: results.flatMap((item) => item.steps),
+    bestRoute,
+    reached,
+    eta: reached ? results.at(-1)?.eta ?? null : null,
+    note: reached ? `Route calculée via ${results.length} tronçon${results.length > 1 ? 's' : ''}.` : 'Route partielle : un tronçon n’a pas atteint son point cible.',
+    blockedLandCandidates: results.reduce((sum, item) => sum + item.blockedLandCandidates, 0),
+    tssCrossingCandidates: results.reduce((sum, item) => sum + item.tssCrossingCandidates, 0),
+    constraintsAvailable: results.every((item) => item.constraintsAvailable),
+    constraintsNote: [...new Set(results.map((item) => item.constraintsNote).filter(Boolean))].join(' · '),
+    shomCurrentSamples: results.reduce((sum, item) => sum + item.shomCurrentSamples, 0),
+    fallbackCurrentSamples: results.reduce((sum, item) => sum + item.fallbackCurrentSamples, 0),
+    shomAtlasLabels: [...new Set(results.flatMap((item) => item.shomAtlasLabels))],
+    shomScheduledReferenceSamples: results.reduce((sum, item) => sum + item.shomScheduledReferenceSamples, 0),
+    shomPropagatedReferenceSamples: results.reduce((sum, item) => sum + item.shomPropagatedReferenceSamples, 0),
+  }
+}
+
+export function OffshoreIsochronePanel({ points, departureDate, departureTime, polar, settings, settingsRestoreKey, onSettingsChange, onResult }: Props) {
+  const start = points[0]
+  const target = points[points.length - 1]
   const directDistance = useMemo(() => directRouteDistanceNm(start, target), [start, target])
   const automaticPreset = useMemo(() => routingPreset(directDistance), [directDistance])
-  const routeSignature = `${start.latitude}|${start.longitude}|${target.latitude}|${target.longitude}`
+  const routeSignature = points.map((point) => `${point.latitude}|${point.longitude}`).join('>')
   const previousRouteSignature = useRef<string | null>(null)
   const [stepMinutes, setStepMinutes] = useState(settings?.stepMinutes ?? automaticPreset.stepMinutes)
   const [maxHours, setMaxHours] = useState(settings?.maxHours ?? automaticPreset.maxHours)
@@ -179,6 +201,11 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
   const [result, setResult] = useState<IsochroneResult | null>(null)
   const [comparisonState, setComparisonState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [comparisons, setComparisons] = useState<ModelComparison[]>([])
+  const restoredSettings = useRef(settings)
+
+  useEffect(() => {
+    restoredSettings.current = settings
+  }, [settings])
 
   useEffect(() => {
     if (previousRouteSignature.current === routeSignature) return
@@ -193,13 +220,14 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
   }, [automaticPreset.maxHours, automaticPreset.stepMinutes, onResult, routeSignature])
 
   useEffect(() => {
-    if (!settings || settingsRestoreKey <= 0) return
-    setStepMinutes(settings.stepMinutes)
-    setMaxHours(settings.maxHours)
-    setTidalCoefficient(settings.tidalCoefficient)
-    setReferenceHighWater(settings.referenceHighWater)
-    setPortHighWaters(settings.portHighWaters)
-    const restoredModel = settings.weatherModel ?? 'best_match'
+    const saved = restoredSettings.current
+    if (!saved || settingsRestoreKey <= 0) return
+    setStepMinutes(saved.stepMinutes)
+    setMaxHours(saved.maxHours)
+    setTidalCoefficient(saved.tidalCoefficient)
+    setReferenceHighWater(saved.referenceHighWater)
+    setPortHighWaters(saved.portHighWaters)
+    const restoredModel = saved.weatherModel ?? 'best_match'
     setWeatherModel(restoredModel)
     setOffshoreWeatherModel(restoredModel)
   }, [settingsRestoreKey])
@@ -289,6 +317,14 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     onResult(null)
   }
 
+  function invalidateCalculatedRoute() {
+    setState('idle')
+    setResult(null)
+    setComparisonState('idle')
+    setComparisons([])
+    onResult(null)
+  }
+
   function routingContext() {
     const departure = new Date(`${departureDate}T${departureTime}:00`)
     if (!departureDate || !departureTime || !Number.isFinite(departure.getTime())) return null
@@ -299,6 +335,32 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     return { departure, highWater, coefficient: Number.isFinite(coefficient) ? coefficient : null }
   }
 
+  async function computeRoute(args: { departure: Date; maxNodes?: number; headingStep?: number; budgetMs: number }) {
+    const context = routingContext()
+    const results: IsochroneResult[] = []
+    let legDeparture = args.departure
+    for (let index = 1; index < points.length; index += 1) {
+      const next = await computeIsochrones({
+        start: points[index - 1],
+        target: points[index],
+        departure: legDeparture,
+        polar,
+        stepMinutes: Math.max(10, Number(stepMinutes) || 60),
+        maxHours: Math.max(3, Number(maxHours) || 48),
+        maxNodes: args.maxNodes,
+        headingStep: args.headingStep,
+        budgetMs: Math.max(4_000, Math.floor(args.budgetMs / Math.max(1, points.length - 1))),
+        tidalCoefficient: context?.coefficient ?? null,
+        referenceHighWater: context?.highWater ?? null,
+        referenceHighWaterSchedules: schedules,
+      })
+      results.push(next)
+      if (!next.reached || !next.eta) break
+      legDeparture = new Date(next.eta)
+    }
+    return mergeLegResults(results)
+  }
+
   async function run() {
     const context = routingContext()
     if (!context) return
@@ -307,18 +369,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     setResult(null)
     onResult(null)
     try {
-      const next = await computeIsochrones({
-        start,
-        target,
-        departure: context.departure,
-        polar,
-        stepMinutes: Math.max(10, Number(stepMinutes) || 60),
-        maxHours: Math.max(3, Number(maxHours) || 48),
-        budgetMs: 25_000,
-        tidalCoefficient: context.coefficient,
-        referenceHighWater: context.highWater,
-        referenceHighWaterSchedules: schedules,
-      })
+      const next = await computeRoute({ departure: context.departure, budgetMs: 25_000 })
       setResult(next)
       onResult(next)
       setState('ready')
@@ -339,20 +390,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
       for (const model of OFFSHORE_WEATHER_MODELS) {
         setOffshoreWeatherModel(model.value)
         try {
-          const next = await computeIsochrones({
-            start,
-            target,
-            departure: context.departure,
-            polar,
-            stepMinutes: Math.max(10, Number(stepMinutes) || 60),
-            maxHours: Math.max(3, Number(maxHours) || 48),
-            maxNodes: 12,
-            headingStep: 30,
-            budgetMs: 9_000,
-            tidalCoefficient: context.coefficient,
-            referenceHighWater: context.highWater,
-            referenceHighWaterSchedules: schedules,
-          })
+          const next = await computeRoute({ departure: context.departure, maxNodes: 12, headingStep: 30, budgetMs: 9_000 })
           collected.push({ model: model.value, result: next, error: false, distanceNm: routeDistanceNm(next), durationHours: routeDurationHours(next), meanSeparationNm: null })
         } catch {
           collected.push({ model: model.value, result: null, error: true, distanceNm: null, durationHours: null, meanSeparationNm: null })
@@ -381,16 +419,17 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
     </div>
     <div className="offshore-isochrone-controls">
       <label><span><Wind size={14} /> Modèle météo</span><select value={weatherModel} onChange={(e) => changeWeatherModel(e.target.value as OffshoreWeatherModel)}>{OFFSHORE_WEATHER_MODELS.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}</select></label>
-      <label><span><Clock3 size={14} /> Pas de temps</span><select value={stepMinutes} onChange={(e) => setStepMinutes(e.target.value)}><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 h</option><option value="120">2 h</option></select></label>
-      <label><span>Horizon</span><select value={maxHours} onChange={(e) => setMaxHours(e.target.value)}><option value="3">3 h</option><option value="6">6 h</option><option value="12">12 h</option><option value="24">24 h</option><option value="48">48 h</option><option value="72">72 h</option><option value="120">5 jours</option></select></label>
-      <label><span><Anchor size={14} /> Coefficient marée</span><input type="number" min="20" max="120" value={tidalCoefficient} onChange={(e) => setTidalCoefficient(e.target.value)} /></label>
-      <label className="offshore-high-water"><span>PM générique de secours</span><input type="datetime-local" value={referenceHighWater} onChange={(e) => setReferenceHighWater(e.target.value)} /></label>
+      <label><span><Clock3 size={14} /> Pas de temps</span><select value={stepMinutes} onChange={(e) => { setStepMinutes(e.target.value); invalidateCalculatedRoute() }}><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 h</option><option value="120">2 h</option></select></label>
+      <label><span>Horizon</span><select value={maxHours} onChange={(e) => { setMaxHours(e.target.value); invalidateCalculatedRoute() }}><option value="3">3 h</option><option value="6">6 h</option><option value="12">12 h</option><option value="24">24 h</option><option value="48">48 h</option><option value="72">72 h</option><option value="120">5 jours</option></select></label>
+      <label><span><Anchor size={14} /> Coefficient marée</span><input type="number" min="20" max="120" value={tidalCoefficient} onChange={(e) => { setTidalCoefficient(e.target.value); invalidateCalculatedRoute() }} /></label>
+      <label className="offshore-high-water"><span>PM générique de secours</span><input type="datetime-local" value={referenceHighWater} onChange={(e) => { setReferenceHighWater(e.target.value); invalidateCalculatedRoute() }} /></label>
       <button type="button" className="offshore-add" onClick={() => void run()} disabled={state === 'loading' || comparisonState === 'loading' || !departureDate || !departureTime}>
         {state === 'loading' ? <LoaderCircle size={17} className="current-spin" /> : <Compass size={17} />}
         {state === 'loading' ? 'Calcul des isochrones…' : 'Calculer le routage'}
       </button>
       <small>Vent utilisé : <strong>{offshoreWeatherModelLabel(weatherModel)}</strong>. Mer et houle restent issues d’Open-Meteo Marine ; le courant SHOM reste prioritaire quand il est disponible.</small>
       {directDistance != null && <small>{automaticPreset.label} · {fmtNumber(directDistance)} nm : réglage automatique {automaticPreset.stepMinutes} min / {automaticPreset.maxHours} h. Tu peux le modifier manuellement.</small>}
+      {points.length > 2 && <small><strong>{points.length - 2} waypoint{points.length > 3 ? 's' : ''} imposé{points.length > 3 ? 's' : ''}</strong> : chaque tronçon est calculé dans l’ordre, avec report de l’heure d’arrivée sur le suivant.</small>}
       {state === 'loading' && <small>Calcul adaptatif, limité à environ 25 s pour éviter un blocage prolongé sur mobile.</small>}
     </div>
 
@@ -447,7 +486,7 @@ export function OffshoreIsochronePanel({ start, target, departureDate, departure
             <textarea
               rows={3}
               value={portHighWaters[atlasId] ?? ''}
-              onChange={(e) => setPortHighWaters((current) => ({ ...current, [atlasId]: e.target.value }))}
+              onChange={(e) => { setPortHighWaters((current) => ({ ...current, [atlasId]: e.target.value })); invalidateCalculatedRoute() }}
               placeholder={'2026-09-17T10:25\n2026-09-17T22:48\n2026-09-18T11:10'}
             />
             <small>{hasInput ? `${validCount} PM valide${validCount > 1 ? 's' : ''}` : 'Aucune PM saisie'}</small>
