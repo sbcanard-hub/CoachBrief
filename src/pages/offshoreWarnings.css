@@ -1,0 +1,14 @@
+.offshore-route-warning {
+  border-color: #e6b08f;
+  background: #fff8f3;
+}
+
+.offshore-route-warning strong {
+  color: #8a452d;
+}
+
+.offshore-route-warning p {
+  margin: 6px 0 0;
+  color: #76574a;
+  line-height: 1.5;
+}

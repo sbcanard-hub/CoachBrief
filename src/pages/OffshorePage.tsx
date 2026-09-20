@@ -12,6 +12,7 @@ import { DEMO_POLAR, type PolarTable } from '../offshorePolar'
 import type { IsochroneResult } from '../offshoreIsochrone'
 import { deleteOffshoreSavedRoute, loadOffshoreSavedRoutes, saveOffshoreRoute, type OffshoreIsochroneSettings, type OffshoreSavedRoute } from '../offshoreSavedRoutes'
 import './offshore.css'
+import './offshoreWarnings.css'
 import './offshoreWaypointReorder.css'
 
 const OFFSHORE_AUTOSAVE_KEY = 'coachbrief:offshore-autosave:v1'
@@ -94,6 +95,7 @@ export function OffshorePage() {
   const routeStart = points[0]
   const routeTarget = points[points.length - 1]
   const routeEndpointsReady = Boolean(routeStart && routeTarget && validOffshorePoint(routeStart) && validOffshorePoint(routeTarget))
+  const allRoutePointsReady = routeEndpointsReady && points.every(validOffshorePoint)
   const hasValidIsochroneRoute = Boolean(isochrones && isochrones.bestRoute.length >= 2)
   const isochroneMetrics = useMemo(() => {
     if (!isochrones || isochrones.bestRoute.length < 2) return null
@@ -491,9 +493,13 @@ export function OffshorePage() {
 
     {legs.length > 0 && <OffshorePolarPanel legs={legs} forecasts={forecasts} polar={polar} onPolarChange={(next) => { setPolar(next); setIsochrones(null) }} />}
 
-    {routeEndpointsReady && <OffshoreIsochronePanel
-      start={routeStart}
-      target={routeTarget}
+    {routeEndpointsReady && !allRoutePointsReady && <section className="offshore-card offshore-route-warning">
+      <strong>Waypoint incomplet</strong>
+      <p>Renseigne ou supprime chaque waypoint intermédiaire avant de calculer le routage. Aucun point imposé ne sera ignoré silencieusement.</p>
+    </section>}
+
+    {allRoutePointsReady && <OffshoreIsochronePanel
+      points={points}
       departureDate={departureDate}
       departureTime={departureTime}
       polar={polar}
@@ -504,12 +510,12 @@ export function OffshorePage() {
     />}
 
     <section className="offshore-roadmap">
-      <h2>Étapes suivantes du mode large</h2>
+      <h2>Capacités du mode large</h2>
       <div className="offshore-roadmap-grid">
-        <article><Wind /><strong>Routage multi-modèles</strong><p>Comparer le même isochrone avec plusieurs modèles météo et mesurer la robustesse de la route.</p></article>
-        <article><Anchor /><strong>Courants fins</strong><p>Appliquer SHOM sur les zones couvertes et les effets bathymétriques le long de chaque option de route.</p></article>
-        <article><Waves /><strong>Mer et houle</strong><p>Appliquer une pénalité de performance lorsque la mer de face ou de travers ralentit le bateau.</p></article>
-        <article><Compass /><strong>Contraintes de navigation</strong><p>Écarter automatiquement la terre, les zones interdites, TSS et autres contraintes de route.</p></article>
+        <article><Wind /><strong>Multi-modèles</strong><p>Compare Best Match, ECMWF, GFS, ICON et Météo-France pour mesurer la robustesse de la stratégie.</p></article>
+        <article><Anchor /><strong>Courants et marées</strong><p>Utilise les atlas SHOM disponibles, les coefficients et les pleines mers des ports de référence.</p></article>
+        <article><Waves /><strong>Mer et houle</strong><p>Applique une perte de performance lorsque la mer ralentit le bateau sur la route calculée.</p></article>
+        <article><Compass /><strong>Route navigable</strong><p>Écarte les branches traversant la terre, signale les TSS et respecte les waypoints imposés.</p></article>
       </div>
     </section>
   </main>
