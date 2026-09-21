@@ -11,6 +11,7 @@ import type { OffshorePlaceResult } from '../offshoreGeocoding'
 import { DEMO_POLAR, type PolarTable } from '../offshorePolar'
 import type { IsochroneResult } from '../offshoreIsochrone'
 import { deleteOffshoreSavedRoute, loadOffshoreSavedRoutes, saveOffshoreRoute, type OffshoreIsochroneSettings, type OffshoreSavedRoute } from '../offshoreSavedRoutes'
+import { usePreferences } from '../preferences'
 import './offshore.css'
 import './offshoreWarnings.css'
 import './offshoreWaypointReorder.css'
@@ -64,6 +65,10 @@ function routeDistanceNm(route: IsochroneResult['bestRoute']) {
 }
 
 export function OffshorePage() {
+  const { language } = usePreferences()
+  const displayPointName = (name: string) => name === 'Départ'
+    ? ({ fr: 'Départ', en: 'Start', it: 'Partenza', es: 'Salida' })[language]
+    : name === 'Arrivée' ? ({ fr: 'Arrivée', en: 'Finish', it: 'Arrivo', es: 'Llegada' })[language] : name
   const [raceName, setRaceName] = useState('')
   const [departureDate, setDepartureDate] = useState('')
   const [departureTime, setDepartureTime] = useState('')
@@ -415,7 +420,7 @@ export function OffshorePage() {
                 onDrop={() => { if (isWaypoint) dropWaypoint(point.id) }}
               >
                 <div className="offshore-point-index">{index === 0 ? 'D' : index === points.length - 1 ? 'A' : index}</div>
-                <label><span>Nom</span><input value={point.name} onChange={(e) => updatePoint(point.id, 'name', e.target.value)} /></label>
+                <label><span>Nom</span><input value={displayPointName(point.name)} onChange={(e) => updatePoint(point.id, 'name', e.target.value)} /></label>
                 <label><span>Latitude</span><input inputMode="decimal" placeholder="48.390" value={point.latitude} onChange={(e) => updatePoint(point.id, 'latitude', e.target.value)} /></label>
                 <label><span>Longitude</span><input inputMode="decimal" placeholder="-4.486" value={point.longitude} onChange={(e) => updatePoint(point.id, 'longitude', e.target.value)} /></label>
                 {isWaypoint && <div className="offshore-waypoint-actions">
