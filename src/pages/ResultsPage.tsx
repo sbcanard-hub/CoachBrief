@@ -193,7 +193,7 @@ export function ResultsPage({ activeTab = 'summary' }: { activeTab?: ResultsTab 
       it: ["Nessun briefing caricato", "Crea un nuovo briefing o apri una regata salvata.", "Nuovo briefing", "I miei briefing"],
       es: ["No hay ningún briefing cargado", "Crea un nuevo briefing o abre una regata guardada.", "Nuevo briefing", "Mis briefings"],
     }[language]
-    return <main className="results-page briefing-page"><section className="saved-briefings-empty"><h1>{emptyCopy[0]}</h1><p>{emptyCopy[1]}</p><div className="saved-briefing-actions"><button type="button" className="primary" onClick={() => navigate('/')}>{emptyCopy[2]}</button><button type="button" onClick={() => navigate('/briefings')}>{emptyCopy[3]}</button></div></section></main>
+    return <main className="results-page briefing-page"><section className="saved-briefings-empty"><h1>{emptyCopy[0]}</h1><p>{emptyCopy[1]}</p><div className="saved-briefing-actions"><button type="button" className="primary" onClick={() => navigate('/regate')}>{emptyCopy[2]}</button><button type="button" onClick={() => navigate('/briefings')}>{emptyCopy[3]}</button></div></section></main>
   }
 
   const location = request?.location || 'Antibes · Baie des Anges'

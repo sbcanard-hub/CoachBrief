@@ -215,7 +215,7 @@ export function SavedBriefingsPage() {
     prepareBriefingRestore(item)
     const prefill = { ...item.request }
     delete prefill.savedBriefingId
-    navigate('/', { state: { prefill, duplicate: true } })
+    navigate('/regate', { state: { prefill, duplicate: true } })
   }
 
   async function removeBriefing(item: SavedBriefing) {
