@@ -76,6 +76,11 @@ const translations: Record<OffshoreLanguage, TranslationSet> = {
 // Text rendered by the offshore forms and their child panels. Keep the three
 // languages together so new labels cannot be translated for just one language.
 const additionalTranslations: Record<string, [string, string, string]> = {
+  'Chargement des côtes…': ['Loading coastline…', 'Caricamento delle coste…', 'Cargando la costa…'],
+  'Le contrôle des traversées de terre est en préparation.': ['Preparing land crossing checks.', 'Preparazione del controllo degli attraversamenti di terra.', 'Preparando el control de cruces de tierra.'],
+  'La barre indique les pas explorés dans l’horizon choisi. Le calcul peut se terminer avant la fin de l’horizon.': ['The bar shows steps explored within the chosen horizon. Routing may finish before the end of the horizon.', 'La barra mostra i passi esplorati nell’orizzonte scelto. Il calcolo può terminare prima.', 'La barra muestra los pasos explorados en el horizonte elegido. El cálculo puede terminar antes.'],
+  'Calcul adaptatif, limité à environ 25 s de recherche par tronçon après chargement des côtes.': ['Adaptive calculation, limited to about 25 s of search per leg after loading coastline data.', 'Calcolo adattivo, limitato a circa 25 s di ricerca per tratta dopo il caricamento delle coste.', 'Cálculo adaptativo, limitado a unos 25 s de búsqueda por tramo tras cargar la costa.'],
+  'Progression du routage': ['Routing progress', 'Avanzamento del routing', 'Progreso del cálculo de ruta'],
   'Sauvegarde': ['Save', 'Salvataggio', 'Guardado'],
   'Mes routes au large': ['My offshore routes', 'Le mie rotte d’altura', 'Mis rutas de altura'],
   'Nom de la route': ['Route name', 'Nome della rotta', 'Nombre de la ruta'],
@@ -238,6 +243,20 @@ const lastRenderedAttributes = new WeakMap<Element, Record<string, string>>()
 function translateDynamic(value: string, language: OffshoreLanguage): string {
   const dictionary = translations[language]
   if (dictionary[value]) return dictionary[value]
+  if (/^Exploration : pas \d+ \/ \d+$/.test(value)) {
+    return value.replace('Exploration : pas', language === 'en' ? 'Exploring: step' : language === 'it' ? 'Esplorazione: passo' : 'Exploración: paso')
+  }
+  if (/^Tronçon \d+ \/ \d+$/.test(value)) {
+    return value.replace('Tronçon', language === 'en' ? 'Leg' : language === 'it' ? 'Tratta' : 'Tramo')
+  }
+  if (/^Pas \d+ sur \d+, tronçon \d+ sur \d+$/.test(value)) {
+    return value.replace('Pas', language === 'en' ? 'Step' : language === 'it' ? 'Passo' : 'Paso')
+      .replace('tronçon', language === 'en' ? 'leg' : language === 'it' ? 'tratta' : 'tramo')
+      .replaceAll(' sur ', language === 'en' ? ' of ' : language === 'it' ? ' su ' : ' de ')
+  }
+  if (value === 'Chargement des données côtières') {
+    return language === 'en' ? 'Loading coastline data' : language === 'it' ? 'Caricamento dei dati costieri' : 'Cargando datos costeros'
+  }
   if (value.startsWith('Temps théorique à ')) {
     if (language === 'en') return value.replace('Temps théorique à ', 'Theoretical time at ').replace(' · hors contraintes de navigation', ' · excluding navigation constraints')
     if (language === 'it') return value.replace('Temps théorique à ', 'Tempo teorico a ').replace(' · hors contraintes de navigation', ' · senza vincoli di navigazione')

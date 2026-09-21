@@ -27,6 +27,7 @@ export type IsochroneNode = {
 }
 
 export type IsochroneStep = { time: string; nodes: IsochroneNode[] }
+export type IsochroneProgress = { phase: 'coast' } | { phase: 'search'; completed: number; total: number }
 export type IsochroneResult = {
   steps: IsochroneStep[]
   bestRoute: IsochroneNode[]
@@ -233,6 +234,7 @@ export async function computeIsochrones(args: {
   tidalCoefficient?: number | null
   referenceHighWater?: Date | null
   referenceHighWaterSchedules?: ShomHighWaterSchedules
+  onProgress?: (progress: IsochroneProgress) => void
 }): Promise<IsochroneResult> {
   const { start, target, departure, polar } = args
   const budgetMs = Math.max(8_000, args.budgetMs ?? DEFAULT_BUDGET_MS)
@@ -242,6 +244,7 @@ export async function computeIsochrones(args: {
   const maxNodes = args.maxNodes ?? 18
   const headingSpread = args.headingSpread ?? 60
   const headingStep = args.headingStep ?? 15
+  args.onProgress?.({ phase: 'coast' })
   const constraints = await fetchOffshoreConstraintProfile(start, target)
   // Loading the coastline can take several seconds (or require a fallback
   // endpoint). The routing budget applies to the search, not that prerequisite.
@@ -315,6 +318,7 @@ export async function computeIsochrones(args: {
   let frontier = [startNode]
   const steps: IsochroneStep[] = [{ time: departure.toISOString(), nodes: frontier }]
   const iterations = Math.ceil(maxHours * 60 / stepMinutes)
+  args.onProgress?.({ phase: 'search', completed: 0, total: iterations })
 
   for (let step = 1; step <= iterations; step += 1) {
     if (Date.now() >= deadline) { budgetExhausted = true; break }
@@ -427,6 +431,7 @@ export async function computeIsochrones(args: {
     }
 
     if (reachedNode) {
+      args.onProgress?.({ phase: 'search', completed: step, total: iterations })
       return {
         steps: [...steps, { time: reachedNode.time, nodes: [reachedNode] }],
         bestRoute: routeFrom(reachedNode), reached: true, eta: reachedNode.time,
@@ -440,6 +445,7 @@ export async function computeIsochrones(args: {
       }
     }
 
+    args.onProgress?.({ phase: 'search', completed: step, total: iterations })
     if (!candidates.length) break
     const activeMaxNodes = softMode ? Math.min(effectiveMaxNodes, SOFT_MAX_NODES) : effectiveMaxNodes
     frontier = prune(candidates, target, activeMaxNodes)

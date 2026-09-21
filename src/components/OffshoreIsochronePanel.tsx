@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Anchor, Clock3, Compass, Download, LoaderCircle, MapPin, Route, Wind } from 'lucide-react'
 import type { OffshorePoint } from '../offshore'
-import { computeIsochrones, type IsochroneResult } from '../offshoreIsochrone'
+import { computeIsochrones, type IsochroneProgress, type IsochroneResult } from '../offshoreIsochrone'
 import { getOffshoreWeatherModel, OFFSHORE_WEATHER_MODELS, offshoreWeatherModelLabel, setOffshoreWeatherModel, type OffshoreWeatherModel } from '../offshoreForecast'
 import type { PolarTable } from '../offshorePolar'
 import type { OffshoreIsochroneSettings } from '../offshoreSavedRoutes'
@@ -40,6 +40,8 @@ type ModelComparison = {
   durationHours: number | null
   meanSeparationNm: number | null
 }
+
+type RouteProgress = IsochroneProgress & { leg: number; legs: number }
 
 function fmtTime(value: string | null) {
   if (!value) return '—'
@@ -198,6 +200,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
   const [portHighWaters, setPortHighWaters] = useState<Record<string, string>>(settings?.portHighWaters ?? {})
   const [weatherModel, setWeatherModel] = useState<OffshoreWeatherModel>(settings?.weatherModel ?? getOffshoreWeatherModel())
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [progress, setProgress] = useState<RouteProgress | null>(null)
   const [result, setResult] = useState<IsochroneResult | null>(null)
   const [comparisonState, setComparisonState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [comparisons, setComparisons] = useState<ModelComparison[]>([])
@@ -213,6 +216,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
     setStepMinutes(automaticPreset.stepMinutes)
     setMaxHours(automaticPreset.maxHours)
     setState('idle')
+    setProgress(null)
     setResult(null)
     setComparisonState('idle')
     setComparisons([])
@@ -311,6 +315,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
     setWeatherModel(model)
     setOffshoreWeatherModel(model)
     setState('idle')
+    setProgress(null)
     setResult(null)
     setComparisonState('idle')
     setComparisons([])
@@ -319,6 +324,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
 
   function invalidateCalculatedRoute() {
     setState('idle')
+    setProgress(null)
     setResult(null)
     setComparisonState('idle')
     setComparisons([])
@@ -335,7 +341,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
     return { departure, highWater, coefficient: Number.isFinite(coefficient) ? coefficient : null }
   }
 
-  async function computeRoute(args: { departure: Date; maxNodes?: number; headingStep?: number; budgetMs: number }) {
+  async function computeRoute(args: { departure: Date; maxNodes?: number; headingStep?: number; budgetMs: number; onProgress?: (progress: RouteProgress) => void }) {
     const context = routingContext()
     const results: IsochroneResult[] = []
     let legDeparture = args.departure
@@ -353,6 +359,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
         tidalCoefficient: context?.coefficient ?? null,
         referenceHighWater: context?.highWater ?? null,
         referenceHighWaterSchedules: schedules,
+        onProgress: (progress) => args.onProgress?.({ ...progress, leg: index, legs: points.length - 1 }),
       })
       results.push(next)
       if (!next.reached || !next.eta) break
@@ -366,10 +373,11 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
     if (!context) return
     setOffshoreWeatherModel(weatherModel)
     setState('loading')
+    setProgress({ phase: 'coast', leg: 1, legs: points.length - 1 })
     setResult(null)
     onResult(null)
     try {
-      const next = await computeRoute({ departure: context.departure, budgetMs: 25_000 })
+      const next = await computeRoute({ departure: context.departure, budgetMs: 25_000, onProgress: setProgress })
       setResult(next)
       onResult(next)
       setState('ready')
@@ -430,8 +438,23 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
       <small>Vent utilisé : <strong>{offshoreWeatherModelLabel(weatherModel)}</strong>. Mer et houle restent issues d’Open-Meteo Marine ; le courant SHOM reste prioritaire quand il est disponible.</small>
       {directDistance != null && <small>{automaticPreset.label} · {fmtNumber(directDistance)} nm : réglage automatique {automaticPreset.stepMinutes} min / {automaticPreset.maxHours} h. Tu peux le modifier manuellement.</small>}
       {points.length > 2 && <small><strong>{points.length - 2} waypoint{points.length > 3 ? 's' : ''} imposé{points.length > 3 ? 's' : ''}</strong> : chaque tronçon est calculé dans l’ordre, avec report de l’heure d’arrivée sur le suivant.</small>}
-      {state === 'loading' && <small>Calcul adaptatif, limité à environ 25 s pour éviter un blocage prolongé sur mobile.</small>}
+      {state === 'loading' && <small>Calcul adaptatif, limité à environ 25 s de recherche par tronçon après chargement des côtes.</small>}
     </div>
+
+    {state === 'loading' && progress && <div className="offshore-routing-progress" role="status" aria-live="polite">
+      <div className="offshore-routing-progress-heading">
+        <strong>{progress.phase === 'coast' ? 'Chargement des côtes…' : `Exploration : pas ${progress.completed} / ${progress.total}`}</strong>
+        {progress.legs > 1 && <span>Tronçon {progress.leg} / {progress.legs}</span>}
+      </div>
+      <div className={`offshore-routing-progress-track${progress.phase === 'coast' ? ' is-indeterminate' : ''}`}
+        role="progressbar" aria-label="Progression du routage" aria-valuemin={0}
+        aria-valuemax={progress.phase === 'search' ? progress.total : undefined}
+        aria-valuenow={progress.phase === 'search' ? progress.completed : undefined}
+        aria-valuetext={progress.phase === 'coast' ? 'Chargement des données côtières' : `Pas ${progress.completed} sur ${progress.total}, tronçon ${progress.leg} sur ${progress.legs}`}>
+        <span style={progress.phase === 'search' ? { width: `${100 * progress.completed / progress.total}%` } : undefined} />
+      </div>
+      <small>{progress.phase === 'coast' ? 'Le contrôle des traversées de terre est en préparation.' : 'La barre indique les pas explorés dans l’horizon choisi. Le calcul peut se terminer avant la fin de l’horizon.'}</small>
+    </div>}
 
     <div className="offshore-model-compare">
       <div className="offshore-model-compare-heading">
