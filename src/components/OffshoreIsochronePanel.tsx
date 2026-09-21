@@ -439,7 +439,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
       <small>Vent utilisé : <strong>{offshoreWeatherModelLabel(weatherModel)}</strong>. Mer et houle restent issues d’Open-Meteo Marine ; le courant SHOM reste prioritaire quand il est disponible.</small>
       {directDistance != null && <small>{automaticPreset.label} · {fmtNumber(directDistance)} nm : réglage automatique {automaticPreset.stepMinutes} min / {automaticPreset.maxHours} h. Tu peux le modifier manuellement.</small>}
       {points.length > 2 && <small><strong>{points.length - 2} waypoint{points.length > 3 ? 's' : ''} imposé{points.length > 3 ? 's' : ''}</strong> : chaque tronçon est calculé dans l’ordre, avec report de l’heure d’arrivée sur le suivant.</small>}
-      {state === 'loading' && <small>Calcul adaptatif, limité à environ {directDistance != null && directDistance >= 40 ? '45' : '25'} s de recherche au total après chargement des côtes.</small>}
+      {state === 'loading' && <small>Calcul adaptatif : si la recherche devient longue, CoachBrief réduit automatiquement le nombre de branches explorées mais continue jusqu’à l’arrivée ou jusqu’à la fin complète de l’horizon choisi.</small>}
     </div>
 
     {state === 'loading' && progress && <div className="offshore-routing-progress" role="status" aria-live="polite">
