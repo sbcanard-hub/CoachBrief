@@ -407,11 +407,36 @@ export async function computeIsochrones(args: {
         if (trajectoryCost >= extremeLoopThreshold) continue
 
         const remaining = distanceAndBearing(asPoint(nextNode), target).distanceNm
-        if (remaining <= Math.max(1, ground.speed * stepMinutes / 60)) {
-          if (!local.reached || routeScore(nextNode, target) < routeScore(local.reached, target)) local.reached = nextNode
-        } else {
-          local.candidates.push(nextNode)
+        if (remaining <= ground.speed * stepMinutes / 60) {
+          const arrivalHeading = distanceAndBearing(asPoint(nextNode), target).bearing
+          const arrivalPolarSpeed = polarSpeed(polar, trueWindAngle(arrivalHeading, env.windDirection), env.windSpeed)
+          const arrivalWaveFactor = wavePerformanceFactor(arrivalHeading, env.waveHeight, env.waveDirection, env.wavePeriod)
+          const arrivalBoatSpeed = arrivalPolarSpeed * arrivalWaveFactor
+          const arrivalGroundSpeed = arrivalBoatSpeed + (currentSpeed ?? 0) * Math.cos(rad(arrivalHeading - (currentDirection ?? 0)))
+          const finalSegment = evaluateOffshoreSegment(
+            constraints,
+            { lat: nextNode.latitude, lon: nextNode.longitude },
+            { lat: Number(target.latitude), lon: Number(target.longitude) },
+          )
+          if (finalSegment.crossesLand) local.blockedLandCandidates += 1
+          else if (arrivalBoatSpeed >= 0.3 && arrivalGroundSpeed >= 0.3) {
+            const arrivalTime = new Date(new Date(nextNode.time).getTime() + remaining / arrivalGroundSpeed * 3_600_000)
+            if (arrivalTime.getTime() <= departure.getTime() + maxHours * 3_600_000) {
+              if (finalSegment.crossesTss) local.tssCrossingCandidates += 1
+              const arrivalNode: IsochroneNode = {
+                ...nextNode,
+                latitude: Number(target.latitude), longitude: Number(target.longitude), time: arrivalTime.toISOString(),
+                heading: arrivalHeading, boatSpeed: arrivalBoatSpeed, polarSpeed: arrivalPolarSpeed,
+                waveFactor: arrivalWaveFactor, groundSpeed: arrivalGroundSpeed,
+                tssCrossing: nextNode.tssCrossing || finalSegment.crossesTss,
+                parent: nextNode,
+              }
+              if (!local.reached || routeScore(arrivalNode, target) < routeScore(local.reached, target)) local.reached = arrivalNode
+              continue
+            }
+          }
         }
+        local.candidates.push(nextNode)
       }
       return local
     })
