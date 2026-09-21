@@ -238,7 +238,6 @@ export async function computeIsochrones(args: {
 }): Promise<IsochroneResult> {
   const { start, target, departure, polar } = args
   const budgetMs = Math.max(8_000, args.budgetMs ?? DEFAULT_BUDGET_MS)
-  let budgetExhausted = false
   const stepMinutes = args.stepMinutes ?? 60
   const maxHours = args.maxHours ?? 72
   const maxNodes = args.maxNodes ?? 18
@@ -249,7 +248,6 @@ export async function computeIsochrones(args: {
   // Loading the coastline can take several seconds (or require a fallback
   // endpoint). The routing budget applies to the search, not that prerequisite.
   const startedAt = Date.now()
-  const deadline = startedAt + budgetMs
   const softDeadline = startedAt + budgetMs * SOFT_BUDGET_RATIO
   if (!constraints.available) {
     return {
@@ -321,7 +319,6 @@ export async function computeIsochrones(args: {
   args.onProgress?.({ phase: 'search', completed: 0, total: iterations })
 
   for (let step = 1; step <= iterations; step += 1) {
-    if (Date.now() >= deadline) { budgetExhausted = true; break }
     const softMode = Date.now() >= softDeadline
     const activeFrontier = softMode ? frontier.slice(0, SOFT_MAX_NODES) : frontier
     const activeHeadingStep = softMode ? Math.max(headingStep, SOFT_HEADING_STEP) : headingStep
@@ -336,9 +333,7 @@ export async function computeIsochrones(args: {
         shomAtlasLabels: [],
       }
 
-      if (Date.now() >= deadline) { budgetExhausted = true; return local }
       const env = await getForecast(node.latitude, node.longitude, time)
-      if (Date.now() >= deadline) { budgetExhausted = true; return local }
       let currentSpeed = env.currentSpeed
       let currentDirection = env.currentDirection
       let currentSource: IsochroneNode['currentSource'] = currentSpeed != null && currentDirection != null ? 'open-meteo' : 'none'
@@ -360,14 +355,12 @@ export async function computeIsochrones(args: {
         local.fallbackCurrentSamples += 1
       }
 
-      if (Date.now() >= deadline) { budgetExhausted = true; return local }
       const direct = distanceAndBearing(asPoint(node), target).bearing
       if (env.windDirection == null || env.windSpeed == null) return local
 
       const headings = candidateHeadings(direct, env.windDirection, polar, effectiveHeadingSpread, activeHeadingStep)
       for (const heading of headings) {
-        if (Date.now() >= deadline) { budgetExhausted = true; break }
-        const twa = trueWindAngle(heading, env.windDirection)
+            const twa = trueWindAngle(heading, env.windDirection)
         const rawPolarSpeed = polarSpeed(polar, twa, env.windSpeed)
         const waveFactor = wavePerformanceFactor(heading, env.waveHeight, env.waveDirection, env.wavePeriod)
         const boatSpeed = rawPolarSpeed * waveFactor
@@ -475,7 +468,6 @@ export async function computeIsochrones(args: {
     const activeMaxNodes = softMode ? Math.min(effectiveMaxNodes, SOFT_MAX_NODES) : effectiveMaxNodes
     frontier = prune(candidates, target, activeMaxNodes)
     steps.push({ time: frontier[0]?.time ?? time.toISOString(), nodes: frontier })
-    if (budgetExhausted || Date.now() >= deadline) { budgetExhausted = true; break }
   }
 
   const best = frontier.slice().sort((a, b) => routeScore(a, target) - routeScore(b, target))[0]
@@ -484,17 +476,13 @@ export async function computeIsochrones(args: {
   const hoursDone = modeledHours(bestRoute, departure)
   return {
     steps, bestRoute, reached: false, eta: null,
-    note: budgetExhausted
-      ? progressed
-        ? `Calcul interrompu à environ ${hoursDone} h sur ${maxHours} h par la limite de temps : meilleure route maritime partielle conservée. Les boucles, retours sur trace et croisements inutiles sont désormais fortement pénalisés.`
-        : `Calcul interrompu avant de produire une route exploitable (0 h sur ${maxHours} h). Essaie un pas de 2 h ou un horizon plus court.`
-      : progressed
-        ? detourMode
-          ? `Horizon atteint avant l’arrivée après ${hoursDone} h : un contournement maritime cohérent a été exploré mais n’a pas encore rejoint A.`
-          : `Horizon atteint avant l’arrivée après ${hoursDone} h : meilleure route conservée avec contraintes et courant disponibles.`
-        : blockedLandCandidates > 0
-          ? 'Aucune trajectoire maritime n’a pu quitter D : les premiers pas traversent une côte. Vérifie la position du départ et réessaie avec un pas de temps plus court.'
-          : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure, la météo et la polaire au point D.',
+    note: progressed
+      ? detourMode
+        ? `Horizon entièrement exploré avant l’arrivée après ${hoursDone} h : un contournement maritime cohérent a été calculé jusqu’au bout de l’horizon sans coupure de temps.`
+        : `Horizon entièrement exploré avant l’arrivée après ${hoursDone} h : meilleure route conservée avec contraintes et courant disponibles, sans coupure de temps.`
+      : blockedLandCandidates > 0
+        ? 'Aucune trajectoire maritime n’a pu quitter D : les premiers pas traversent une côte. Vérifie la position du départ et réessaie avec un pas de temps plus court.'
+        : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure, la météo et la polaire au point D.',
     blockedLandCandidates, tssCrossingCandidates,
     constraintsAvailable: constraints.available, constraintsNote: constraints.note,
     shomCurrentSamples, fallbackCurrentSamples, shomAtlasLabels: [...shomAtlasLabels],
