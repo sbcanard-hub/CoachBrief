@@ -80,6 +80,8 @@ const additionalTranslations: Record<string, [string, string, string]> = {
   'Le contrôle des traversées de terre est en préparation.': ['Preparing land crossing checks.', 'Preparazione del controllo degli attraversamenti di terra.', 'Preparando el control de cruces de tierra.'],
   'La barre indique les pas explorés dans l’horizon choisi. Le calcul peut se terminer avant la fin de l’horizon.': ['The bar shows steps explored within the chosen horizon. Routing may finish before the end of the horizon.', 'La barra mostra i passi esplorati nell’orizzonte scelto. Il calcolo può terminare prima.', 'La barra muestra los pasos explorados en el horizonte elegido. El cálculo puede terminar antes.'],
   'Calcul adaptatif, limité à environ 25 s de recherche par tronçon après chargement des côtes.': ['Adaptive calculation, limited to about 25 s of search per leg after loading coastline data.', 'Calcolo adattivo, limitato a circa 25 s di ricerca per tratta dopo il caricamento delle coste.', 'Cálculo adaptativo, limitado a unos 25 s de búsqueda por tramo tras cargar la costa.'],
+  'Calcul adaptatif, limité à environ 25 s de recherche au total après chargement des côtes.': ['Adaptive calculation, limited to about 25 s of search in total after loading coastline data.', 'Calcolo adattivo, limitato a circa 25 s di ricerca totali dopo il caricamento delle coste.', 'Cálculo adaptativo, limitado a unos 25 s de búsqueda total tras cargar la costa.'],
+  'Calcul adaptatif, limité à environ 45 s de recherche au total après chargement des côtes.': ['Adaptive calculation, limited to about 45 s of search in total after loading coastline data.', 'Calcolo adattivo, limitato a circa 45 s di ricerca totali dopo il caricamento delle coste.', 'Cálculo adaptativo, limitado a unos 45 s de búsqueda total tras cargar la costa.'],
   'Progression du routage': ['Routing progress', 'Avanzamento del routing', 'Progreso del cálculo de ruta'],
   'Sauvegarde': ['Save', 'Salvataggio', 'Guardado'],
   'Mes routes au large': ['My offshore routes', 'Le mie rotte d’altura', 'Mis rutas de altura'],
@@ -275,9 +277,14 @@ function translateDynamic(value: string, language: OffshoreLanguage): string {
     }
   }
   if (value.startsWith('Durée : ')) {
-    if (language === 'en') return value.replace('Durée : ', 'Duration: ').replace(' · ETA : ', ' · ETA: ').replace(' · écart vs directe : ', ' · difference vs direct: ')
-    if (language === 'it') return value.replace('Durée : ', 'Durata: ').replace(' · ETA : ', ' · ETA: ').replace(' · écart vs directe : ', ' · scarto vs diretta: ')
-    return value.replace('Durée : ', 'Duración: ').replace(' · ETA : ', ' · ETA: ').replace(' · écart vs directe : ', ' · diferencia vs directa: ')
+    if (language === 'en') return value.replace('Durée : ', 'Duration: ').replace(' · ETA : ', ' · ETA: ').replace(' · écart vs directe : ', ' · difference vs direct: ').replace(' · A encore à ', ' · finish still ').replace(' en ligne droite', ' away in a straight line')
+    if (language === 'it') return value.replace('Durée : ', 'Durata: ').replace(' · ETA : ', ' · ETA: ').replace(' · écart vs directe : ', ' · scarto vs diretta: ').replace(' · A encore à ', ' · arrivo ancora a ').replace(' en ligne droite', ' in linea d’aria')
+    return value.replace('Durée : ', 'Duración: ').replace(' · ETA : ', ' · ETA: ').replace(' · écart vs directe : ', ' · diferencia vs directa: ').replace(' · A encore à ', ' · llegada todavía a ').replace(' en ligne droite', ' en línea recta')
+  }
+  if (value.startsWith('· A encore à ')) {
+    if (language === 'en') return value.replace('· A encore à ', '· finish still ').replace(' en ligne droite', ' away in a straight line')
+    if (language === 'it') return value.replace('· A encore à ', '· arrivo ancora a ').replace(' en ligne droite', ' in linea d’aria')
+    return value.replace('· A encore à ', '· llegada todavía a ').replace(' en ligne droite', ' en línea recta')
   }
   if (value.startsWith('Petit trajet côtier · ') || value.startsWith('Trajet côtier court · ') || value.startsWith('Trajet intermédiaire · ') || value.startsWith('Route au large · ') || value.startsWith('Réglage standard · ')) {
     const presets = {

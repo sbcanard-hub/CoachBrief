@@ -5,7 +5,7 @@ import { OffshorePolarPanel } from '../components/OffshorePolarPanel'
 import { OffshoreIsochronePanel } from '../components/OffshoreIsochronePanel'
 import { OffshorePlaceSearch } from '../components/OffshorePlaceSearch'
 import { OffshoreWaypointSearch } from '../components/OffshoreWaypointSearch'
-import { buildOffshoreLegs, estimateOffshoreEtaHours, totalOffshoreDistance, validOffshorePoint, type OffshorePoint } from '../offshore'
+import { buildOffshoreLegs, distanceAndBearing, estimateOffshoreEtaHours, totalOffshoreDistance, validOffshorePoint, type OffshorePoint } from '../offshore'
 import { fetchOffshoreLegForecasts, type OffshoreLegForecast } from '../offshoreForecast'
 import type { OffshorePlaceResult } from '../offshoreGeocoding'
 import { DEMO_POLAR, type PolarTable } from '../offshorePolar'
@@ -111,14 +111,19 @@ export function OffshorePage() {
       ? (lastTime - firstTime) / 3_600_000
       : null
     const distanceNm = routeDistanceNm(route)
+    const last = route[route.length - 1]
+    const remainingDirectNm = !isochrones.reached && validOffshorePoint(routeTarget)
+      ? distanceAndBearing({ id: 'route-end', name: 'Fin de la route partielle', latitude: String(last.latitude), longitude: String(last.longitude) }, routeTarget).distanceNm
+      : null
     return {
       distanceNm,
       durationHours,
       eta: isochrones.eta ?? route[route.length - 1].time,
       deltaNm: distanceNm - totalDistance,
+      remainingDirectNm,
       reached: isochrones.reached,
     }
-  }, [isochrones, totalDistance])
+  }, [isochrones, routeTarget, totalDistance])
 
   function invalidateRouteAnalysis() {
     setForecastState('idle')
@@ -457,13 +462,16 @@ export function OffshorePage() {
         <small>
           {isochroneMetrics.durationHours != null ? `Durée : ${formatDuration(isochroneMetrics.durationHours)}` : 'Durée indisponible'}
           {isochroneMetrics.reached ? ` · ETA : ${formatEta(isochroneMetrics.eta)}` : ''}
-          {Math.abs(isochroneMetrics.deltaNm) >= 0.1 ? ` · écart vs directe : ${isochroneMetrics.deltaNm >= 0 ? '+' : ''}${formatNumber(isochroneMetrics.deltaNm)} nm` : ''}
+          {isochroneMetrics.reached
+            ? Math.abs(isochroneMetrics.deltaNm) >= 0.1 ? ` · écart vs directe : ${isochroneMetrics.deltaNm >= 0 ? '+' : ''}${formatNumber(isochroneMetrics.deltaNm)} nm` : ''
+            : isochroneMetrics.remainingDirectNm != null ? ` · A encore à ${formatNm(isochroneMetrics.remainingDirectNm)} en ligne droite` : ''}
         </small>
       </div>}
       <div><Compass size={20} /><span>{legs.length} tronçon{legs.length > 1 ? 's' : ''}</span></div>
       <div><Wind size={20} /><span>Météo au passage</span></div>
       <div><Waves size={20} /><span>Mer + houle au passage</span></div>
       <div><Anchor size={20} /><span>Courant au passage</span></div>
+      {isochroneMetrics && !isochroneMetrics.reached && isochrones && <p className="offshore-partial-explanation">{isochrones.note}</p>}
     </section>
 
     {legs.length > 0 && <section className="offshore-card">

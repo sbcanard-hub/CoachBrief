@@ -173,7 +173,7 @@ function mergeLegResults(results: IsochroneResult[]): IsochroneResult {
     bestRoute,
     reached,
     eta: reached ? results.at(-1)?.eta ?? null : null,
-    note: reached ? `Route calculée via ${results.length} tronçon${results.length > 1 ? 's' : ''}.` : 'Route partielle : un tronçon n’a pas atteint son point cible.',
+    note: reached ? `Route calculée via ${results.length} tronçon${results.length > 1 ? 's' : ''}.` : results.at(-1)?.note ?? 'Route partielle : un tronçon n’a pas atteint son point cible.',
     blockedLandCandidates: results.reduce((sum, item) => sum + item.blockedLandCandidates, 0),
     tssCrossingCandidates: results.reduce((sum, item) => sum + item.tssCrossingCandidates, 0),
     constraintsAvailable: results.every((item) => item.constraintsAvailable),
@@ -371,13 +371,14 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
   async function run() {
     const context = routingContext()
     if (!context) return
+    const searchBudgetMs = directDistance != null && directDistance >= 40 ? 45_000 : 25_000
     setOffshoreWeatherModel(weatherModel)
     setState('loading')
     setProgress({ phase: 'coast', leg: 1, legs: points.length - 1 })
     setResult(null)
     onResult(null)
     try {
-      const next = await computeRoute({ departure: context.departure, budgetMs: 25_000, onProgress: setProgress })
+      const next = await computeRoute({ departure: context.departure, budgetMs: searchBudgetMs, onProgress: setProgress })
       setResult(next)
       onResult(next)
       setState('ready')
@@ -438,7 +439,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
       <small>Vent utilisé : <strong>{offshoreWeatherModelLabel(weatherModel)}</strong>. Mer et houle restent issues d’Open-Meteo Marine ; le courant SHOM reste prioritaire quand il est disponible.</small>
       {directDistance != null && <small>{automaticPreset.label} · {fmtNumber(directDistance)} nm : réglage automatique {automaticPreset.stepMinutes} min / {automaticPreset.maxHours} h. Tu peux le modifier manuellement.</small>}
       {points.length > 2 && <small><strong>{points.length - 2} waypoint{points.length > 3 ? 's' : ''} imposé{points.length > 3 ? 's' : ''}</strong> : chaque tronçon est calculé dans l’ordre, avec report de l’heure d’arrivée sur le suivant.</small>}
-      {state === 'loading' && <small>Calcul adaptatif, limité à environ 25 s de recherche par tronçon après chargement des côtes.</small>}
+      {state === 'loading' && <small>Calcul adaptatif, limité à environ {directDistance != null && directDistance >= 40 ? '45' : '25'} s de recherche au total après chargement des côtes.</small>}
     </div>
 
     {state === 'loading' && progress && <div className="offshore-routing-progress" role="status" aria-live="polite">
