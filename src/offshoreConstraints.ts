@@ -34,6 +34,7 @@ const COAST_VOTE_NEAREST_SEGMENTS = 7
 const COAST_VOTE_MIN_SEGMENTS = 3
 const COAST_VOTE_LAND_RATIO = .72
 const MIN_CONSECUTIVE_LAND_SAMPLES = 2
+const constraintProfileCache = new Map<string, Promise<OffshoreConstraintProfile>>()
 
 function num(value: string) {
   const parsed = Number(value)
@@ -114,6 +115,15 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
   const a = validPoint(start)
   const b = validPoint(target)
   if (!a || !b) return { source: 'OpenStreetMap / Overpass', available: false, coastLines: [], tssLines: [], seaAnchors: [], note: 'Coordonnées insuffisantes.' }
+  const key = `${a.lat},${a.lon}|${b.lat},${b.lon}`
+  const cached = constraintProfileCache.get(key)
+  if (cached) return cached
+  const pending = loadOffshoreConstraintProfile(a, b)
+  constraintProfileCache.set(key, pending)
+  return pending
+}
+
+async function loadOffshoreConstraintProfile(a: GeoPoint, b: GeoPoint): Promise<OffshoreConstraintProfile> {
   const seaAnchors = [a, b]
 
   try {
@@ -151,7 +161,7 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
     // Si même le repli côtier échoue, le moteur passe en sécurité fermée.
   }
 
-  return {
+  const unavailable: OffshoreConstraintProfile = {
     source: 'OpenStreetMap / Overpass',
     available: false,
     coastLines: [],
@@ -159,6 +169,8 @@ export async function fetchOffshoreConstraintProfile(start: OffshorePoint, targe
     seaAnchors,
     note: 'Côtes indisponibles : routage interrompu par sécurité afin de ne jamais proposer une trajectoire passant sur terre.',
   }
+  constraintProfileCache.delete(`${a.lat},${a.lon}|${b.lat},${b.lon}`)
+  return unavailable
 }
 
 function project(point: GeoPoint, referenceLat: number) {

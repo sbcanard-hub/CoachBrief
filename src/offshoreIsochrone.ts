@@ -235,10 +235,7 @@ export async function computeIsochrones(args: {
   referenceHighWaterSchedules?: ShomHighWaterSchedules
 }): Promise<IsochroneResult> {
   const { start, target, departure, polar } = args
-  const startedAt = Date.now()
   const budgetMs = Math.max(8_000, args.budgetMs ?? DEFAULT_BUDGET_MS)
-  const deadline = startedAt + budgetMs
-  const softDeadline = startedAt + budgetMs * SOFT_BUDGET_RATIO
   let budgetExhausted = false
   const stepMinutes = args.stepMinutes ?? 60
   const maxHours = args.maxHours ?? 72
@@ -246,6 +243,21 @@ export async function computeIsochrones(args: {
   const headingSpread = args.headingSpread ?? 60
   const headingStep = args.headingStep ?? 15
   const constraints = await fetchOffshoreConstraintProfile(start, target)
+  // Loading the coastline can take several seconds (or require a fallback
+  // endpoint). The routing budget applies to the search, not that prerequisite.
+  const startedAt = Date.now()
+  const deadline = startedAt + budgetMs
+  const softDeadline = startedAt + budgetMs * SOFT_BUDGET_RATIO
+  if (!constraints.available) {
+    return {
+      steps: [], bestRoute: [], reached: false, eta: null,
+      note: 'Le contrôle côtier est indisponible. Réessaie plus tard : aucune route ne peut être proposée sans vérifier les traversées de terre.',
+      blockedLandCandidates: 0, tssCrossingCandidates: 0,
+      constraintsAvailable: false, constraintsNote: constraints.note,
+      shomCurrentSamples: 0, fallbackCurrentSamples: 0, shomAtlasLabels: [],
+      shomScheduledReferenceSamples: 0, shomPropagatedReferenceSamples: 0,
+    }
+  }
   const directConstraint = evaluateOffshoreSegment(
     constraints,
     { lat: Number(start.latitude), lon: Number(start.longitude) },
@@ -449,7 +461,9 @@ export async function computeIsochrones(args: {
         ? detourMode
           ? `Horizon atteint avant l’arrivée après ${hoursDone} h : un contournement maritime cohérent a été exploré mais n’a pas encore rejoint A.`
           : `Horizon atteint avant l’arrivée après ${hoursDone} h : meilleure route conservée avec contraintes et courant disponibles.`
-        : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure et la disponibilité de la météo au point D.',
+        : blockedLandCandidates > 0
+          ? 'Aucune trajectoire maritime n’a pu quitter D : les premiers pas traversent une côte. Vérifie la position du départ et réessaie avec un pas de temps plus court.'
+          : 'Aucune trajectoire isochrone n’a pu être générée dès le départ. Vérifie la date/heure, la météo et la polaire au point D.',
     blockedLandCandidates, tssCrossingCandidates,
     constraintsAvailable: constraints.available, constraintsNote: constraints.note,
     shomCurrentSamples, fallbackCurrentSamples, shomAtlasLabels: [...shomAtlasLabels],

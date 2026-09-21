@@ -144,7 +144,11 @@ async function atmospherePayload(latitude: number, longitude: number, target: Da
       hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
       start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn', cell_selection: 'sea',
     })
-    pending = fetchJsonWithTimeout<AtmospherePayload>(`${atmosphereEndpoint(model)}?${params}`)
+    pending = fetchJsonWithTimeout<AtmospherePayload>(`${atmosphereEndpoint(model)}?${params}`).then((payload) => {
+      // A failed request must not poison all later routing attempts in this tab.
+      if (!payload) atmosphereCache.delete(key)
+      return payload
+    })
     atmosphereCache.set(key, pending)
   }
   return pending
@@ -161,7 +165,10 @@ async function marinePayload(latitude: number, longitude: number, target: Date) 
       hourly: 'wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction',
       start_date: date, end_date: date, timezone: 'auto', wind_speed_unit: 'kn', cell_selection: 'sea',
     })
-    pending = fetchJsonWithTimeout<MarinePayload>(`https://marine-api.open-meteo.com/v1/marine?${params}`)
+    pending = fetchJsonWithTimeout<MarinePayload>(`https://marine-api.open-meteo.com/v1/marine?${params}`).then((payload) => {
+      if (!payload) marineCache.delete(key)
+      return payload
+    })
     marineCache.set(key, pending)
   }
   return pending

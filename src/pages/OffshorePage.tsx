@@ -438,7 +438,9 @@ export function OffshorePage() {
         <div className="offshore-map-wrap">
           <div className="offshore-map-title"><MapPin size={16} /><strong>Carte de route</strong><span>{hasValidIsochroneRoute ? 'Route directe en pointillés · routage isochrone en trait plein.' : isochrones ? 'Route directe en pointillés · aucun routage maritime valide.' : 'Déplace les marqueurs pour ajuster les points.'}</span></div>
           <OffshoreRouteMap points={points} onPointChange={updatePointCoordinates} isochrones={isochrones} />
-          {isochrones && !hasValidIsochroneRoute && <p className="offshore-analysis-error">Aucun routage maritime valide trouvé avec ces paramètres. La ligne en pointillés représente uniquement la distance géométrique directe entre D et A ; elle n’est pas une route navigable.</p>}
+          {isochrones && !hasValidIsochroneRoute && <p className="offshore-analysis-error">
+            {isochrones.note} La ligne en pointillés représente uniquement la distance géométrique directe entre D et A ; elle n’est pas une route navigable.
+          </p>}
         </div>
       </div>
     </section>
