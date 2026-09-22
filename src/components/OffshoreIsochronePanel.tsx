@@ -121,7 +121,11 @@ function routingPreset(distance: number | null) {
   if (distance < 15) return { stepMinutes: '10', maxHours: '6', label: 'Petit trajet côtier' }
   if (distance < 40) return { stepMinutes: '15', maxHours: '12', label: 'Trajet côtier court' }
   if (distance < 100) return { stepMinutes: '30', maxHours: '24', label: 'Trajet intermédiaire' }
-  return { stepMinutes: '60', maxHours: '48', label: 'Route au large' }
+  // Allow for tacking, detours and light air instead of stopping every offshore
+  // calculation at the same 48-hour horizon regardless of distance.
+  const estimatedHours = distance / 3 * 1.8
+  const maxHours = [48, 72, 120, 168, 240].find((hours) => hours >= estimatedHours) ?? 240
+  return { stepMinutes: '60', maxHours: String(maxHours), label: 'Route au large' }
 }
 
 function navigationWaypoints(result: IsochroneResult | null) {
@@ -190,7 +194,11 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
   const start = points[0]
   const target = points[points.length - 1]
   const directDistance = useMemo(() => directRouteDistanceNm(start, target), [start, target])
-  const automaticPreset = useMemo(() => routingPreset(directDistance), [directDistance])
+  const longestLeg = points.slice(1).reduce<number | null>((longest, point, index) => {
+    const distance = directRouteDistanceNm(points[index], point)
+    return distance == null ? longest : Math.max(longest ?? 0, distance)
+  }, null)
+  const automaticPreset = useMemo(() => routingPreset(longestLeg), [longestLeg])
   const routeSignature = points.map((point) => `${point.latitude}|${point.longitude}`).join('>')
   const previousRouteSignature = useRef<string | null>(null)
   const [stepMinutes, setStepMinutes] = useState(settings?.stepMinutes ?? automaticPreset.stepMinutes)
@@ -429,7 +437,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
     <div className="offshore-isochrone-controls">
       <label><span><Wind size={14} /> Modèle météo</span><select value={weatherModel} onChange={(e) => changeWeatherModel(e.target.value as OffshoreWeatherModel)}>{OFFSHORE_WEATHER_MODELS.map((model) => <option key={model.value} value={model.value}>{model.label}</option>)}</select></label>
       <label><span><Clock3 size={14} /> Pas de temps</span><select value={stepMinutes} onChange={(e) => { setStepMinutes(e.target.value); invalidateCalculatedRoute() }}><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 h</option><option value="120">2 h</option></select></label>
-      <label><span>Horizon</span><select value={maxHours} onChange={(e) => { setMaxHours(e.target.value); invalidateCalculatedRoute() }}><option value="3">3 h</option><option value="6">6 h</option><option value="12">12 h</option><option value="24">24 h</option><option value="48">48 h</option><option value="72">72 h</option><option value="120">5 jours</option></select></label>
+      <label><span>Horizon par tronçon</span><select value={maxHours} onChange={(e) => { setMaxHours(e.target.value); invalidateCalculatedRoute() }}><option value="3">3 h</option><option value="6">6 h</option><option value="12">12 h</option><option value="24">24 h</option><option value="48">48 h</option><option value="72">72 h</option><option value="120">5 jours</option><option value="168">7 jours</option><option value="240">10 jours</option></select></label>
       <label><span><Anchor size={14} /> Coefficient marée</span><input type="number" min="20" max="120" value={tidalCoefficient} onChange={(e) => { setTidalCoefficient(e.target.value); invalidateCalculatedRoute() }} /></label>
       <label className="offshore-high-water"><span>PM générique de secours</span><input type="datetime-local" value={referenceHighWater} onChange={(e) => { setReferenceHighWater(e.target.value); invalidateCalculatedRoute() }} /></label>
       <button type="button" className="offshore-add" onClick={() => void run()} disabled={state === 'loading' || comparisonState === 'loading' || !departureDate || !departureTime}>
@@ -437,7 +445,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
         {state === 'loading' ? 'Calcul des isochrones…' : 'Calculer le routage'}
       </button>
       <small>Vent utilisé : <strong>{offshoreWeatherModelLabel(weatherModel)}</strong>. Mer et houle restent issues d’Open-Meteo Marine ; le courant SHOM reste prioritaire quand il est disponible.</small>
-      {directDistance != null && <small>{automaticPreset.label} · {fmtNumber(directDistance)} nm : réglage automatique {automaticPreset.stepMinutes} min / {automaticPreset.maxHours} h. Tu peux le modifier manuellement.</small>}
+      {directDistance != null && <small>{automaticPreset.label} · {fmtNumber(directDistance)} nm : réglage automatique {automaticPreset.stepMinutes} min / {automaticPreset.maxHours} h. Tu peux le modifier manuellement. Au-delà de 10 jours, calcule la traversée par étapes.</small>}
       {points.length > 2 && <small><strong>{points.length - 2} waypoint{points.length > 3 ? 's' : ''} imposé{points.length > 3 ? 's' : ''}</strong> : chaque tronçon est calculé dans l’ordre, avec report de l’heure d’arrivée sur le suivant.</small>}
       {state === 'loading' && <small>Calcul adaptatif : si la recherche devient longue, CoachBrief réduit automatiquement le nombre de branches explorées mais continue jusqu’à l’arrivée ou jusqu’à la fin complète de l’horizon choisi.</small>}
     </div>
@@ -525,7 +533,7 @@ export function OffshoreIsochronePanel({ points, departureDate, departureTime, p
       <span>Isochrones <strong>{Math.max(0, result.steps.length - 1)}</strong></span>
       <span>Route retenue <strong>{Math.max(0, result.bestRoute.length - 1)} pas</strong></span>
       <span>Modèle vent <strong>{offshoreWeatherModelLabel(weatherModel)}</strong></span>
-      <span>Arrivée <strong>{result.reached ? fmtTime(result.eta) : 'hors horizon'}</strong></span>
+      <span>Arrivée <strong>{result.reached ? fmtTime(result.eta) : 'non atteinte'}</strong></span>
       <span>Coupures de terre écartées <strong>{result.blockedLandCandidates}</strong></span>
       <span>Options coupant un TSS <strong>{result.tssCrossingCandidates}</strong></span>
       <span>Échantillons courant SHOM <strong>{result.shomCurrentSamples}</strong></span>

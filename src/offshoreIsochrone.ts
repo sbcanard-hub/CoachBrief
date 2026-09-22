@@ -317,6 +317,7 @@ export async function computeIsochrones(args: {
   const steps: IsochroneStep[] = [{ time: departure.toISOString(), nodes: frontier }]
   const iterations = Math.ceil(maxHours * 60 / stepMinutes)
   args.onProgress?.({ phase: 'search', completed: 0, total: iterations })
+  let exhaustedFrontier = false
 
   for (let step = 1; step <= iterations; step += 1) {
     const softMode = Date.now() >= softDeadline
@@ -464,7 +465,7 @@ export async function computeIsochrones(args: {
     }
 
     args.onProgress?.({ phase: 'search', completed: step, total: iterations })
-    if (!candidates.length) break
+    if (!candidates.length) { exhaustedFrontier = true; break }
     const activeMaxNodes = softMode ? Math.min(effectiveMaxNodes, SOFT_MAX_NODES) : effectiveMaxNodes
     frontier = prune(candidates, target, activeMaxNodes)
     steps.push({ time: frontier[0]?.time ?? time.toISOString(), nodes: frontier })
@@ -477,7 +478,9 @@ export async function computeIsochrones(args: {
   return {
     steps, bestRoute, reached: false, eta: null,
     note: progressed
-      ? detourMode
+      ? exhaustedFrontier
+        ? `Recherche arrêtée après ${hoursDone} h : aucune branche maritime exploitable ne subsiste. La route affichée est partielle.`
+        : detourMode
         ? `Horizon entièrement exploré avant l’arrivée après ${hoursDone} h : un contournement maritime cohérent a été calculé jusqu’au bout de l’horizon sans coupure de temps.`
         : `Horizon entièrement exploré avant l’arrivée après ${hoursDone} h : meilleure route conservée avec contraintes et courant disponibles, sans coupure de temps.`
       : blockedLandCandidates > 0
